@@ -1,0 +1,12 @@
+{
+	"name": "jc3dtestsharedlibs",
+	"version" : "0.1.0",
+	"dependencies": [
+		"assimp",
+		"glad",
+		"glfw3",
+		"glm",
+		"glslang",
+		"volk"		
+	]
+}

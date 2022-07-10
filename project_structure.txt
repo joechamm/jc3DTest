@@ -1,0 +1,29 @@
+- jc3DTest 
+	- build
+	- cmake
+	- include
+	- src
+		- helpers
+		- apps
+			- jc3DCh02_ex07
+			- TODO: Add more exercises
+		- libs
+			- include
+				- jc3DTestSharedLibs
+					- glFramework
+					- scene
+					- vkFramework
+					- vkRenderers
+			- src
+				- jc3DTestSharedLibs
+					- glFramework
+					- scene
+					- vkFramework
+					- vkRenderers 				
+	- assets
+		- shaders
+		- models
+		- images
+		- fonts
+	- extern
+		
