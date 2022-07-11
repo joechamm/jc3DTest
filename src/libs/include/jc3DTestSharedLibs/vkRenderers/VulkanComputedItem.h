@@ -1,7 +1,7 @@
 #pragma once
 
-#include "shared/Utils.h"
-#include "shared/UtilsVulkan.h"
+#include <jc3DTestSharedLibs/Utils.h>
+#include <jc3DTestSharedLibs/UtilsVulkan.h>
 
 struct ComputedItem
 {

@@ -1,4 +1,4 @@
-#include "shared/vkRenderers/VulkanSingleQuad.h"
+#include <jc3DTestSharedLibs/vkRenderers/VulkanSingleQuad.h>
 #include <stdio.h>
 
 bool VulkanSingleQuadRenderer::createDescriptorSet(VulkanRenderDevice& vkDev, VkImageLayout desiredLayout)

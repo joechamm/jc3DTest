@@ -1,20 +1,21 @@
-#include "shared/Utils.h"
-#include "shared/UtilsVulkan.h"
-#include "shared/Bitmap.h"
-#include "shared/UtilsCubemap.h"
-#include "shared/EasyProfilerWrapper.h"
 
-#include "StandAlone/ResourceLimits.h"
+#include <jc3DTestSharedLibs/Utils.h>
+#include <jc3DTestSharedLibs/UtilsVulkan.h>
+#include <jc3DTestSharedLibs/Bitmap.h>
+#include <jc3DTestSharedLibs/UtilsCubemap.h>
+#include <jc3DTestSharedLibs/EasyProfilerWrapper.h>
+
+#include <glslang/Include/ResourceLimits.h>
 
 #define VK_NO_PROTOTYPES
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include <stb_image.h>
 
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
-#include "stb_image_resize.h"
+#include <stb_image_resize.h>
 
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
@@ -156,8 +157,123 @@ glslang_stage_t glslangShaderStageFromFileName(const char* fileName)
 
 static_assert(sizeof(TBuiltInResource) == sizeof(glslang_resource_t));
 
+namespace glslang
+{
+	static TBuiltInResource InitResources ()
+	{
+		TBuiltInResource Resources;
+
+		Resources.maxLights = 32;
+		Resources.maxClipPlanes = 6;
+		Resources.maxTextureUnits = 32;
+		Resources.maxTextureCoords = 32;
+		Resources.maxVertexAttribs = 64;
+		Resources.maxVertexUniformComponents = 4096;
+		Resources.maxVaryingFloats = 64;
+		Resources.maxVertexTextureImageUnits = 32;
+		Resources.maxCombinedTextureImageUnits = 80;
+		Resources.maxTextureImageUnits = 32;
+		Resources.maxFragmentUniformComponents = 4096;
+		Resources.maxDrawBuffers = 32;
+		Resources.maxVertexUniformVectors = 128;
+		Resources.maxVaryingVectors = 8;
+		Resources.maxFragmentUniformVectors = 16;
+		Resources.maxVertexOutputVectors = 16;
+		Resources.maxFragmentInputVectors = 15;
+		Resources.minProgramTexelOffset = -8;
+		Resources.maxProgramTexelOffset = 7;
+		Resources.maxClipDistances = 8;
+		Resources.maxComputeWorkGroupCountX = 65535;
+		Resources.maxComputeWorkGroupCountY = 65535;
+		Resources.maxComputeWorkGroupCountZ = 65535;
+		Resources.maxComputeWorkGroupSizeX = 1024;
+		Resources.maxComputeWorkGroupSizeY = 1024;
+		Resources.maxComputeWorkGroupSizeZ = 64;
+		Resources.maxComputeUniformComponents = 1024;
+		Resources.maxComputeTextureImageUnits = 16;
+		Resources.maxComputeImageUniforms = 8;
+		Resources.maxComputeAtomicCounters = 8;
+		Resources.maxComputeAtomicCounterBuffers = 1;
+		Resources.maxVaryingComponents = 60;
+		Resources.maxVertexOutputComponents = 64;
+		Resources.maxGeometryInputComponents = 64;
+		Resources.maxGeometryOutputComponents = 128;
+		Resources.maxFragmentInputComponents = 128;
+		Resources.maxImageUnits = 8;
+		Resources.maxCombinedImageUnitsAndFragmentOutputs = 8;
+		Resources.maxCombinedShaderOutputResources = 8;
+		Resources.maxImageSamples = 0;
+		Resources.maxVertexImageUniforms = 0;
+		Resources.maxTessControlImageUniforms = 0;
+		Resources.maxTessEvaluationImageUniforms = 0;
+		Resources.maxGeometryImageUniforms = 0;
+		Resources.maxFragmentImageUniforms = 8;
+		Resources.maxCombinedImageUniforms = 8;
+		Resources.maxGeometryTextureImageUnits = 16;
+		Resources.maxGeometryOutputVertices = 256;
+		Resources.maxGeometryTotalOutputComponents = 1024;
+		Resources.maxGeometryUniformComponents = 1024;
+		Resources.maxGeometryVaryingComponents = 64;
+		Resources.maxTessControlInputComponents = 128;
+		Resources.maxTessControlOutputComponents = 128;
+		Resources.maxTessControlTextureImageUnits = 16;
+		Resources.maxTessControlUniformComponents = 1024;
+		Resources.maxTessControlTotalOutputComponents = 4096;
+		Resources.maxTessEvaluationInputComponents = 128;
+		Resources.maxTessEvaluationOutputComponents = 128;
+		Resources.maxTessEvaluationTextureImageUnits = 16;
+		Resources.maxTessEvaluationUniformComponents = 1024;
+		Resources.maxTessPatchComponents = 120;
+		Resources.maxPatchVertices = 32;
+		Resources.maxTessGenLevel = 64;
+		Resources.maxViewports = 16;
+		Resources.maxVertexAtomicCounters = 0;
+		Resources.maxTessControlAtomicCounters = 0;
+		Resources.maxTessEvaluationAtomicCounters = 0;
+		Resources.maxGeometryAtomicCounters = 0;
+		Resources.maxFragmentAtomicCounters = 8;
+		Resources.maxCombinedAtomicCounters = 8;
+		Resources.maxAtomicCounterBindings = 1;
+		Resources.maxVertexAtomicCounterBuffers = 0;
+		Resources.maxTessControlAtomicCounterBuffers = 0;
+		Resources.maxTessEvaluationAtomicCounterBuffers = 0;
+		Resources.maxGeometryAtomicCounterBuffers = 0;
+		Resources.maxFragmentAtomicCounterBuffers = 1;
+		Resources.maxCombinedAtomicCounterBuffers = 1;
+		Resources.maxAtomicCounterBufferSize = 16384;
+		Resources.maxTransformFeedbackBuffers = 4;
+		Resources.maxTransformFeedbackInterleavedComponents = 64;
+		Resources.maxCullDistances = 8;
+		Resources.maxCombinedClipAndCullDistances = 8;
+		Resources.maxSamples = 4;
+		Resources.maxMeshOutputVerticesNV = 256;
+		Resources.maxMeshOutputPrimitivesNV = 512;
+		Resources.maxMeshWorkGroupSizeX_NV = 32;
+		Resources.maxMeshWorkGroupSizeY_NV = 1;
+		Resources.maxMeshWorkGroupSizeZ_NV = 1;
+		Resources.maxTaskWorkGroupSizeX_NV = 32;
+		Resources.maxTaskWorkGroupSizeY_NV = 1;
+		Resources.maxTaskWorkGroupSizeZ_NV = 1;
+		Resources.maxMeshViewCountNV = 4;
+
+		Resources.limits.nonInductiveForLoops = 1;
+		Resources.limits.whileLoops = 1;
+		Resources.limits.doWhileLoops = 1;
+		Resources.limits.generalUniformIndexing = 1;
+		Resources.limits.generalAttributeMatrixVectorIndexing = 1;
+		Resources.limits.generalVaryingIndexing = 1;
+		Resources.limits.generalSamplerIndexing = 1;
+		Resources.limits.generalVariableIndexing = 1;
+		Resources.limits.generalConstantMatrixVectorIndexing = 1;
+
+		return Resources;
+	}
+}
+
 static size_t compileShader(glslang_stage_t stage, const char* shaderSource, ShaderModule& shaderModule)
 {
+	static TBuiltInResource DefaultTBuiltInResource = glslang::InitResources ();
+
 	const glslang_input_t input =
 	{
 		.language = GLSLANG_SOURCE_GLSL,
@@ -172,8 +288,9 @@ static size_t compileShader(glslang_stage_t stage, const char* shaderSource, Sha
 		.force_default_version_and_profile = false,
 		.forward_compatible = false,
 		.messages = GLSLANG_MSG_DEFAULT_BIT,
-		.resource = (const glslang_resource_t*)&glslang::DefaultTBuiltInResource,
-	};
+		.resource = (const glslang_resource_t*)&DefaultTBuiltInResource,
+//		.resource = (const glslang_resource_t*)&glslang::DefaultTBuiltInResource,
+	};	
 
 	glslang_shader_t* shader = glslang_shader_create(&input);
 

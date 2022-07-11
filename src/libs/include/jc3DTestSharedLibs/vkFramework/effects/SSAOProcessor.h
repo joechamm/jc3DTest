@@ -1,8 +1,8 @@
 #pragma once
-#include "shared/vkFramework/CompositeRenderer.h"
-#include "shared/vkFramework/VulkanShaderProcessor.h"
+#include <jc3DTestSharedLibs/vkFramework/CompositeRenderer.h>
+#include <jc3DTestSharedLibs/vkFramework/VulkanShaderProcessor.h>
 
-#include "shared/vkFramework/Barriers.h"
+#include <jc3DTestSharedLibs/vkFramework/Barriers.h>
 
 const int SSAOWidth = 0; // smaller SSAO buffer can be used 512
 const int SSAOHeight = 0; // 512;

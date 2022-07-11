@@ -1,11 +1,12 @@
-#include "shared/vkFramework/VulkanResources.h"
+
+#include <jc3DTestSharedLibs/vkFramework/VulkanResources.h>
 
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <assimp/cimport.h>
 #include <assimp/version.h>
 
-#include <imgui/imgui.h>
+#include <imgui.h>
 
 #include <gli/gli.hpp>
 #include <gli/texture2d.hpp>

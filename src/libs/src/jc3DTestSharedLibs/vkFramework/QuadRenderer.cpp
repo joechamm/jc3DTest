@@ -1,4 +1,4 @@
-#include "shared/vkFramework/QuadRenderer.h"
+#include <jc3DTestSharedLibs/vkFramework/QuadRenderer.h>
 
 static constexpr int MAX_QUADS = 256;
 

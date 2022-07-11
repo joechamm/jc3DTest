@@ -3,10 +3,10 @@
 #include <assert.h>
 #include <algorithm>
 
-#include "shared/UtilsMath.h"
-#include "shared/Trackball.h"
+#include <jc3DTestSharedLibs/UtilsMath.h>
+#include <jc3DTestSharedLibs/Trackball.h>
 
-#include "glm/gtx/euler_angles.hpp"
+#include <glm/gtx/euler_angles.hpp>
 
 class CameraPositionerInterface
 {

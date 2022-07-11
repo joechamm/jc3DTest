@@ -6,7 +6,7 @@
 #include <string.h>
 #include <string>
 
-#include "Utils.h"
+#include <jc3DTestSharedLibs/Utils.h>
 
 void printShaderSource(const char* text)
 {

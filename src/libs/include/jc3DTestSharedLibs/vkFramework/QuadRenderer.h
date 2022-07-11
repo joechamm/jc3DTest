@@ -1,6 +1,6 @@
 #pragma once
 
-#include "shared/vkFramework/Renderer.h"
+#include <jc3DTestSharedLibs/vkFramework/Renderer.h>
 
 // A companion for LineCanvas to render texture quadrangles
 struct QuadRenderer: public Renderer

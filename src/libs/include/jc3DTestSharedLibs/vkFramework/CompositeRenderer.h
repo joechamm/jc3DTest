@@ -1,5 +1,5 @@
 #pragma once
-#include "shared/vkFramework/VulkanApp.h"
+#include <jc3DTestSharedLibs/vkFramework/VulkanApp.h>
 
 /// A collection of renderers acting as one renderer (for Screen-Space effects in Chapter8)
 struct CompositeRenderer: public Renderer

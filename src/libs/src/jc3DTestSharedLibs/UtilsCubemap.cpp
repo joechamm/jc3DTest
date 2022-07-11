@@ -1,5 +1,5 @@
-﻿#include "UtilsMath.h"
-#include "UtilsCubemap.h"
+﻿#include <jc3DTestSharedLibs/UtilsMath.h>
+#include <jc3DTestSharedLibs/UtilsCubemap.h>
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>

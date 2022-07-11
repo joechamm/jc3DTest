@@ -1,4 +1,4 @@
-#include "shared/scene/VtxData.h"
+#include <jc3DTestSharedLibs/scene/VtxData.h>
 
 #include <algorithm>
 #include <assert.h>

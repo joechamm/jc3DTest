@@ -1,5 +1,5 @@
-﻿#include "shared/scene/Scene.h"
-#include "shared/Utils.h"
+﻿#include <jc3DTestSharedLibs/scene/Scene.h>
+#include <jc3DTestSharedLibs/Utils.h>
 
 #include <algorithm>
 #include <numeric>

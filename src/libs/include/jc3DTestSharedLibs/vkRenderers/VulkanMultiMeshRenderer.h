@@ -1,12 +1,12 @@
 #pragma once
 
-#include "shared/vkRenderers/VulkanRendererBase.h"
+#include <jc3DTestSharedLibs/vkRenderers/VulkanRendererBase.h>
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 using glm::mat4;
 
-#include "shared/scene/VtxData.h"
+#include <jc3DTestSharedLibs/scene/VtxData.h>
 
 class MultiMeshRenderer: public RendererBase
 {

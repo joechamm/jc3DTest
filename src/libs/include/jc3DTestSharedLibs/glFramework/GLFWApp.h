@@ -1,11 +1,11 @@
 ﻿#pragma once
 
-#include <glad/gl.h>
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 
-#include "shared/debug.h"
+#include <jc3DTestSharedLibs/debug.h>
 
 using glm::mat4;
 using glm::vec2;

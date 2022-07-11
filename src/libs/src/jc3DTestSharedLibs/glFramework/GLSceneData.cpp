@@ -1,4 +1,4 @@
-﻿#include "GLSceneData.h"
+﻿#include <jc3DTestSharedLibs/glFramework/GLSceneData.h>
 
 static uint64_t getTextureHandleBindless(uint64_t idx, const std::vector<GLTexture>& textures)
 {

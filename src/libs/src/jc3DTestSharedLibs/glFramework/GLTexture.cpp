@@ -1,13 +1,13 @@
-﻿#include "shared/glFramework/GLTexture.h"
-#include "shared/Bitmap.h"
-#include "shared/UtilsCubemap.h"
+﻿#include <jc3DTestSharedLibs/glFramework/GLTexture.h>
+#include <jc3DTestSharedLibs/Bitmap.h>
+#include <jc3DTestSharedLibs/UtilsCubemap.h>
 
-#include <glad/gl.h>
+#include <glad/glad.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string>
 
-#include <stb/stb_image.h>
+#include <stb_image.h>
 #include <gli/gli.hpp>
 #include <gli/texture2d.hpp>
 #include <gli/load_ktx.hpp>
@@ -159,8 +159,10 @@ GLTexture::GLTexture(GLenum type, const char* fileName, GLenum clamp)
 		assert(false);
 	}
 
-	handleBindless_ = glGetTextureHandleARB(handle_);
-	glMakeTextureHandleResidentARB(handleBindless_);
+
+
+//	handleBindless_ = glGetTextureHandleARB(handle_);
+//	glMakeTextureHandleResidentARB(handleBindless_);
 }
 
 GLTexture::GLTexture(int w, int h, const void* img)
@@ -175,8 +177,8 @@ GLTexture::GLTexture(int w, int h, const void* img)
 	glTextureParameteri(handle_, GL_TEXTURE_MAX_LEVEL, numMipmaps - 1);
 	glTextureParameteri(handle_, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTextureParameteri(handle_, GL_TEXTURE_MAX_ANISOTROPY, 16);
-	handleBindless_ = glGetTextureHandleARB(handle_);
-	glMakeTextureHandleResidentARB(handleBindless_);
+//	handleBindless_ = glGetTextureHandleARB(handle_);
+//	glMakeTextureHandleResidentARB(handleBindless_);
 }
 
 GLTexture::GLTexture(GLTexture&& other)
@@ -192,6 +194,6 @@ GLTexture::GLTexture(GLTexture&& other)
 GLTexture::~GLTexture()
 {
 	if (handleBindless_)
-		glMakeTextureHandleNonResidentARB(handleBindless_);
+	//	glMakeTextureHandleNonResidentARB(handleBindless_);
 	glDeleteTextures(1, &handle_);
 }

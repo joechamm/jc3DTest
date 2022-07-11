@@ -1,4 +1,4 @@
-#include "shared/vkRenderers/VulkanQuadRenderer.h"
+#include <jc3DTestSharedLibs/vkRenderers/VulkanQuadRenderer.h>
 
 static constexpr int MAX_QUADS = 256;
 

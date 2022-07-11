@@ -1,6 +1,6 @@
 #pragma once
 
-#include "shared/UtilsVulkan.h"
+#include <jc3DTestSharedLibs/UtilsVulkan.h>
 
 class RendererBase
 {

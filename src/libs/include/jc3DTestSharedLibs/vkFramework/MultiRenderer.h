@@ -1,9 +1,9 @@
 #pragma once
 
-#include "shared/vkFramework/Renderer.h"
-#include "shared/scene/Scene.h"
-#include "shared/scene/Material.h"
-#include "shared/scene/VtxData.h"
+#include <jc3DTestSharedLibs/vkFramework/Renderer.h>
+#include <jc3DTestSharedLibs/scene/Scene.h>
+#include <jc3DTestSharedLibs/scene/Material.h>
+#include <jc3DTestSharedLibs/scene/VtxData.h>
 
 #include <taskflow/taskflow.hpp>
 

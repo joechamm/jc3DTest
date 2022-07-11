@@ -1,7 +1,7 @@
 #pragma once
-#include "shared/vkFramework/effects/LuminanceCalculator.h"
+#include <jc3DTestSharedLibs/vkFramework/effects/LuminanceCalculator.h>
 
-#include "shared/vkFramework/Barriers.h"
+#include <jc3DTestSharedLibs/vkFramework/Barriers.h>
 
 struct HDRUniformBuffer
 {

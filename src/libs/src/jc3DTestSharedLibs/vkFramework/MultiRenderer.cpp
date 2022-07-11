@@ -1,6 +1,6 @@
-#include "shared/vkFramework/MultiRenderer.h"
+#include <jc3DTestSharedLibs/vkFramework/MultiRenderer.h>
 
-#include <stb/stb_image.h>
+#include <stb_image.h>
 
 uint8_t* genDefaultCheckerboardImage(int* width, int* height);
 

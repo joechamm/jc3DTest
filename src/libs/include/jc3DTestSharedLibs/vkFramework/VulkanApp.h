@@ -12,15 +12,15 @@
 #include <memory>
 #include <limits>
 
-#include <imgui/imgui.h>
+#include <imgui.h>
 
-#include "shared/Camera.h"
-#include "shared/Utils.h"
-#include "shared/UtilsMath.h"
-#include "shared/UtilsVulkan.h"
-#include "shared/UtilsFPS.h"
+#include <jc3DTestSharedLibs/Camera.h>
+#include <jc3DTestSharedLibs/Utils.h>
+#include <jc3DTestSharedLibs/UtilsMath.h>
+#include <jc3DTestSharedLibs/UtilsVulkan.h>
+#include <jc3DTestSharedLibs/UtilsFPS.h>
 
-#include "shared/vkFramework/VulkanResources.h"
+#include <jc3DTestSharedLibs/vkFramework/VulkanResources.h>
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>

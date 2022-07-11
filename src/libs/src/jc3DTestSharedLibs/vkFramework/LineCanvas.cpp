@@ -1,4 +1,4 @@
-#include "shared/vkFramework/LineCanvas.h"
+#include <jc3DTestSharedLibs/vkFramework/LineCanvas.h>
 
 LineCanvas::LineCanvas(VulkanRenderContext& ctx,
                 bool useDepth,

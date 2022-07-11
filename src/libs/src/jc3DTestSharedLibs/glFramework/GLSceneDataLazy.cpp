@@ -1,7 +1,7 @@
 ﻿#include <memory>
 
-#include "GLSceneDataLazy.h"
-#include <stb/stb_image.h>
+#include <jc3DTestSharedLibs/glFramework/GLSceneDataLazy.h>
+#include <stb_image.h>
 
 static uint64_t getTextureHandleBindless(uint64_t idx, const std::vector<std::shared_ptr<GLTexture>>& textures)
 {

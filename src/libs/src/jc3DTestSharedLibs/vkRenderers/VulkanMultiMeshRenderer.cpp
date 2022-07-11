@@ -1,4 +1,4 @@
-#include "shared/vkRenderers/VulkanMultiMeshRenderer.h"
+#include <jc3DTestSharedLibs/vkRenderers/VulkanMultiMeshRenderer.h>
 
 bool MultiMeshRenderer::createDescriptorSet(VulkanRenderDevice& vkDev)
 {

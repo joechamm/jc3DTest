@@ -1,4 +1,4 @@
-#include "shared/vkRenderers/VulkanComputedItem.h"
+#include <jc3DTestSharedLibs/vkRenderers/VulkanComputedItem.h>
 
 ComputedItem::ComputedItem(VulkanRenderDevice& vkDev, uint32_t uniformBufferSize)
 	: vkDev(vkDev)

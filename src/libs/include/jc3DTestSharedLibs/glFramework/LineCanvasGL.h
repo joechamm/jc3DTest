@@ -2,9 +2,9 @@
 
 #include <array>
 
-#include "shared/glFramework/GLShader.h"
-#include "shared/glFramework/GLTexture.h"
-#include "shared/scene/VtxData.h"
+#include <jc3DTestSharedLibs/glFramework/GLShader.h>
+#include <jc3DTestSharedLibs/glFramework/GLTexture.h>
+#include <jc3DTestSharedLibs/scene/VtxData.h>
 
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
@@ -12,7 +12,7 @@
 #include <assimp/version.h>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb/stb_image.h>
+#include <stb_image.h>
 
 struct VertexData
 {

@@ -1,5 +1,5 @@
-#include "shared/vkRenderers/VulkanCanvas.h"
-#include "shared/EasyProfilerWrapper.h"
+#include <jc3DTestSharedLibs/vkRenderers/VulkanCanvas.h>
+#include <jc3DTestSharedLibs/EasyProfilerWrapper.h>
 
 VulkanCanvas::VulkanCanvas(VulkanRenderDevice& vkDev, VulkanImage depth)
 : RendererBase(vkDev, depth)

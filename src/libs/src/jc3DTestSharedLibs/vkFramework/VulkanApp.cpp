@@ -1,6 +1,5 @@
-#include "VulkanApp.h"
-
-#include "shared/vkFramework/Renderer.h"
+#include <jc3DTestSharedLibs/vkFramework/VulkanApp.h>
+#include <jc3DTestSharedLibs/vkFramework/Renderer.h>
 
 Resolution detectResolution(int width, int height)
 {

@@ -57,6 +57,28 @@ target_include_directories(jc3DTestSharedLibs
 	PUBLIC include
 )
 
+# Create virtual folders for Visual Studio
+if(MSVC_IDE)
+	# Macro to preserve source files hierarchy in the IDE
+	macro(GroupSources curdir)
+		file(GLOB children RELATIVE ${PROJECT_SOURCE_DIR}/${curdir} ${PROJECT_SOURCE_DIR}/${curdir}/*)
+		
+		foreach(child ${children})
+			if(IS_DIRECTORY ${PROJECT_SOURCE_DIR}/${curdir}/${child})
+				GroupSources(${curdir}/${child})
+			else() 
+				string(REPLACE "/" "\\" groupname ${curdir})
+				string(REPLACE "src" "Sources" groupname ${groupname})
+				source_group(${groupname} FILES ${PROJECT_SOURCE_DIR}/${curdir}/${child})
+			endif()
+		endforeach()
+	endmacro()
+	
+	# Run Macro
+	GroupSources(src)
+	GroupSources(include/jc3DTestSharedLibs)
+endif()
+
 find_package(glad CONFIG REQUIRED)
 if(glad_FOUND)
 	message(STATUS "Found GLAD")
@@ -93,6 +115,24 @@ if(glm_FOUND)
 else()
 	message(STATUS "GLM NOT FOUND!")
 endif()
+find_package(imgui CONFIG REQUIRED)
+if(imgui_FOUND)
+	message(STATUS "Found IMGUI")
+else() 
+	message(STATUS "IMGUI NOT FOUND!") 
+endif()
+find_package(taskflow CONFIG REQUIRED) 
+if(taskflow_FOUND)
+	message(STATUS "Found TASKFLOW")
+else() 
+	message(STATUS "TASKFLOW NOT FOUND!")
+endif() 
+
+#include_directories(src/imgui)
+#include_directories(src/taskflow)
+
+#add_subdirectory(src/imgui)
+#add_subdirectory(src/taskflow)
 
 target_link_libraries(jc3DTestSharedLibs PUBLIC 
 	glad::glad 
@@ -103,4 +143,6 @@ target_link_libraries(jc3DTestSharedLibs PUBLIC
 	SPIRV
 	assimp::assimp
 	glm::glm
+	Taskflow::Taskflow
+	imgui::imgui 
 	)

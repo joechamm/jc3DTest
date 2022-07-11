@@ -1,10 +1,10 @@
-#include "shared/vkRenderers/VulkanPBRModelRenderer.h"
+#include <jc3DTestSharedLibs/vkRenderers/VulkanPBRModelRenderer.h>
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 using glm::mat4;
 
-#include <glad/gl.h>
+#include <glad/glad.h>
 #include <gli/gli.hpp>
 #include <gli/texture2d.hpp>
 #include <gli/load_ktx.hpp>

@@ -1,9 +1,9 @@
 ﻿#pragma once
 
-#include "shared/glFramework/GLShader.h"
+#include <jc3DTestSharedLibs/glFramework/GLShader.h>
 
-#include <imgui/imgui.h>
-#include <imgui/imgui_internal.h>
+#include <imgui.h>
+#include <imgui_internal.h>
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 

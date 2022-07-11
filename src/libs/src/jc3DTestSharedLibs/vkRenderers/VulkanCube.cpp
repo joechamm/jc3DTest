@@ -1,8 +1,8 @@
-#include "shared/Utils.h"
-#include "shared/UtilsMath.h"
-#include "shared/UtilsVulkan.h"
-#include "shared/vkRenderers/VulkanCube.h"
-#include "shared/EasyProfilerWrapper.h"
+#include <jc3DTestSharedLibs/Utils.h>
+#include <jc3DTestSharedLibs/UtilsMath.h>
+#include <jc3DTestSharedLibs/UtilsVulkan.h>
+#include <jc3DTestSharedLibs/vkRenderers/VulkanCube.h>
+#include <jc3DTestSharedLibs/EasyProfilerWrapper.h>
 
 bool CubeRenderer::createDescriptorSet(VulkanRenderDevice& vkDev)
 {

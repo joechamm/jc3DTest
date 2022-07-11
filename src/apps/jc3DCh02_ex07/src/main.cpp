@@ -13,6 +13,8 @@
 #include <vector>
 #include <iostream>
 
+#include "helpers/RootDir.h"
+
 using glm::mat4;
 using glm::vec3;
 
@@ -156,7 +158,10 @@ int main ( void )
 	glPolygonOffset ( -1.0f, -1.0f );
 
 	// Use assimp to import our scene and convert any primitives to triangles
-	const aiScene* scene = aiImportFile ( "res/rubber_duck/scene.gltf", aiProcess_Triangulate );
+	std::string assetLoc = ROOT_DIR + std::string("assets/models/rubber_duck/scene.gltf");
+	std::cout << "Attempting to load " << assetLoc << std::endl;
+//	const aiScene* scene = aiImportFile ( "res/rubber_duck/scene.gltf", aiProcess_Triangulate );
+	const aiScene* scene = aiImportFile ( assetLoc.c_str (), aiProcess_Triangulate );
 
 	// Error checking
 	if ( !scene || !scene->HasMeshes () )

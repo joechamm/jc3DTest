@@ -1,5 +1,5 @@
 #pragma once
-#include "shared/UtilsVulkan.h"
+#include <jc3DTestSharedLibs/UtilsVulkan.h>
 #include <volk/volk.h>
 
 #include <cstring>

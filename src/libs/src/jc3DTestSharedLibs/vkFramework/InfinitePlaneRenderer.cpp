@@ -1,4 +1,4 @@
-#include "shared/vkFramework/InfinitePlaneRenderer.h"
+#include <jc3DTestSharedLibs/vkFramework/InfinitePlaneRenderer.h>
 
 void InfinitePlaneRenderer::fillCommandBuffer(VkCommandBuffer commandBuffer, size_t currentImage, VkFramebuffer fb, VkRenderPass rp)
 {

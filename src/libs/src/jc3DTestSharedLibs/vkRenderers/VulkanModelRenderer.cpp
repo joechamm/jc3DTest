@@ -1,5 +1,5 @@
-#include "shared/vkRenderers/VulkanModelRenderer.h"
-#include "shared/EasyProfilerWrapper.h"
+#include <jc3DTestSharedLibs/vkRenderers/VulkanModelRenderer.h>
+#include <jc3DTestSharedLibs/EasyProfilerWrapper.h>
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>

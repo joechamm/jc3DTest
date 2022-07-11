@@ -1,7 +1,7 @@
 #pragma once
-#include "shared/vkFramework/CompositeRenderer.h"
-#include "shared/vkFramework/VulkanShaderProcessor.h"
-#include "shared/vkFramework/Barriers.h"
+#include <jc3DTestSharedLibs/vkFramework/CompositeRenderer.h>
+#include <jc3DTestSharedLibs/vkFramework/VulkanShaderProcessor.h>
+#include <jc3DTestSharedLibs/vkFramework/Barriers.h>
 
 const VkFormat LuminosityFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
 

@@ -1,5 +1,5 @@
-#include "shared/vkFramework/VulkanShaderProcessor.h"
-#include "shared/vkFramework/VulkanResources.h"
+#include <jc3DTestSharedLibs/vkFramework/VulkanShaderProcessor.h>
+#include <jc3DTestSharedLibs/vkFramework/VulkanResources.h>
 
 VulkanShaderProcessor::VulkanShaderProcessor(VulkanRenderContext& ctx,
 	const PipelineInfo& pInfo,

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "shared/vkRenderers/VulkanRendererBase.h"
+#include <jc3DTestSharedLibs/vkRenderers/VulkanRendererBase.h>
 
 class ImGuiRenderer: public RendererBase
 {

@@ -1,4 +1,4 @@
-#include "shared/vkFramework/CubeRenderer.h"
+#include <jc3DTestSharedLibs/vkFramework/CubeRenderer.h>
 
 void CubemapRenderer::fillCommandBuffer(VkCommandBuffer commandBuffer, size_t currentImage, VkFramebuffer fb, VkRenderPass rp)
 {

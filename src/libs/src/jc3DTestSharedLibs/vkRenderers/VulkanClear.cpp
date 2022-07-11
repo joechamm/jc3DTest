@@ -1,7 +1,7 @@
-#include "shared/Utils.h"
-#include "shared/UtilsMath.h"
-#include "shared/vkRenderers/VulkanClear.h"
-#include "shared/EasyProfilerWrapper.h"
+#include <jc3DTestSharedLibs/Utils.h>
+#include <jc3DTestSharedLibs/UtilsMath.h>
+#include <jc3DTestSharedLibs/vkRenderers/VulkanClear.h>
+#include <jc3DTestSharedLibs/EasyProfilerWrapper.h>
 
 VulkanClear::VulkanClear(VulkanRenderDevice& vkDev, VulkanImage depthTexture)
 : RendererBase(vkDev, depthTexture)

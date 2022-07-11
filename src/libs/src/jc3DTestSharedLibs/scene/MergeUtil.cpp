@@ -1,5 +1,5 @@
-#include "shared/scene/Material.h"
-#include "shared/scene/MergeUtil.h"
+#include <jc3DTestSharedLibs/scene/Material.h>
+#include <jc3DTestSharedLibs/scene/MergeUtil.h>
 
 #include <map>
 

@@ -1,7 +1,7 @@
-﻿#include "shared/scene/Material.h"
+﻿#include <jc3DTestSharedLibs/scene/Material.h>
 
 #include <unordered_map>
-#include "shared/Utils.h"
+#include <jc3DTestSharedLibs/Utils.h>
 
 void saveStringList(FILE* f, const std::vector<std::string>& lines)
 {

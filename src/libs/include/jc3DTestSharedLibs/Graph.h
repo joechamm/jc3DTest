@@ -3,8 +3,8 @@
 #include <deque>
 #include <limits>
 
-#include "shared/EasyProfilerWrapper.h"
-#include "shared/vkRenderers/VulkanCanvas.h"
+#include <jc3DTestSharedLibs/EasyProfilerWrapper.h>
+#include <jc3DTestSharedLibs/vkRenderers/VulkanCanvas.h>
 
 class LinearGraph
 {

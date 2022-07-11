@@ -1,5 +1,5 @@
 #pragma once
-#include "shared/scene/vec4.h"
+#include <jc3DTestSharedLibs/scene/vec4.h>
 
 // Common definitions for Lights and Cameras
 
