@@ -14,31 +14,7 @@ file(GLOB_RECURSE HEADER_FILES LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_S
 
 cmake_print_variables(CMAKE_CURRENT_SOURCE_DIR)
 
-#file(GLOB GLFRAMEWORK_SRC_FILES LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/src/jc3DTestSharedLibs/glFramework *.cpp)
-#file(GLOB GLFRAMEWORK_HEADER_FILES LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/include/jc3DTestSharedLibs/glFramework *.h)
-#file(GLOB SCENE_SRC_FILES LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/src/jc3DTestSharedLibs/scene *.cpp)
-#file(GLOB SCENE_HEADER_FILES LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/include/jc3DTestSharedLibs/scene *.h)
-#file(GLOB VKFRAMEWORK_SRC_FILES LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/src/jc3DTestSharedLibs/vkFramework *.cpp)
-#file(GLOB VKFRAMEWORK_HEADER_FILES LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/include/jc3DTestSharedLibs/vkFramework *.h)
-#file(GLOB VKRENDERERS_SRC_FILES LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/src/jc3DTestSharedLibs/vkRenderers *.cpp)
-#file(GLOB VKRENDERERS_HEADER_FILES LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/include/jc3DTestSharedLibs/vkRenderers *.h)
-#file(GLOB JCSHARED_SRC_FILES LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/src/jc3DTestSharedLibs *.cpp)
-#file(GLOB JCSHARED_HEADER_FILES LIST_DIRECTORIES false RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/include/jc3DTestSharedLibs *.h)
-
 message(STATUS "Checking file globs...")
-#cmake_print_variables(GLFRAMEWORK_SRC_FILES)
-#cmake_print_variables(GLFRAMEWORK_HEADER_FILES)
-#cmake_print_variables(SCENE_SRC_FILES)
-#cmake_print_variables(SCENE_HEADER_FILES)
-#cmake_print_variables(VKFRAMEWORK_SRC_FILES)
-#cmake_print_variables(VKFRAMEWORK_HEADER_FILES)
-#cmake_print_variables(VKRENDERERS_SRC_FILES)
-#cmake_print_variables(VKRENDERERS_HEADER_FILES)
-#cmake_print_variables(JCSHARED_SRC_FILES)
-#cmake_print_variables(JCSHARED_HEADER_FILES)
-
-#string(CONCAT SRC_FILES "${GLFRAMEWORK_SRC_FILES}" "${SCENE_SRC_FILES}" "${VKFRAMEWORK_SRC_FILES}" "${VKRENDERERS_SRC_FILES}" "${JCSHARED_SRC_FILES}")
-#string(CONCAT HEADER_FILES "${GLFRAMEWORK_HEADER_FILES}" "${SCENE_HEADER_FILES}" "${VKFRAMEWORK_HEADER_FILES}" "${VKRENDERERS_HEADER_FILES}" "${JCSHARED_HEADER_FILES}")
 
 cmake_print_variables(SRC_FILES)
 cmake_print_variables(HEADER_FILES)
@@ -79,12 +55,6 @@ if(MSVC_IDE)
 	GroupSources(include/jc3DTestSharedLibs)
 endif()
 
-#include_directories(src/imgui)
-#include_directories(src/taskflow)
-
-#add_subdirectory(src/imgui)
-#add_subdirectory(src/taskflow)
-
 target_link_libraries(jc3DTestSharedLibs PUBLIC 
 	glad::glad 
 	glfw 
@@ -96,4 +66,5 @@ target_link_libraries(jc3DTestSharedLibs PUBLIC
 	glm::glm
 	Taskflow::Taskflow
 	imgui::imgui 
+
 	)

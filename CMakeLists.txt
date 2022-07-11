@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 2.8...3.20)
 project(jc3DTest
 	VERSION 0.1.0
 	DESCRIPTION "A test to get CMake and Vcpkg to work to build project chapters for 3D Graphics Rendering Cookbook"
@@ -8,6 +8,12 @@ project(jc3DTest
 include(CMakePrintHelpers)
 
 message(STATUS "Building ${PROJECT_NAME}")
+
+option(BUILD_WITH_EASY_PROFILER "Enable EasyProfiler usage" OFF)
+option(BUILD_WITH_OPTICK "Enable Optick usage" OFF)
+
+set(EASY_PROFILER_NO_GUI ON CACHE BOOL "")
+set(EASY_PROFILER_NO_SAMPLES ON CACHE BOOL "")
 	
 # use folders
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -20,7 +26,7 @@ if(MSVC)
 	add_definitions(-D_CONSOLE)
 endif()
 
-option(BUILD_SHARED_LIBS "Build Shared Libraries" ON)
+option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
 # TODO: configure externals
 
 set(LIB_TYPE STATIC)
@@ -33,7 +39,51 @@ endif()
 configure_file(src/helpers/RootDir.h.in src/helpers/RootDir.h)
 include_directories(${CMAKE_BINARY_DIR}/src)
 
+#set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "$ENV{QT_SDK}/5.15.2/msvc2019_64/lib/cmake/Qt5")
+#set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "$ENV{QT_SDK}/5.15.2/msvc2019_64/lib/cmake/Qt5")
 
+#find_package(Qt5 HINTS "$ENV{QT_SDK}/5.15.2/msvc2019_64/lib/cmake" COMPONENTS Core Widgets REQUIRED)
+#if(Qt5_FOUND)
+#	message(STATUS "Found Qt5")
+#else() 
+#	message(STATUS "QT5 NOT FOUND!")
+#endif()
+
+#set(CMAKE_AUTOMOC ON)
+#set(CMAKE_AUTORCC ON)
+#set(CMAKE_AUTOUIC ON)
+
+#set(Qt5_DIR "$ENV{QT_SDK}/5.15.2/msvc2019_64/lib/cmake/Qt5" CACHE PATH "Qt5 cmake config location")
+#set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "$ENV{QT_SDK}/5.15.2/msvc2019_64/lib/cmake/Qt5")
+
+#find_package(Qt5 COMPONENTS Core Widgets REQUIRED)
+
+
+# external dependencies
+add_subdirectory(extern/src/etc2comp)
+
+include_directories(extern/src/etc2comp/EtcLib/Etc)
+include_directories(extern/src/etc2comp/EtcLib/EtcCodec)
+
+set_property(TARGET EtcLib 	PROPERTY FOLDER "ThirdPartyLibraries")
+set_property(TARGET EtcTool	PROPERTY FOLDER "ThirdPartyLibraries")
+
+if(BUILD_WITH_EASY_PROFILER)
+	message("Enabled EasyProfiler")	
+	add_subdirectory(extern/src/easy_sources)
+	add_definitions(-DBUILD_WITH_EASY_PROFILER=1)
+	include_directories(extern/src/easy_profiler/include)
+	set_property(TARGET easy_profiler PROPERTY FOLDER "ThirdPartyLibraries")
+#	set_property(TARGET profile_converter PROPERTY FOLDER "ThirdPartyLibraries")
+endif()
+if(BUILD_WITH_OPTICK)
+	message("Enabled Optick")
+	add_subdirectory(extern/src/optick)
+	add_definitions(-DBUILD_WITH_OPTICK=1)
+	set_property(TARGET OptickCore PROPERTY FOLDER "ThirdPartyLibraries")
+endif()
+
+# Find required packages
 find_package(glad CONFIG REQUIRED)
 if(glad_FOUND)
 	message(STATUS "Found GLAD")
@@ -82,11 +132,26 @@ if(taskflow_FOUND)
 else() 
 	message(STATUS "TASKFLOW NOT FOUND!")
 endif() 
+find_package(meshoptimizer CONFIG REQUIRED)
+if(meshoptimizer_FOUND)
+	message(STATUS "Found MESHOPTIMIZER")
+else()
+	message(STATUS "MESHOPTIMIZER NOT FOUND!")
+endif()
 
 add_subdirectory(src/libs)
-add_subdirectory(src/apps/jc3DCh02_ex03)
-add_subdirectory(src/apps/jc3DCh02_ex04)
-add_subdirectory(src/apps/jc3DCh02_ex07)
+add_subdirectory(src/apps/jc3DCh02_Assimp)
+if(BUILD_WITH_EASY_PROFILER)
+	add_subdirectory(src/apps/jc3DCh02_EasyProfiler)
+endif()
+add_subdirectory(src/apps/jc3DCh02_ETC2Comp)
+add_subdirectory(src/apps/jc3DCh02_ImGui)
+add_subdirectory(src/apps/jc3DCh02_MeshOptimizer)
+if(BUILD_WITH_OPTICK)
+	add_subdirectory(src/apps/jc3DCh02_Optick)
+endif()
+add_subdirectory(src/apps/jc3DCh02_STB)
+add_subdirectory(src/apps/jc3DCh02_Taskflow)
 add_subdirectory(src/apps/jc3DCh03_GL01ApiWrapping)
 add_subdirectory(src/apps/jc3DCh03_GL02VtxPulling)
 add_subdirectory(src/apps/jc3DCh03_GL03CubeMap)

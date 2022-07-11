@@ -5,10 +5,19 @@
 	- src
 		- helpers
 		- apps
-			- jc3DCh02_ex07
-			- TODO: Add more exercises
-		- libs
-			- include
+			- jc3DCh02_Assimp
+			- jc3DCh02_EasyProfiler
+			- jc3DCh02_ETC2Comp
+			- jc3DCh02_ImGui
+			- jc3DCh02_MeshOptimizer
+			- jc3DCh02_Optick
+			- jc3DCh02_STB
+			- jc3DCh02_Taskflow
+			- jc3DCh03_GL01ApiWrapping
+			- jc3DCh03_GL02VtxPulling
+			- jc3DCh03_GL03CubeMap
+		- libs			
+			- include  # TODO: I think this might be wrong... should be just src files, then output the include via cmake functionality
 				- jc3DTestSharedLibs
 					- glFramework
 					- scene
@@ -26,4 +35,10 @@
 		- images
 		- fonts
 	- extern
+		- src
+			- easy_profiler
+			- easy_sources
+			- etc2comp
+			- optick
+
 		
