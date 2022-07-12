@@ -548,6 +548,49 @@ size_t createSwapchainImages (
 	return imageCount;
 }
 
+bool createDescriptorPool ( 
+	VkDevice device, 
+	uint32_t imageCount,
+	uint32_t uniformBufferCount,
+	uint32_t storageBufferCount, 
+	uint32_t samplerCount, 
+	VkDescriptorPool* descPool )
+{
+	std::vector<VkDescriptorPoolSize> poolSizes;
+	
+	if ( uniformBufferCount )
+	{
+		poolSizes.push_back ( VkDescriptorPoolSize{
+			.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorCount = imageCount * uniformBufferCount } );
+	}
+	
+	if ( storageBufferCount )
+	{
+		poolSizes.push_back ( VkDescriptorPoolSize{
+			.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = imageCount * storageBufferCount } );
+	}
+	
+	if ( samplerCount )
+	{
+		poolSizes.push_back ( VkDescriptorPoolSize{
+			.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.descriptorCount = imageCount * samplerCount } );
+	}
+
+	const VkDescriptorPoolCreateInfo pi = {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.maxSets = static_cast<uint32_t>(imageCount),
+		.poolSizeCount = static_cast<uint32_t>(poolSizes.size ()),
+		.pPoolSizes = poolSizes.empty () ? nullptr : poolSizes.data () };
+
+	VK_CHECK ( vkCreateDescriptorPool ( device, &pi, nullptr, descPool ) );
+	return true;
+}
+
 bool createImageView ( 
 	VkDevice device, 
 	VkImage image, 

@@ -61,6 +61,19 @@ VkResult createShaderModule ( VkDevice device, ShaderModule* shader, const char*
 
 size_t compileShaderFile ( const char* file, ShaderModule& shaderModule );
 
+/* descriptorSetLayoutBinding doesn't seem to be in the book, just the github code */
+inline VkDescriptorSetLayoutBinding descriptorSetLayoutBinding ( uint32_t binding, VkDescriptorType descriptorType, VkShaderStageFlags stageFlags, uint32_t descriptorCount = 1 )
+{
+	return VkDescriptorSetLayoutBinding{
+		.binding = binding,
+		.descriptorType = descriptorType,
+		.descriptorCount = descriptorCount,
+		.stageFlags = stageFlags,
+		.pImmutableSamplers = nullptr
+	};
+}
+
+
 void createInstance ( VkInstance* instance );
 
 VkResult createDevice ( VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures deviceFeatures, uint32_t graphicsFamily, VkDevice* device );
@@ -88,6 +101,8 @@ uint32_t chooseSwapImageCount ( const VkSurfaceCapabilitiesKHR& caps );
 VkResult createSwapchain ( VkDevice device, VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, uint32_t graphicsFamily, uint32_t width, uint32_t height, VkSwapchainKHR* swapchain );
 
 size_t createSwapchainImages ( VkDevice device, VkSwapchainKHR swapchain, std::vector<VkImage>& swapchainImages, std::vector<VkImageView>& swapchainImageViews );
+
+bool createDescriptorPool ( VkDevice device, uint32_t imageCount, uint32_t uniformBufferCount, uint32_t storageBufferCount, uint32_t samplerCount, VkDescriptorPool* descPool );
 
 bool createImageView ( VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, VkImageView* imageView, VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D, uint32_t layerCount = 1, uint32_t mipLevels = 1 );
 
