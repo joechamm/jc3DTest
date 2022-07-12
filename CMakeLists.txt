@@ -39,26 +39,6 @@ endif()
 configure_file(src/helpers/RootDir.h.in src/helpers/RootDir.h)
 include_directories(${CMAKE_BINARY_DIR}/src)
 
-#set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "$ENV{QT_SDK}/5.15.2/msvc2019_64/lib/cmake/Qt5")
-#set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "$ENV{QT_SDK}/5.15.2/msvc2019_64/lib/cmake/Qt5")
-
-#find_package(Qt5 HINTS "$ENV{QT_SDK}/5.15.2/msvc2019_64/lib/cmake" COMPONENTS Core Widgets REQUIRED)
-#if(Qt5_FOUND)
-#	message(STATUS "Found Qt5")
-#else() 
-#	message(STATUS "QT5 NOT FOUND!")
-#endif()
-
-#set(CMAKE_AUTOMOC ON)
-#set(CMAKE_AUTORCC ON)
-#set(CMAKE_AUTOUIC ON)
-
-#set(Qt5_DIR "$ENV{QT_SDK}/5.15.2/msvc2019_64/lib/cmake/Qt5" CACHE PATH "Qt5 cmake config location")
-#set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "$ENV{QT_SDK}/5.15.2/msvc2019_64/lib/cmake/Qt5")
-
-#find_package(Qt5 COMPONENTS Core Widgets REQUIRED)
-
-
 # external dependencies
 add_subdirectory(extern/src/etc2comp)
 
@@ -155,3 +135,4 @@ add_subdirectory(src/apps/jc3DCh02_Taskflow)
 add_subdirectory(src/apps/jc3DCh03_GL01ApiWrapping)
 add_subdirectory(src/apps/jc3DCh03_GL02VtxPulling)
 add_subdirectory(src/apps/jc3DCh03_GL03CubeMap)
+add_subdirectory(src/apps/jc3DCh03_VK01_GLSLang)
