@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <chrono>
+#include <string>
 
 #include "Utils.h"
 #include "UtilsVulkan.h"
@@ -62,10 +63,16 @@ struct VulkanState {
 
 	// 6. Depth buffer
 //	VulkanImage depthTexture;
+	VulkanTexture depthTexture;
 
 	VkSampler textureSampler;
 //	VulkanImage texture;
 	VulkanTexture texture;
+
+	// try attaching shader modules to state
+	ShaderModule vertShader;
+	ShaderModule geomShader;
+	ShaderModule fragShader;
 } vkState;
 
 bool createUniformBuffers ()
@@ -280,4 +287,208 @@ bool createDescriptorSet ()
 	}
 
 	return true;
+}
+
+bool initVulkan ()
+{
+	// creat vulkan instance and set up debugging callbacks
+	createInstance ( &vk.instance );
+	if ( !setupDebugCallbacks ( vk.instance, &vk.messenger, &vk.reportCallback ) )
+	{
+		exit ( EXIT_FAILURE );
+	}
+
+	// create a window surface attached to the GLFW window and our Vulkan instance
+	if ( glfwCreateWindowSurface ( vk.instance, window, nullptr, &vk.surface ) )
+	{
+		exit ( EXIT_FAILURE );
+	}
+
+	// initialize Vulkan objects
+	if ( !initVulkanRenderDevice ( vk, vkDev, kScreenWidth, kScreenHeight, isDeviceSuitable, { .geometryShader = VK_TRUE } ) )
+	{
+		exit ( EXIT_FAILURE );
+	}
+
+	VK_CHECK ( createShaderModule ( vkDev.device, &vkState.vertShader, string ( ROOT_DIR ).append ( "assets/shaders/VK02.vert" ).c_str() ) );
+	VK_CHECK ( createShaderModule ( vkDev.device, &vkState.geomShader, string ( ROOT_DIR ).append ( "assets/shaders/VK02.geom" ).c_str () ) );
+	VK_CHECK ( createShaderModule ( vkDev.device, &vkState.fragShader, string ( ROOT_DIR ).append ( "assets/shaders/VK02.frag" ).c_str () ) );
+
+	// load the rubber duck 3D model into a shader storage buffer
+	if ( !createTexturedVertexBuffer ( vkDev, string ( ROOT_DIR ).append ( "assets/models/rubber_duck/scene.gltf" ).c_str (), &vkState.storageBuffer, &vkState.storageBufferMemory, &vertexBufferSize, &indexBufferSize ) || !createUniformBuffers () )
+	{
+		printf ( "Cannot create data buffers\n" );
+		fflush ( stdout );
+		exit ( EXIT_FAILURE );
+	}
+
+	// Initialize the pipeline shader stages using the shader modules we created
+	const std::vector<VkPipelineShaderStageCreateInfo> shaderStages = {
+		shaderStageInfo ( VK_SHADER_STAGE_VERTEX_BIT, vkState.vertShader, "main" ),
+		shaderStageInfo ( VK_SHADER_STAGE_GEOMETRY_BIT, vkState.geomShader, "main" ),
+		shaderStageInfo ( VK_SHADER_STAGE_FRAGMENT_BIT, vkState.fragShader, "main" )
+	};
+
+	// load the duck texture image and create an image view with a sampler
+	createTextureImage ( vkDev, string ( ROOT_DIR ).append ( "assets/models/rubber_duck/textures/Duck_baseColor.png" ).c_str (), vkState.texture.image, vkState.texture.imageMemory );
+	createImageView ( vkDev.device, vkState.texture.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, &vkState.texture.imageView );
+	createTextureSampler ( vkDev.device, &vkState.textureSampler );
+
+	// create a depth buffer
+	createDepthResources ( vkDev, kScreenWidth, kScreenHeight, vkState.depthTexture );
+
+	// initialize the descriptor pool, sets, passes, and the graphics pipeline
+	const bool isInitialized =
+		createDescriptorPool ( vkDev.device, static_cast<uint32_t>(vkDev.swapchainImages.size ()), 1, 2, 1, &vkState.descriptorPool ) &&
+		createDescriptorSet () &&
+		createColorAndDepthRenderPass ( vkDev, true, &vkState.renderPass, RenderPassCreateInfo{ .clearColor_ = true, .clearDepth_ = true, .flags_ = eRenderPassBit_First | eRenderPassBit_Last } ) &&
+		createPipelineLayout ( vkDev.device, vkState.descriptorSetLayout, &vkState.pipelineLayout ) &&
+		createGraphicsPipeline ( vkDev.device, kScreenWidth, kScreenHeight, vkState.renderPass, vkState.pipelineLayout, shaderStages, &vkState.graphicsPipeline );
+
+	if ( !isInitialized )
+	{
+		printf ( "Failed to create pipeline\n" );
+		fflush ( stdout );
+		exit ( EXIT_FAILURE );
+	}
+
+	createColorAndDepthFramebuffers ( vkDev, vkState.renderPass, vkState.depthTexture.imageView, vkState.swapchainFramebuffers );
+
+	return VK_SUCCESS;
+}
+
+void terminateVulkan ()
+{
+	vkDestroyBuffer ( vkDev.device, vkState.storageBuffer, nullptr );
+	vkFreeMemory ( vkDev.device, vkState.storageBufferMemory, nullptr );
+
+	for ( size_t i = 0; i < vkDev.swapchainImages.size (); i++ )
+	{
+		vkDestroyBuffer ( vkDev.device, vkState.uniformBuffers[i], nullptr );
+		vkFreeMemory ( vkDev.device, vkState.uniformBuffersMemory[i], nullptr );
+	}
+
+	vkDestroyDescriptorSetLayout ( vkDev.device, vkState.descriptorSetLayout, nullptr );
+	vkDestroyDescriptorPool ( vkDev.device, vkState.descriptorPool, nullptr );
+
+	for ( auto framebuffer : vkState.swapchainFramebuffers )
+	{
+		vkDestroyFramebuffer ( vkDev.device, framebuffer, nullptr );
+	}
+
+	vkDestroySampler ( vkDev.device, vkState.textureSampler, nullptr );
+	destroyVulkanTexture ( vkDev.device, vkState.texture );
+	destroyVulkanTexture ( vkDev.device, vkState.depthTexture );
+	
+	vkDestroyRenderPass ( vkDev.device, vkState.renderPass, nullptr );
+
+	vkDestroyPipelineLayout ( vkDev.device, vkState.pipelineLayout, nullptr );
+	vkDestroyPipeline ( vkDev.device, vkState.graphicsPipeline, nullptr );
+
+	destroyVulkanRenderDevice ( vkDev );
+
+	destroyVulkanInstance ( vk );
+}
+
+bool drawOverlay ()
+{
+	// aquire the next available image from the swap chain and reset the command pool
+	uint32_t imageIndex = 0;
+	VK_CHECK ( vkAcquireNextImageKHR ( vkDev.device, vkDev.swapchain, 0, vkDev.semaphore, VK_NULL_HANDLE, &imageIndex ) );
+	VK_CHECK ( vkResetCommandPool ( vkDev.device, vkDev.commandPool, 0 ) );
+
+	// fill in the uniform buffer with data. rotate the model around the vertical axis
+	int width, height;
+	glfwGetFramebufferSize ( window, &width, &height );
+	const float ratio = width / (float)height;
+	const mat4 m1 = glm::rotate ( glm::translate ( mat4 ( 1.0f ), vec3 ( 0.0f, 0.5f, -1.5f ) ) * glm::rotate ( mat4 ( 1.0f ), glm::pi<float> (), vec3 ( 1, 0, 0 ) ), (float)glfwGetTime (), vec3 ( 0.0f, 1.0f, 0.0f ) );
+	const mat4 p = glm::perspective ( 45.0f, ratio, 0.1f, 1000.0f );
+	const UniformBuffer ubo{ .mvp = p * m1 };
+
+	updateUniformBuffer ( imageIndex, ubo );
+
+	// fill the command buffers. not necessary in this recipe since the commands are identical
+	fillCommandBuffers (imageIndex);
+
+	const VkPipelineStageFlags waitStages[] = {
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+	};
+
+	const VkSubmitInfo si = {
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		.pNext = nullptr,
+		.waitSemaphoreCount = 1,
+		.pWaitSemaphores = &vkDev.semaphore,
+		.pWaitDstStageMask = waitStages,
+		.commandBufferCount = 1,
+		.pCommandBuffers = &vkDev.commandBuffers[imageIndex],
+		.signalSemaphoreCount = 1,
+		.pSignalSemaphores = &vkDev.renderSemaphore
+	};
+
+	VK_CHECK ( vkQueueSubmit ( vkDev.graphicsQueue, 1, &si, nullptr ) );
+
+	const VkPresentInfoKHR pi = {
+		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+		.pNext = nullptr,
+		.waitSemaphoreCount = 1,
+		.pWaitSemaphores = &vkDev.renderSemaphore,
+		.swapchainCount = 1,
+		.pSwapchains = &vkDev.swapchain,
+		.pImageIndices = &imageIndex
+	};
+
+	VK_CHECK ( vkQueuePresentKHR ( vkDev.graphicsQueue, &pi ) );
+	VK_CHECK ( vkDeviceWaitIdle ( vkDev.device ) );
+	return true;
+}
+
+int main ()
+{
+	// initialize the glslang compiler, the Volk library, and GLFW
+	glslang_initialize_process ();
+	volkInitialize ();
+	if ( !glfwInit () )
+	{
+		exit ( EXIT_FAILURE );
+	}
+	if ( !glfwVulkanSupported () )
+	{
+		exit ( EXIT_FAILURE );
+	}
+	// disable OpenGL context creation
+	glfwWindowHint ( GLFW_CLIENT_API, GLFW_NO_API );
+	glfwWindowHint ( GLFW_RESIZABLE, GL_FALSE );
+	window = glfwCreateWindow ( kScreenWidth, kScreenHeight, "Vulkan Demo App", nullptr, nullptr );
+
+	if ( !window )
+	{
+		glfwTerminate ();
+		exit ( EXIT_FAILURE );
+	}
+
+	glfwSetKeyCallback (
+		window,
+		[]( GLFWwindow* window, int key, int scancode, int action, int mods )
+		{
+			if ( key == GLFW_KEY_ESCAPE && action == GLFW_PRESS )
+			{
+				glfwSetWindowShouldClose ( window, GLFW_TRUE );
+			}
+		}
+	);
+
+	initVulkan ();
+
+	while ( !glfwWindowShouldClose ( window ) )
+	{
+		drawOverlay ();
+		glfwPollEvents ();
+	}
+
+	terminateVulkan ();
+	glfwTerminate ();
+	glslang_finalize_process ();
+
+	return 0;
 }

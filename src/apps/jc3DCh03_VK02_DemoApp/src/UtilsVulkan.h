@@ -36,6 +36,9 @@ struct VulkanInstance {
 };
 
 struct VulkanRenderDevice {
+	uint32_t framebufferWidth;
+	uint32_t framebufferHeight;
+
 	VkDevice device;
 	VkQueue graphicsQueue;
 	VkPhysicalDevice physicalDevice;
@@ -55,11 +58,38 @@ struct VulkanTexture {
 	VkImageView imageView;
 };
 
+struct RenderPassCreateInfo final {
+	bool clearColor_ = false;
+	bool clearDepth_ = false;
+	uint8_t flags_ = 0;
+};
+
+enum eRenderPassBit : uint8_t {  
+	eRenderPassBit_First = 0x01,  // clear the attachment
+	eRenderPassBit_Last = 0x02,		// transition to VK_IMAGE_LAYOUT_PRESENT_SRC_KHR 
+	eRenderPassBit_Offscreen = 0x04, // transition to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMIAL
+	eRenderPassBit_OffscreenInternal = 0x08 // keep VK_IMAGE_LAYOUT_*_ATTACHMENT_OPTIMAL
+};
+
 bool setupDebugCallbacks ( VkInstance instance, VkDebugUtilsMessengerEXT* messenger, VkDebugReportCallbackEXT* reportCallback );
 
 VkResult createShaderModule ( VkDevice device, ShaderModule* shader, const char* fileName );
 
 size_t compileShaderFile ( const char* file, ShaderModule& shaderModule );
+
+/* shaderStageInfo isn't in the book just github code, but is referenced in it */
+inline VkPipelineShaderStageCreateInfo shaderStageInfo ( VkShaderStageFlagBits shaderStage, ShaderModule& module, const char* entryPoint )
+{
+	return VkPipelineShaderStageCreateInfo{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.stage = shaderStage,
+		.module = module.shaderModule,
+		.pName = entryPoint,
+		.pSpecializationInfo = nullptr
+	};
+}
 
 /* descriptorSetLayoutBinding doesn't seem to be in the book, just the github code */
 inline VkDescriptorSetLayoutBinding descriptorSetLayoutBinding ( uint32_t binding, VkDescriptorType descriptorType, VkShaderStageFlags stageFlags, uint32_t descriptorCount = 1 )
@@ -104,6 +134,16 @@ size_t createSwapchainImages ( VkDevice device, VkSwapchainKHR swapchain, std::v
 
 bool createDescriptorPool ( VkDevice device, uint32_t imageCount, uint32_t uniformBufferCount, uint32_t storageBufferCount, uint32_t samplerCount, VkDescriptorPool* descPool );
 
+bool createPipelineLayout ( VkDevice device, VkDescriptorSetLayout dsLayout, VkPipelineLayout* pipelineLayout );
+
+bool createColorAndDepthRenderPass ( VulkanRenderDevice& device, bool useDepth, VkRenderPass* renderPass, const RenderPassCreateInfo& ci, VkFormat colorFormat = VK_FORMAT_B8G8R8A8_UNORM );
+
+bool createColorAndDepthFramebuffer ( VulkanRenderDevice& vkDev, uint32_t width, uint32_t height, VkRenderPass renderPass, VkImageView colorImageView, VkImageView depthImageView, VkFramebuffer* framebuffer );
+bool createColorAndDepthFramebuffers ( VulkanRenderDevice& vkDev, VkRenderPass renderPass, VkImageView depthImageView, std::vector<VkFramebuffer>& swapchainFramebuffers );
+bool createDepthOnlyFramebuffer ( VulkanRenderDevice& vkDev, uint32_t width, uint32_t height, VkRenderPass renderPass, VkImageView depthImageView, VkFramebuffer* framebuffer );
+
+bool createGraphicsPipeline ( VkDevice device, uint32_t width, uint32_t height, VkRenderPass renderPass, VkPipelineLayout pipelineLayout, const std::vector<VkPipelineShaderStageCreateInfo>& shaderStages, VkPipeline* pipeline );
+
 bool createImageView ( VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, VkImageView* imageView, VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D, uint32_t layerCount = 1, uint32_t mipLevels = 1 );
 
 bool createBuffer ( VkDevice device, VkPhysicalDevice physicalDevice, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory );
@@ -130,7 +170,7 @@ void destroyVulkanInstance ( VulkanInstance& vk );
 
 void destroyVulkanTexture ( VkDevice device, VulkanTexture& texture );
 
-bool fillCommandBuffers ( size_t i );
+bool isDeviceSuitable ( VkPhysicalDevice device );
 
 VkCommandBuffer beginSingleTimeCommands ( VulkanRenderDevice& vkDev );
 void endSingleTimeCommands ( VulkanRenderDevice& vkDev, VkCommandBuffer commandBuffer );

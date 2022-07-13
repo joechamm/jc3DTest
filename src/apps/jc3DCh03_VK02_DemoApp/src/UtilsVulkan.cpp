@@ -591,6 +591,334 @@ bool createDescriptorPool (
 	return true;
 }
 
+bool createPipelineLayout ( 
+	VkDevice device,
+	VkDescriptorSetLayout dsLayout,
+	VkPipelineLayout* pipelineLayout )
+{
+	const VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.setLayoutCount = 1,
+		.pSetLayouts = &dsLayout,
+		.pushConstantRangeCount = 0,
+		.pPushConstantRanges = nullptr 
+	};
+
+	return (vkCreatePipelineLayout ( device, &pipelineLayoutInfo, nullptr, pipelineLayout ) == VK_SUCCESS);
+}
+
+bool createColorAndDepthRenderPass ( VulkanRenderDevice& vkDev, bool useDepth, VkRenderPass* renderPass, const RenderPassCreateInfo& ci, VkFormat colorFormat )
+{
+	const bool offscreenInt = ci.flags_ & eRenderPassBit_Offscreen;
+	const bool first = ci.flags_ & eRenderPassBit_First;
+	const bool last = ci.flags_ & eRenderPassBit_Last;
+	VkAttachmentDescription colorAttachment = {
+		.flags = 0,
+		.format = colorFormat,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		// if the loadOp field is changed to VK_ATTACHMENT_LOAD_OP_DONT_CARE, the framebuffer will not be cleared at the beginning of the render pass. this can be desirable if the frame has been composed with the output of another rendering pass
+		.loadOp = offscreenInt ? VK_ATTACHMENT_LOAD_OP_LOAD : (ci.clearColor_ ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD),
+		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+		.initialLayout = first ? VK_IMAGE_LAYOUT_UNDEFINED : (offscreenInt ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL),
+		.finalLayout = last ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+	};
+	
+	const VkAttachmentReference colorAttachmentRef = {
+		.attachment = 0,
+		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+	};
+
+	// the depth attachment is handled in a similar way
+	VkAttachmentDescription depthAttachment = {
+		.flags = 0,
+		.format = useDepth ? findDepthFormat ( vkDev.physicalDevice ) : VK_FORMAT_D32_SFLOAT,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.loadOp = offscreenInt ? VK_ATTACHMENT_LOAD_OP_LOAD : (ci.clearDepth_ ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD),
+		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+		.initialLayout = ci.clearDepth_ ? VK_IMAGE_LAYOUT_UNDEFINED : (offscreenInt ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL),
+		.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+	};
+
+	const VkAttachmentReference depthAttachmentRef = {
+		.attachment = 1,
+		.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+	};
+
+	// The subpasses in a render pass automatically take care of image layout transitions. 
+	// This render pass also specifies one subpass dependency, which instructs vulkan to prevent the transition from happening util it is actually necessary and allowed. 
+	// This dependency only makes sense for color buffer writes. In case of an offscreen render pass, we use subpass dependencies for layout transitions. 
+	if ( ci.flags_ & eRenderPassBit_Offscreen )
+	{
+		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	}
+
+//	const VkSubpassDependency dependency = {
+	std::vector<VkSubpassDependency> dependencies = {
+		{
+		.srcSubpass = VK_SUBPASS_EXTERNAL,
+		.dstSubpass = 0,
+		.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		.srcAccessMask = 0,
+		.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		.dependencyFlags = 0
+		}
+	};
+
+	// add two explicit dependencies which ensure all rendering operations are completed before this render pass and before the color attachment can be used in subsequent passes
+	if ( ci.flags_ & eRenderPassBit_Offscreen )
+	{
+		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		dependencies.resize ( 2 );
+		dependencies[0] = {
+			.srcSubpass = VK_SUBPASS_EXTERNAL,
+			.dstSubpass = 0,
+			.srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
+			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
+		};
+		dependencies[1] = {
+			.srcSubpass = 0,
+			.dstSubpass = VK_SUBPASS_EXTERNAL,
+			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+			.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT
+		};
+	}
+
+	// The rendering pass consists of a single subpass that only uses color and depth buffers
+	const VkSubpassDescription subpass = {
+		.flags = 0,
+		.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+		.inputAttachmentCount = 0,
+		.pInputAttachments = nullptr,
+		.colorAttachmentCount = 1,
+		.pColorAttachments = &colorAttachmentRef,
+		.pResolveAttachments = nullptr,
+		.pDepthStencilAttachment = useDepth ? &depthAttachmentRef : nullptr,
+		.preserveAttachmentCount = 0,
+		.pPreserveAttachments = nullptr
+	};
+
+	// Now use the two attachments we defined earlier
+	std::array<VkAttachmentDescription, 2> attachments = {
+		colorAttachment,
+		depthAttachment
+	};
+
+	const VkRenderPassCreateInfo renderPassInfo = {
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+		.attachmentCount = static_cast<uint32_t>(useDepth ? 2 : 1),
+		.pAttachments = attachments.data (),
+		.subpassCount = 1,
+		.pSubpasses = &subpass,
+		.dependencyCount = static_cast<uint32_t>(dependencies.size ()),
+		.pDependencies = dependencies.data ()
+	};
+
+	return (vkCreateRenderPass ( vkDev.device, &renderPassInfo, nullptr, renderPass ) == VK_SUCCESS);
+}
+
+bool createColorAndDepthFramebuffer (
+	VulkanRenderDevice& vkDev, 
+	uint32_t width, uint32_t height, 
+	VkRenderPass renderPass, 
+	VkImageView colorImageView, 
+	VkImageView depthImageView, 
+	VkFramebuffer* framebuffer )
+{
+	std::array<VkImageView, 2> attachments = { colorImageView, depthImageView };
+
+	const VkFramebufferCreateInfo framebufferInfo = {
+		.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.renderPass = renderPass,
+		.attachmentCount = (depthImageView == VK_NULL_HANDLE) ? 1u : 2u,
+		.pAttachments = attachments.data (),
+		.width = vkDev.framebufferWidth,
+		.height = vkDev.framebufferHeight,
+		.layers = 1
+	};
+
+	return (vkCreateFramebuffer ( vkDev.device, &framebufferInfo, nullptr, framebuffer ) == VK_SUCCESS);
+}
+
+bool createColorAndDepthFramebuffers ( 
+	VulkanRenderDevice& vkDev, 
+	VkRenderPass renderPass, 
+	VkImageView depthImageView, 
+	std::vector<VkFramebuffer>& swapchainFramebuffers )
+{
+	swapchainFramebuffers.resize ( vkDev.swapchainImageViews.size () );
+
+	for ( size_t i = 0; i < vkDev.swapchainImages.size (); i++ )
+	{
+		std::array<VkImageView, 2> attachments = {
+			vkDev.swapchainImageViews[i],
+			depthImageView
+		};
+
+		const VkFramebufferCreateInfo framebufferInfo = {
+			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+			.pNext = nullptr,
+			.flags = 0,
+			.renderPass = renderPass,
+			.attachmentCount = static_cast<uint32_t>((depthImageView == VK_NULL_HANDLE) ? 1 : 2),
+			.pAttachments = attachments.data (),
+			.width = vkDev.framebufferWidth,
+			.height = vkDev.framebufferHeight,
+			.layers = 1
+		};
+
+		VK_CHECK ( vkCreateFramebuffer ( vkDev.device, &framebufferInfo, nullptr, &swapchainFramebuffers[i] ) );
+	}
+
+	return true;
+}
+
+bool createDepthOnlyFramebuffer ( 
+	VulkanRenderDevice& vkDev, 
+	uint32_t width, uint32_t height,
+	VkRenderPass renderPass,
+	VkImageView depthImageView, 
+	VkFramebuffer* framebuffer )
+{
+	VkImageView attachment = depthImageView;
+
+	const VkFramebufferCreateInfo framebufferInfo = {
+		.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.renderPass = renderPass,
+		.attachmentCount = 1u,
+		.pAttachments = &attachment,
+		.width = vkDev.framebufferWidth,
+		.height = vkDev.framebufferHeight,
+		.layers = 1
+	};
+
+	return (vkCreateFramebuffer ( vkDev.device, &framebufferInfo, nullptr, framebuffer ) == VK_SUCCESS);
+}
+
+bool createGraphicsPipeline ( 
+	VkDevice device, 
+	uint32_t width, uint32_t height, 
+	VkRenderPass renderPass, 
+	VkPipelineLayout pipelineLayout, 
+	const std::vector<VkPipelineShaderStageCreateInfo>& shaderStages, 
+	VkPipeline* pipeline )
+{
+
+	const VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
+
+	// Since we are using programmable vertex pulling, the only thing we need to specify for the input assembly is the primitive topology type. We must disable the primitive restart capabilities that we won't be using.
+	const VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		.primitiveRestartEnable = VK_FALSE
+	};
+
+	const VkViewport viewport = {
+		.x = 0.0f,
+		.y = 0.0f,
+		.width = static_cast<float>(width),
+		.height = static_cast<float>(height),
+		.minDepth = 0.0f,
+		.maxDepth = 1.0f
+	};
+
+	// scissor covers the entire viewport
+	const VkRect2D scissor = {
+		.offset = { 0, 0},
+		.extent = { width, height }
+	};
+
+	// combine viewport and scissor declarations to get the required viewport state
+	const VkPipelineViewportStateCreateInfo viewportState = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+		.viewportCount = 1,
+		.pViewports = &viewport,
+		.scissorCount = 1,
+		.pScissors = &scissor
+	};
+	// no backface culling, front-face=cw
+	const VkPipelineRasterizationStateCreateInfo rasterizer = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+		.polygonMode = VK_POLYGON_MODE_FILL,
+		.cullMode = VK_CULL_MODE_NONE,
+		.frontFace = VK_FRONT_FACE_CLOCKWISE,
+		.lineWidth = 1.0f
+	};
+	// disable multisampling
+	const VkPipelineMultisampleStateCreateInfo multisampling = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+		.sampleShadingEnable = VK_FALSE,
+		.minSampleShading = 1.0f
+	};
+
+	// all the blending operations should be disabled. a color mask is required if we want to see any pixels that have been rendered
+	const VkPipelineColorBlendAttachmentState colorBlendAttachment = {
+		.blendEnable = VK_FALSE,
+		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+	};
+
+	// disable any logic operations
+	const VkPipelineColorBlendStateCreateInfo colorBlending = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+		.logicOpEnable = VK_FALSE,
+		.logicOp = VK_LOGIC_OP_COPY,
+		.attachmentCount = 1,
+		.pAttachments = &colorBlendAttachment,
+		.blendConstants = { 0.0f, 0.0f, 0.0f, 0.0f }
+	};
+
+	// enable depth test 
+	const VkPipelineDepthStencilStateCreateInfo depthStencil = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+		.depthTestEnable = VK_TRUE,
+		.depthWriteEnable = VK_TRUE,
+		.depthCompareOp = VK_COMPARE_OP_LESS,
+		.depthBoundsTestEnable = VK_FALSE,
+		.minDepthBounds = 0.0f,
+		.maxDepthBounds = 1.0f
+	};
+
+	const VkGraphicsPipelineCreateInfo pipelineInfo = {
+		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+		.stageCount = static_cast<uint32_t>(shaderStages.size ()),
+		.pStages = shaderStages.data (),
+		.pVertexInputState = &vertexInputInfo,
+		.pInputAssemblyState = &inputAssembly,
+		.pTessellationState = nullptr,
+		.pViewportState = &viewportState,
+		.pRasterizationState = &rasterizer,
+		.pMultisampleState = &multisampling,
+		.pDepthStencilState = &depthStencil,
+		.pColorBlendState = &colorBlending,
+		.layout = pipelineLayout,
+		.renderPass = renderPass,
+		.subpass = 0,
+		.basePipelineHandle = VK_NULL_HANDLE,
+		.basePipelineIndex = -1
+	};
+	VK_CHECK ( vkCreateGraphicsPipelines ( device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, pipeline ) );
+	return true;
+}
+
 bool createImageView ( 
 	VkDevice device, 
 	VkImage image, 
@@ -811,7 +1139,7 @@ bool createTexturedVertexBuffer (
 	{
 		for ( unsigned j = 0; j != 3; j++ )
 		{
-			indices.push_back ( mesh->mNumFaces[i].mIndices[j] );
+			indices.push_back ( mesh->mFaces[i].mIndices[j] );
 		}
 	}
 
@@ -835,7 +1163,7 @@ bool createTexturedVertexBuffer (
 	createBuffer ( vkDev.device, vkDev.physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, *storageBuffer, *storageBufferMemory );
 	// copy the staging buffer to our storage buffer
 	copyBuffer ( vkDev, stagingBuffer, *storageBuffer, bufferSize );
-	vkDestroyBuffer ( vkDev.device, stagingbuffer, nullptr );
+	vkDestroyBuffer ( vkDev.device, stagingBuffer, nullptr );
 	vkFreeMemory ( vkDev.device, stagingMemory, nullptr );
 	return true;
 }
@@ -866,6 +1194,21 @@ VkResult createSemaphore (
 	return vkCreateSemaphore ( device, &ci, nullptr, outSemaphore );
 }
 
+bool isDeviceSuitable ( VkPhysicalDevice device )
+{
+	VkPhysicalDeviceProperties deviceProperties;
+	vkGetPhysicalDeviceProperties ( device, &deviceProperties );
+
+	VkPhysicalDeviceFeatures deviceFeatures;
+	vkGetPhysicalDeviceFeatures ( device, &deviceFeatures );
+
+	const bool isDiscreteGPU = deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+	const bool isIntegratedGPU = deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
+	const bool isGPU = isDiscreteGPU || isIntegratedGPU;
+
+	return isGPU && deviceFeatures.geometryShader;
+}
+
 bool initVulkanRenderDevice (
 	VulkanInstance& vk, 
 	VulkanRenderDevice& vkDev, 
@@ -874,6 +1217,9 @@ bool initVulkanRenderDevice (
 	std::function<bool ( VkPhysicalDevice )> selector, 
 	VkPhysicalDeviceFeatures deviceFeatures )
 {
+	vkDev.framebufferWidth = width;
+	vkDev.framebufferHeight = height;
+
 	VK_CHECK ( findSuitablePhysicalDevice ( vk.instance, selector, &vkDev.physicalDevice ) );
 	vkDev.graphicsFamily = findQueueFamilies ( vkDev.physicalDevice, VK_QUEUE_GRAPHICS_BIT );
 	VK_CHECK ( createDevice ( vkDev.physicalDevice, deviceFeatures, vkDev.graphicsFamily, &vkDev.device ) );
@@ -932,15 +1278,6 @@ void destroyVulkanTexture ( VkDevice device, VulkanTexture& texture )
 	vkDestroyImageView ( device, texture.imageView, nullptr );
 	vkDestroyImage ( device, texture.image, nullptr );
 	vkFreeMemory ( device, texture.imageMemory, nullptr );
-}
-
-uint32_t findMemoryType ( 
-	VkPhysicalDevice device, 
-	uint32_t typeFilter, 
-	VkMemoryPropertyFlags properties )
-{
-	VkPhysicalDeviceProperties memProperties;
-
 }
  
 // begin/end SingleTimecommands using aggregate structures
@@ -1180,6 +1517,15 @@ void copyBuffer (
 void copyBufferToImage ( VkDevice device, VkCommandPool commandPool, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height )
 {
 	
+}
+
+uint32_t findMemoryType (
+	VkPhysicalDevice device,
+	uint32_t typeFilter,
+	VkMemoryPropertyFlags properties )
+{
+	VkPhysicalDeviceProperties memProperties;
+
 }
 
 */
