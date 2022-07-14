@@ -5,8 +5,8 @@
 #include <cstdlib>
 #include <vector>
 
-#include "apps/jc3DCh03_VK01_GLSLang/Utils.h"	
-#include "apps/jc3DCh03_VK01_GLSLang/UtilsVulkan.h"
+#include "Utils.h"
+#include "UtilsVulkan.h"
 
 #include <iostream>
 #include <string>
