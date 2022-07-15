@@ -4,10 +4,6 @@ cmake_minimum_required(VERSION 3.14)
 
 project(jc3DCh03_VK02_DemoApp CXX C)
 
-set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS 1)
-
-#find_package(stb CONFIG REQUIRED)
-
 add_executable(jc3DCh03_VK02_DemoApp)
 
 set_property(TARGET jc3DCh03_VK02_DemoApp PROPERTY FOLDER "apps")
@@ -22,16 +18,14 @@ target_sources(jc3DCh03_VK02_DemoApp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/UtilsVulkan.cpp 
 	${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
-target_include_directories(jc3DCh03_VK02_DemoApp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_sources(jc3DCh03_VK02_DemoApp PRIVATE ${CMAKE_SOURCE_DIR}/extern/src/glslang/StandAlone/ResourceLimits.cpp)
 
-#if(MSVC)
-#	set_property(TARGET jc3DCh03_VK02_DemoApp PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
-#endif()
+target_include_directories(jc3DCh03_VK02_DemoApp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 target_link_libraries(jc3DCh03_VK02_DemoApp PRIVATE 
 	glfw
-	volk::volk
+	volk
 	glslang
 	SPIRV
-	assimp::assimp
+	assimp
 )

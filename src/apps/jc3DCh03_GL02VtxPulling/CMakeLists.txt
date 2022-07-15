@@ -19,7 +19,6 @@ target_include_directories(jc3DCh03_GL02VtxPulling PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}/src)
 	
 target_link_libraries(jc3DCh03_GL02VtxPulling PRIVATE
-	glad::glad 
-	glfw
-	glm::glm 
-	assimp::assimp)
+	glad
+	glfw	
+	assimp)

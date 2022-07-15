@@ -21,14 +21,9 @@ target_sources(jc3DCh03_VK01_GLSLang
 
 target_include_directories(jc3DCh03_VK01_GLSLang PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-if(MSVC)
-	set_property(TARGET jc3DCh03_VK01_GLSLang PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
-endif()
-
 target_link_libraries(jc3DCh03_VK01_GLSLang PRIVATE 
 	glfw
-	volk::volk 
-	volk::volk_headers
+	volk 
 	glslang
 	SPIRV
 )

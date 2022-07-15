@@ -96,7 +96,7 @@ include_directories(extern/src/glslang)
 include_directories(extern/src/glslang/StandAlone)
 include_directories(extern/src/glslang/src)
 
-set(GLAD_SOURCES extern/src/glad/gl.c extern/src/glad/vulkan.c)
+set(GLAD_SOURCES extern/src/glad/src/gl.c extern/src/glad/src/vulkan.c)
 if(WIN32)
 	set(GLAD_SOURCES ${GLAD_SOURCES} extern/src/glad/src/wgl.c)
 endif()

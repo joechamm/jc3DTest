@@ -15,7 +15,7 @@ target_compile_features(jc3DCh02_EasyProfiler PRIVATE cxx_std_20)
 target_sources(jc3DCh02_EasyProfiler PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
 target_link_libraries(jc3DCh02_EasyProfiler PRIVATE
-	glad::glad 
+	glad
 	glfw
 	easy_profiler
 )
