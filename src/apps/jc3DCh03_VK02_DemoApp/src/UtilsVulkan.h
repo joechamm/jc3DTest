@@ -30,7 +30,6 @@ struct VulkanInstance {
 	VkInstance instance;
 	VkSurfaceKHR surface;
 	VkDebugUtilsMessengerEXT messenger;
-	VkDebugReportCallbackEXT reportCallback;
 };
 
 struct VulkanRenderDevice {
@@ -87,7 +86,7 @@ struct VulkanTexture {
 
 void CHECK ( bool check, const char* filename, int linenumber );
 
-bool setupDebugCallbacks ( VkInstance instance, VkDebugUtilsMessengerEXT* messenger, VkDebugReportCallbackEXT* reportCallback );
+bool setupDebugCallbacks ( VkInstance instance, VkDebugUtilsMessengerEXT* messenger );
 
 VkResult createShaderModule ( VkDevice device, ShaderModule* shader, const char* fileName );
 

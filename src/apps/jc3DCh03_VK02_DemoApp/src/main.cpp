@@ -617,7 +617,7 @@ bool initVulkan ()
 
 	cout << "Attempting to setup debug callbacks..." << endl;
 
-	if ( !setupDebugCallbacks ( vk.instance, &vk.messenger, &vk.reportCallback ) )
+	if ( !setupDebugCallbacks ( vk.instance, &vk.messenger ) )
 	{
 		exit ( EXIT_FAILURE );
 	}
@@ -639,6 +639,7 @@ bool initVulkan ()
 
 	cout << "Attempting to create textured vertex buffer..." << endl;
 
+	// createTexturedVertexBuffer is failing because the graphics queue hasn't been created yet
 	if ( !createTexturedVertexBuffer ( vkDev, string ( ROOT_DIR ).append ( "assets/models/rubber_duck/scene.gltf" ).c_str (), &vkState.storageBuffer, &vkState.storageBufferMemory, &vertexBufferSize, &indexBufferSize ) || !createUniformBuffers () )
 	{
 		printf ( "Cannot create data buffers\n" );
@@ -648,7 +649,7 @@ bool initVulkan ()
 
 	cout << "Attempting to create texture image..." << endl;
 
-	createTextureImage ( vkDev, string ( ROOT_DIR ).append ( "assets/rubber_duck/textures/Duck_baseColor.png").c_str(), vkState.texture.image.image, vkState.texture.image.imageMemory );
+	createTextureImage ( vkDev, string ( ROOT_DIR ).append ( "assets/models/rubber_duck/textures/Duck_baseColor.png").c_str(), vkState.texture.image.image, vkState.texture.image.imageMemory );
 
 	cout << "Attempting to create image view..." << endl;
 
@@ -664,24 +665,92 @@ bool initVulkan ()
 
 	cout << "Attempting to create pipeline..." << endl;
 
-	const std::vector<const char*> shaderFiles = {
-		string ( ROOT_DIR ).append ( "assets/shaders/VK02.vert" ).c_str (),
-		string ( ROOT_DIR ).append ( "assets/shaders/VK02.frag" ).c_str (),
-		string ( ROOT_DIR ).append ( "assets/shaders/VK02.geom" ).c_str ()
+	string vsFilename = string ( ROOT_DIR ) + string ( "assets/shaders/VK02.vert" );
+	string fsFilename = string ( ROOT_DIR ) + string ( "assets/shaders/VK02.frag" );
+	string gsFilename = string ( ROOT_DIR ) + string ( "assets/shaders/VK02.geom" );
+
+	//const std::vector<const char*> shaderFiles = {
+	//	string ( ROOT_DIR ).append ( "assets/shaders/VK02.vert" ).c_str (),
+	//	string ( ROOT_DIR ).append ( "assets/shaders/VK02.frag" ).c_str (),
+	//	string ( ROOT_DIR ).append ( "assets/shaders/VK02.geom" ).c_str ()
+	//};
+
+	vector<const char*> shaderFiles = {
+		vsFilename.c_str (),
+		fsFilename.c_str (),
+		gsFilename.c_str ()
 	};
 
-	if ( !createDescriptorPool ( vkDev, 1, 2, 1, &vkState.descriptorPool ) ||
-		!createDescriptorSet () ||
-		!createColorAndDepthRenderPass ( vkDev, true, &vkState.renderPass, RenderPassCreateInfo{ .clearColor_ = true, .clearDepth_ = true, .flags_ = eRenderPassBit_First | eRenderPassBit_Last } ) ||
-		!createPipelineLayout ( vkDev.device, vkState.descriptorSetLayout, &vkState.pipelineLayout ) ||
-		!createGraphicsPipeline ( vkDev, vkState.renderPass, vkState.pipelineLayout, shaderFiles, &vkState.graphicsPipeline, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, true, true, false, -1, -1, 0) )
+	cout << "shader filenames: " << endl;
+	for ( const auto& fname : shaderFiles )
 	{
-		printf ( "Failed to create pipeline\n" );
+		cout << fname << endl;
+	}
+
+	//if ( !createDescriptorPool ( vkDev, 1, 2, 1, &vkState.descriptorPool ) ||
+	//	!createDescriptorSet () ||
+	//	!createColorAndDepthRenderPass ( vkDev, true, &vkState.renderPass, RenderPassCreateInfo{ .clearColor_ = true, .clearDepth_ = true, .flags_ = eRenderPassBit_First | eRenderPassBit_Last } ) ||
+	//	!createPipelineLayout ( vkDev.device, vkState.descriptorSetLayout, &vkState.pipelineLayout ) ||
+	//	!createGraphicsPipeline ( vkDev, vkState.renderPass, vkState.pipelineLayout, shaderFiles, &vkState.graphicsPipeline, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, true, true, false, -1, -1, 0) )
+	//{
+	//	printf ( "Failed to create pipeline\n" );
+	//	fflush ( stdout );
+	//	exit ( 0 );
+	//}
+
+	cout << "creating descriptor pool..." << endl;
+	if ( !createDescriptorPool ( vkDev, 1, 2, 1, &vkState.descriptorPool ) )
+	{
+		cout << "failed to create descriptor pool..." << endl;
 		fflush ( stdout );
 		exit ( 0 );
 	}
 
-	createColorAndDepthFramebuffers ( vkDev, vkState.renderPass, vkState.depthTexture.image.imageView, vkState.swapchainFramebuffers );
+	cout << "creating descriptor set..." << endl;
+	if ( !createDescriptorSet() )
+	{
+		cout << "failed to create descriptor set..." << endl;
+		fflush ( stdout );
+		exit ( 0 );
+	}
+
+	cout << "creating color and depth render pass..." << endl;
+	const RenderPassCreateInfo rpci = {
+		.clearColor_ = true,
+		.clearDepth_ = true,
+		.flags_ = eRenderPassBit_First | eRenderPassBit_Last
+	};
+
+	if ( !createColorAndDepthRenderPass(vkDev, true, &vkState.renderPass, rpci ) )
+	{
+		cout << "failed to create render pass..." << endl;
+		fflush ( stdout );
+		exit ( 0 );
+	}
+
+	cout << "creating pipeline layout..." << endl;
+	if ( !createPipelineLayout ( vkDev.device, vkState.descriptorSetLayout, &vkState.pipelineLayout ) )
+	{
+		cout << "failed to create pipeline layout..." << endl;
+		fflush ( stdout );
+		exit ( 0 );
+	}
+
+	cout << "creating graphics pipeline..." << endl;
+	if ( !createGraphicsPipeline ( vkDev, vkState.renderPass, vkState.pipelineLayout, shaderFiles, &vkState.graphicsPipeline ) )
+	{
+		cout << "failed to create graphics pipeline..." << endl;
+		fflush ( stdout );
+		exit ( 0 );
+	}
+
+	cout << "attempting to create color and depth framebuffers..." << endl;
+	if ( !createColorAndDepthFramebuffers ( vkDev, vkState.renderPass, vkState.depthTexture.image.imageView, vkState.swapchainFramebuffers ) )
+	{
+		cout << "failed to create framebuffers..." << endl;
+		fflush ( stdout );
+		exit ( 0 );
+	}
 
 	return VK_SUCCESS;
 }

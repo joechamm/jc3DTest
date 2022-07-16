@@ -49,64 +49,24 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugCallback (
 	return VK_FALSE;
 }
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugReportCallback (
-	VkDebugReportFlagsEXT flags,
-	VkDebugReportObjectTypeEXT objectType,
-	uint64_t object,
-	size_t location,
-	int32_t messageCode,
-	const char* pLayerPrefix,
-	const char* pMessage,
-	void* UserData )
-{
-	// https://github.com/zeux/niagara/blob/master/src/device.cpp   [ignoring performance warnings]
-	// This silences warnings like "For optimal performance image layout should be VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL instead of GENERAL."
-	if ( flags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT )
-	{
-		return VK_FALSE;
-	}
-
-	printf ( "Debug callback (%s): %s\n", pLayerPrefix, pMessage );
-	return VK_FALSE;
-}
-
 bool setupDebugCallbacks ( 
 	VkInstance instance, 
-	VkDebugUtilsMessengerEXT* messenger, 
-	VkDebugReportCallbackEXT* reportCallback )
+	VkDebugUtilsMessengerEXT* messenger )
 {
-	{
-		const VkDebugUtilsMessengerCreateInfoEXT ci = {
+	const VkDebugUtilsMessengerCreateInfoEXT ci = {
 			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-			.messageSeverity = 
+			.messageSeverity =
 				VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
 				VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
-			.messageType = 
-				VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | 
-				VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | 
+			.messageType =
+				VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+				VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
 				VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
 			.pfnUserCallback = &VulkanDebugCallback,
 			.pUserData = nullptr
-		};
+	};
 
-		VK_CHECK ( vkCreateDebugUtilsMessengerEXT ( instance, &ci, nullptr, messenger ) );
-	}
-
-	{
-		const VkDebugReportCallbackCreateInfoEXT ci = {
-			.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT,
-			.pNext = nullptr,
-			.flags = 
-				VK_DEBUG_REPORT_WARNING_BIT_EXT | 
-				VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT | 
-				VK_DEBUG_REPORT_ERROR_BIT_EXT | 
-				VK_DEBUG_REPORT_DEBUG_BIT_EXT,
-			.pfnCallback = &VulkanDebugReportCallback,
-			.pUserData = nullptr
-		};
-
-		VK_CHECK ( vkCreateDebugReportCallbackEXT ( instance, &ci, nullptr, reportCallback ) );
-	}	
+	VK_CHECK ( vkCreateDebugUtilsMessengerEXT ( instance, &ci, nullptr, messenger ) );
 	
 	return true;
 }
@@ -449,7 +409,6 @@ void createInstance ( VkInstance* instance )
 		"VK_KHR_xcb_surface",
 #endif
 		VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-		VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
 		/* for indexed textures */
 		VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME
 	};
@@ -615,7 +574,7 @@ bool initVulkanRenderDevice (
 	VK_CHECK ( createDevice ( vkDev.physicalDevice, deviceFeatures, vkDev.graphicsFamily, &vkDev.device ) );
 
 	vkGetDeviceQueue ( vkDev.device, vkDev.graphicsFamily, 0, &vkDev.graphicsQueue );
-	if ( vkDev.graphicsQueue = nullptr )
+	if ( vkDev.graphicsQueue == nullptr )
 	{
 		exit ( EXIT_FAILURE );
 	}
@@ -673,7 +632,6 @@ void destroyVulkanRenderDevice ( VulkanRenderDevice& vkDev )
 void destroyVulkanInstance ( VulkanInstance& vk )
 {
 	vkDestroySurfaceKHR ( vk.instance, vk.surface, nullptr );
-	vkDestroyDebugReportCallbackEXT ( vk.instance, vk.reportCallback, nullptr );
 	vkDestroyDebugUtilsMessengerEXT ( vk.instance, vk.messenger, nullptr );
 	vkDestroyInstance ( vk.instance, nullptr );
 }
