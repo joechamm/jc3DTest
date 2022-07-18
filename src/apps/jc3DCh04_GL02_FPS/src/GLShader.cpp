@@ -1,7 +1,7 @@
 #include "GLShader.h"
 #include "Utils.h"
 
-#include <glad/glad.h>
+#include <glad/gl.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string>

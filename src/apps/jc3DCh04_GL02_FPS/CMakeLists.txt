@@ -19,6 +19,7 @@ target_sources(jc3DCh04_GL02_FPS
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Utils.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/UtilsCubemap.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/UtilsMath.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/UtilsFPS.h
 	PRIVATE 
 	${CMAKE_CURRENT_SOURCE_DIR}/src/GLShader.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Utils.cpp
