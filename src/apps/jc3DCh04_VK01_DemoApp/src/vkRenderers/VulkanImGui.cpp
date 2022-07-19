@@ -30,6 +30,7 @@ bool createFontTexture ( ImGuiIO& io, const char* fontFile, VulkanRenderDevice& 
 
 	unsigned char* pixels = nullptr;
 	int texWidth = 1, texHeight = 1;
+
 	io.Fonts->GetTexDataAsRGBA32 ( &pixels, &texWidth, &texHeight );
 
 	if ( !pixels || !createTextureImageFromData ( vkDev, textureImage, textureImageMemory, pixels, texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM ) )
@@ -46,14 +47,20 @@ bool createFontTexture ( ImGuiIO& io, const char* fontFile, VulkanRenderDevice& 
 	return true;
 }
 
-void addImGuiItem ( uint32_t width, uint32_t height, VkCommandBuffer commandBuffer, const ImDrawCmd* pcmd, ImVec2 clipOff, ImVec2 clipScale, int idxOffset, int vtxOffset )
+void addImGuiItem ( uint32_t width, uint32_t height, VkCommandBuffer commandBuffer, const ImDrawCmd* pcmd, ImVec2 clipOff, ImVec2 clipScale, int idxOffset, int vtxOffset, const std::vector<VulkanTexture>& textures, VkPipelineLayout pipelineLayout )
 {
-	if ( pcmd->UserCallback ) return;
+	if ( pcmd->UserCallback )
+	{
+		return;
+	}
+
+	// Project scissor/clipping rectangles
 	ImVec4 clipRect;
 	clipRect.x = (pcmd->ClipRect.x - clipOff.x) * clipScale.x;
 	clipRect.y = (pcmd->ClipRect.y - clipOff.y) * clipScale.y;
 	clipRect.z = (pcmd->ClipRect.z - clipOff.x) * clipScale.x;
 	clipRect.w = (pcmd->ClipRect.w - clipOff.y) * clipScale.y;
+
 	if ( clipRect.x < width && clipRect.y < height && clipRect.z >= 0.0f && clipRect.w >= 0.0f )
 	{
 		if ( clipRect.x < 0.0f ) clipRect.x = 0.0f;
@@ -67,12 +74,19 @@ void addImGuiItem ( uint32_t width, uint32_t height, VkCommandBuffer commandBuff
 
 		vkCmdSetScissor ( commandBuffer, 0, 1, &scissor );
 
+		if ( textures.size () > 0 )
+		{
+			uint32_t texture = (uint32_t)(intptr_t)pcmd->TextureId;
+			vkCmdPushConstants ( commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof ( uint32_t ), (const void*)&texture );
+		}
+
 		vkCmdDraw ( commandBuffer, pcmd->ElemCount, 1, pcmd->IdxOffset + idxOffset, pcmd->VtxOffset + vtxOffset );
 	}
 }
 
 ImGuiRenderer::ImGuiRenderer ( VulkanRenderDevice& vkDev ) : RendererBase ( vkDev, VulkanImage () )
 {
+	// Resource loading
 	ImGuiIO& io = ImGui::GetIO ();
 
 	string fontFilename = appendToRoot ( "assets/fonts/OpenSans-Light.ttf" );
@@ -138,7 +152,7 @@ ImGuiRenderer::ImGuiRenderer ( VulkanRenderDevice& vkDev ) : RendererBase ( vkDe
 
 	std::vector<string> shaderFilenames = getShaderFilenamesWithRoot ( "assets/shaders/imgui.vert", "assets/shaders/imgui.frag" );
 
-	if ( !createGraphicsPipeline ( vkDev, renderPass_, pipelineLayout_, shaderFilenames, &graphicsPipeline_, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, true, true, true, true ) )
+	if ( !createGraphicsPipeline ( vkDev, renderPass_, pipelineLayout_, shaderFilenames, &graphicsPipeline_, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, true, true, true ) )
 	{
 		printf ( "ImGuiRenderer: failed to create graphics pipeline\n" );
 		exit ( EXIT_FAILURE );
@@ -230,22 +244,25 @@ void ImGuiRenderer::fillCommandBuffer ( VkCommandBuffer commandBuffer, size_t cu
 {
 	beginRenderPass ( commandBuffer, currentImage );
 
-	ImVec2 clipOff = drawData->DisplayPos;  
-	ImVec2 clipScale = drawData->FramebufferScale;
+	ImVec2 clipOff = drawData_->DisplayPos;			// (0,0) unless using multi-viewports
+	ImVec2 clipScale = drawData_->FramebufferScale;	// (1,1) unless using retina display which are often (2,2)
 
 	int vtxOffset = 0;
 	int idxOffset = 0;
 
-	for ( int n = 0; n < drawData->CmdListsCount; n++ )
+	for ( int n = 0; n < drawData_->CmdListsCount; n++ )
 	{
-		const ImDrawList* cmdList = drawData->CmdLists[n];
+		const ImDrawList* cmdList = drawData_->CmdLists[n];
+
 		for ( int cmd = 0; cmd < cmdList->CmdBuffer.Size; cmd++ )
 		{
 			const ImDrawCmd* pcmd = &cmdList->CmdBuffer[cmd];
-			addImGuiItem ( framebufferWidth_, framebufferHeight_, commandBuffer, pcmd, clipOff, clipScale, idxOffset, vtxOffset );
-			idxOffset += cmdList->IdxBuffer.Size;
-			vtxOffset += cmdList->VtxBuffer.Size;
+		
+			addImGuiItem ( framebufferWidth_, framebufferHeight_, commandBuffer, pcmd, clipOff, clipScale, idxOffset, vtxOffset, extTextures_, pipelineLayout_ );
 		}
+
+		idxOffset += cmdList->IdxBuffer.Size;
+		vtxOffset += cmdList->VtxBuffer.Size;
 	}
 
 	vkCmdEndRenderPass ( commandBuffer );
@@ -253,28 +270,36 @@ void ImGuiRenderer::fillCommandBuffer ( VkCommandBuffer commandBuffer, size_t cu
 
 void ImGuiRenderer::updateBuffers ( VulkanRenderDevice& vkDev, uint32_t currentImage, const ImDrawData* imguiDrawData )
 {
-	drawData = imguiDrawData;
-	const float L = drawData->DisplayPos.x;
-	const float R = drawData->DisplayPos.x + drawData->DisplaySize.x;
-	const float T = drawData->DisplayPos.y;
-	const float B = drawData->DisplayPos.y + drawData->DisplaySize.y;
+	drawData_ = imguiDrawData;
+
+	const float L = drawData_->DisplayPos.x;
+	const float R = drawData_->DisplayPos.x + drawData_->DisplaySize.x;
+	const float T = drawData_->DisplayPos.y;
+	const float B = drawData_->DisplayPos.y + drawData_->DisplaySize.y;
+	
 	const mat4 inMtx = glm::ortho ( L, R, T, B );
+	
 	uploadBufferData ( vkDev, uniformBuffersMemory_[currentImage], 0, glm::value_ptr ( inMtx ), sizeof ( mat4 ) );
+	
 	void* data = nullptr;
 	vkMapMemory ( vkDev.device, storageBufferMemory_[currentImage], 0, bufferSize_, 0, &data );
+	
 	ImDrawVert* vtx = (ImDrawVert*)data;
-	for ( int n = 0; n < drawData->CmdListsCount; n++ )
+	
+	for ( int n = 0; n < drawData_->CmdListsCount; n++ )
 	{
-		const ImDrawList* cmdList = drawData->CmdLists[n];
+		const ImDrawList* cmdList = drawData_->CmdLists[n];
 		memcpy ( vtx, cmdList->VtxBuffer.Data, cmdList->VtxBuffer.Size * sizeof ( ImDrawVert ) );
 		vtx += cmdList->VtxBuffer.Size;
 	}
 
 	uint32_t* idx = (uint32_t*)((uint8_t*)data + ImGuiVtxBufferSize);
-	for ( int n = 0; n < drawData->CmdListsCount; n++ )
+	
+	for ( int n = 0; n < drawData_->CmdListsCount; n++ )
 	{
-		const ImDrawList* cmdList = drawData->CmdLists[n];
+		const ImDrawList* cmdList = drawData_->CmdLists[n];
 		const uint16_t* src = (const uint16_t*)cmdList->IdxBuffer.Data;
+
 		for ( int j = 0; j < cmdList->IdxBuffer.Size; j++ )
 		{
 			*idx++ = (uint32_t)*src++;

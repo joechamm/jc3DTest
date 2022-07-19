@@ -6,7 +6,7 @@
 class ImGuiRenderer : public RendererBase
 {
 private:
-	const ImDrawData* drawData = nullptr;
+	const ImDrawData* drawData_ = nullptr;
 
 	std::vector<VulkanTexture> extTextures_;
 	// storage buffer with index and vertex data
