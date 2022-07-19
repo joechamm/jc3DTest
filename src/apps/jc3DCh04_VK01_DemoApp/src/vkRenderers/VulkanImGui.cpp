@@ -136,7 +136,7 @@ ImGuiRenderer::ImGuiRenderer ( VulkanRenderDevice& vkDev ) : RendererBase ( vkDe
 		exit ( EXIT_FAILURE );
 	}
 
-	std::vector<const char*> shaderFilenames = getShaderFilenamesWithRoot ( "assets/shaders/imgui.vert", "assets/shaders/imgui.frag" );
+	std::vector<string> shaderFilenames = getShaderFilenamesWithRoot ( "assets/shaders/imgui.vert", "assets/shaders/imgui.frag" );
 
 	if ( !createGraphicsPipeline ( vkDev, renderPass_, pipelineLayout_, shaderFilenames, &graphicsPipeline_, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, true, true, true, true ) )
 	{

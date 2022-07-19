@@ -58,7 +58,7 @@ ModelRenderer::ModelRenderer ( VulkanRenderDevice& vkDev, const char* modelFile,
 		exit ( EXIT_FAILURE );
 	}
 
-	std::vector<const char*> shaderFilenames = getShaderFilenamesWithRoot ( "assets/shaders/VK02.vert", "assets/shaders/VK02.frag", "assets/shaders/VK02.geom" );
+	std::vector<string> shaderFilenames = getShaderFilenamesWithRoot ( "assets/shaders/VK02.vert", "assets/shaders/VK02.frag", "assets/shaders/VK02.geom" );
 
 	if ( !createGraphicsPipeline ( vkDev, renderPass_, pipelineLayout_, shaderFilenames, &graphicsPipeline_ ))
 	{

@@ -30,6 +30,7 @@
 #include <string>
 
 #include <helpers/RootDir.h>
+#include "ResourceString.h"
 
 using glm::mat4;
 using glm::vec3;
@@ -74,14 +75,10 @@ const char* cameraType = "FirstPerson";
 const char* comboBoxItems[] = { "FirstPerson", "MoveTo" };
 const char* currentComboBoxItem = cameraType;
 
-string appendToRoot ( const string& str )
-{
-	return string ( ROOT_DIR ) + str;
-}
-
 bool initVulkan ()
 {
-	createInstance ( &vk.instance );
+//	createInstance ( &vk.instance );
+	createInstanceWithDebugging ( &vk.instance, "jc3DCh04_VK01_DemoApp" );
 
 	if ( !setupDebugCallbacks ( vk.instance, &vk.messenger ) )
 	{
@@ -105,12 +102,19 @@ bool initVulkan ()
 	string imgFilename = appendToRoot ( "assets/images/sampleSTB.jpg" );
 	string envFilename = appendToRoot ( "assets/images/piazza_bologni_1k.hdr" );
 
+	printf ( "Creating ImGuiRenderer\n" );
 	imgui = std::make_unique<ImGuiRenderer> ( vkDev );
+	printf ( "Creating ModelRenderer\n" );
 	modelRenderer = std::make_unique<ModelRenderer> ( vkDev, modelFilename.c_str (), imgFilename.c_str (), (uint32_t)sizeof ( glm::mat4 ) );
+	printf ( "Creating CubeRenderer\n" );
 	cubeRenderer = std::make_unique<CubeRenderer> ( vkDev, modelRenderer->getDepthTexture (), envFilename.c_str () );
+	printf ( "Creating VulkanClear\n" );
 	clear = std::make_unique<VulkanClear> ( vkDev, modelRenderer->getDepthTexture () );
+	printf ( "Creating VulkanFinish\n" );
 	finish = std::make_unique<VulkanFinish> ( vkDev, modelRenderer->getDepthTexture () );
+	printf ( "Creating VulkanCanvas (canvas2d)\n" );
 	canvas2d = std::make_unique<VulkanCanvas> ( vkDev, VulkanImage{ .image = VK_NULL_HANDLE, .imageView = VK_NULL_HANDLE } );
+	printf ( "Creating VulkanCanvas (canvas)\n" );
 	canvas = std::make_unique<VulkanCanvas> ( vkDev, modelRenderer->getDepthTexture () );
 
 	return true;
@@ -421,6 +425,7 @@ int main ()
 	float deltaSeconds = 0.0f;
 
 	const std::vector<RendererBase*> renderers = { clear.get (), cubeRenderer.get (), modelRenderer.get (), canvas.get (), canvas2d.get (), imgui.get (), finish.get () };
+//	const std::vector<RendererBase*> renderers = { clear.get (), modelRenderer.get (), canvas.get (), canvas2d.get (), imgui.get (), finish.get () };
 
 	while ( !glfwWindowShouldClose ( window ) )
 	{

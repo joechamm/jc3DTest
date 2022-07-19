@@ -55,7 +55,7 @@ VulkanCanvas::VulkanCanvas ( VulkanRenderDevice& vkDev, VulkanImage depth ) : Re
 		exit ( EXIT_FAILURE );
 	}
 
-	std::vector<const char*> shaderFilenames = getShaderFilenamesWithRoot("assets/shaders/Lines.vert", "assets/shaders/Lines.frag");
+	std::vector<string> shaderFilenames = getShaderFilenamesWithRoot("assets/shaders/Lines.vert", "assets/shaders/Lines.frag");
 
 	if ( !createGraphicsPipeline ( vkDev, renderPass_, pipelineLayout_, shaderFilenames, &graphicsPipeline_, VK_PRIMITIVE_TOPOLOGY_LINE_LIST, (depth.image != VK_NULL_HANDLE), true ) )
 	{

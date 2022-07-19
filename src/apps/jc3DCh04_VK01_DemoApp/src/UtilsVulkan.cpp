@@ -30,6 +30,12 @@ using glm::vec2;
 
 #include <cstdio>
 #include <cstdlib>
+#include <stdexcept>
+#include <iostream>
+
+using std::cout;
+using std::endl;
+using std::exception;
 
 void CHECK ( bool check, const char* filename, int linenumber )
 {
@@ -71,6 +77,15 @@ bool setupDebugCallbacks (
 	VK_CHECK ( vkCreateDebugUtilsMessengerEXT ( instance, &ci, nullptr, messenger ) );
 	
 	return true;
+}
+
+void populateDebugMessengerCreateInfo ( VkDebugUtilsMessengerCreateInfoEXT& createInfo )
+{
+	createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+	createInfo.pfnUserCallback = VulkanDebugCallback;
 }
 
 VkShaderStageFlagBits glslangShaderStageToVulkan ( glslang_stage_t sh )
@@ -185,187 +200,6 @@ static size_t compileShader ( glslang_stage_t stage, const char* shaderSource, S
 	return shaderModule.SPIRV.size ();
 }
 
-/*
-namespace glslang
-{
-	static TBuiltInResource InitResources ()
-	{
-		TBuiltInResource Resources;
-
-		Resources.maxLights = 32;
-		Resources.maxClipPlanes = 6;
-		Resources.maxTextureUnits = 32;
-		Resources.maxTextureCoords = 32;
-		Resources.maxVertexAttribs = 64;
-		Resources.maxVertexUniformComponents = 4096;
-		Resources.maxVaryingFloats = 64;
-		Resources.maxVertexTextureImageUnits = 32;
-		Resources.maxCombinedTextureImageUnits = 80;
-		Resources.maxTextureImageUnits = 32;
-		Resources.maxFragmentUniformComponents = 4096;
-		Resources.maxDrawBuffers = 32;
-		Resources.maxVertexUniformVectors = 128;
-		Resources.maxVaryingVectors = 8;
-		Resources.maxFragmentUniformVectors = 16;
-		Resources.maxVertexOutputVectors = 16;
-		Resources.maxFragmentInputVectors = 15;
-		Resources.minProgramTexelOffset = -8;
-		Resources.maxProgramTexelOffset = 7;
-		Resources.maxClipDistances = 8;
-		Resources.maxComputeWorkGroupCountX = 65535;
-		Resources.maxComputeWorkGroupCountY = 65535;
-		Resources.maxComputeWorkGroupCountZ = 65535;
-		Resources.maxComputeWorkGroupSizeX = 1024;
-		Resources.maxComputeWorkGroupSizeY = 1024;
-		Resources.maxComputeWorkGroupSizeZ = 64;
-		Resources.maxComputeUniformComponents = 1024;
-		Resources.maxComputeTextureImageUnits = 16;
-		Resources.maxComputeImageUniforms = 8;
-		Resources.maxComputeAtomicCounters = 8;
-		Resources.maxComputeAtomicCounterBuffers = 1;
-		Resources.maxVaryingComponents = 60;
-		Resources.maxVertexOutputComponents = 64;
-		Resources.maxGeometryInputComponents = 64;
-		Resources.maxGeometryOutputComponents = 128;
-		Resources.maxFragmentInputComponents = 128;
-		Resources.maxImageUnits = 8;
-		Resources.maxCombinedImageUnitsAndFragmentOutputs = 8;
-		Resources.maxCombinedShaderOutputResources = 8;
-		Resources.maxImageSamples = 0;
-		Resources.maxVertexImageUniforms = 0;
-		Resources.maxTessControlImageUniforms = 0;
-		Resources.maxTessEvaluationImageUniforms = 0;
-		Resources.maxGeometryImageUniforms = 0;
-		Resources.maxFragmentImageUniforms = 8;
-		Resources.maxCombinedImageUniforms = 8;
-		Resources.maxGeometryTextureImageUnits = 16;
-		Resources.maxGeometryOutputVertices = 256;
-		Resources.maxGeometryTotalOutputComponents = 1024;
-		Resources.maxGeometryUniformComponents = 1024;
-		Resources.maxGeometryVaryingComponents = 64;
-		Resources.maxTessControlInputComponents = 128;
-		Resources.maxTessControlOutputComponents = 128;
-		Resources.maxTessControlTextureImageUnits = 16;
-		Resources.maxTessControlUniformComponents = 1024;
-		Resources.maxTessControlTotalOutputComponents = 4096;
-		Resources.maxTessEvaluationInputComponents = 128;
-		Resources.maxTessEvaluationOutputComponents = 128;
-		Resources.maxTessEvaluationTextureImageUnits = 16;
-		Resources.maxTessEvaluationUniformComponents = 1024;
-		Resources.maxTessPatchComponents = 120;
-		Resources.maxPatchVertices = 32;
-		Resources.maxTessGenLevel = 64;
-		Resources.maxViewports = 16;
-		Resources.maxVertexAtomicCounters = 0;
-		Resources.maxTessControlAtomicCounters = 0;
-		Resources.maxTessEvaluationAtomicCounters = 0;
-		Resources.maxGeometryAtomicCounters = 0;
-		Resources.maxFragmentAtomicCounters = 8;
-		Resources.maxCombinedAtomicCounters = 8;
-		Resources.maxAtomicCounterBindings = 1;
-		Resources.maxVertexAtomicCounterBuffers = 0;
-		Resources.maxTessControlAtomicCounterBuffers = 0;
-		Resources.maxTessEvaluationAtomicCounterBuffers = 0;
-		Resources.maxGeometryAtomicCounterBuffers = 0;
-		Resources.maxFragmentAtomicCounterBuffers = 1;
-		Resources.maxCombinedAtomicCounterBuffers = 1;
-		Resources.maxAtomicCounterBufferSize = 16384;
-		Resources.maxTransformFeedbackBuffers = 4;
-		Resources.maxTransformFeedbackInterleavedComponents = 64;
-		Resources.maxCullDistances = 8;
-		Resources.maxCombinedClipAndCullDistances = 8;
-		Resources.maxSamples = 4;
-		Resources.maxMeshOutputVerticesNV = 256;
-		Resources.maxMeshOutputPrimitivesNV = 512;
-		Resources.maxMeshWorkGroupSizeX_NV = 32;
-		Resources.maxMeshWorkGroupSizeY_NV = 1;
-		Resources.maxMeshWorkGroupSizeZ_NV = 1;
-		Resources.maxTaskWorkGroupSizeX_NV = 32;
-		Resources.maxTaskWorkGroupSizeY_NV = 1;
-		Resources.maxTaskWorkGroupSizeZ_NV = 1;
-		Resources.maxMeshViewCountNV = 4;
-
-		Resources.limits.nonInductiveForLoops = 1;
-		Resources.limits.whileLoops = 1;
-		Resources.limits.doWhileLoops = 1;
-		Resources.limits.generalUniformIndexing = 1;
-		Resources.limits.generalAttributeMatrixVectorIndexing = 1;
-		Resources.limits.generalVaryingIndexing = 1;
-		Resources.limits.generalSamplerIndexing = 1;
-		Resources.limits.generalVariableIndexing = 1;
-		Resources.limits.generalConstantMatrixVectorIndexing = 1;
-
-		return Resources;
-	}
-}
-
-static_assert(sizeof ( TBuiltInResource ) == sizeof ( glslang_resource_t ));
-
-static size_t compileShader ( glslang_stage_t stage, const char* shaderSource, ShaderModule& shaderModule )
-{
-	static TBuiltInResource DefaultTBuildInResources = glslang::InitResources ();
-
-	const glslang_input_t input = {
-		.language = GLSLANG_SOURCE_GLSL,
-		.stage = stage,
-		.client = GLSLANG_CLIENT_VULKAN,
-		.client_version = GLSLANG_TARGET_VULKAN_1_1,
-		.target_language = GLSLANG_TARGET_SPV,
-		.target_language_version = GLSLANG_TARGET_SPV_1_3,
-		.code = shaderSource,
-		.default_version = 100,
-		.default_profile = GLSLANG_NO_PROFILE,
-		.force_default_version_and_profile = false,
-		.forward_compatible = false,
-		.messages = GLSLANG_MSG_DEFAULT_BIT,
-		.resource = (const glslang_resource_t*)&DefaultTBuildInResources,
-	};
-
-	glslang_shader_t* shd = glslang_shader_create ( &input );
-
-	if ( !glslang_shader_preprocess ( shd, &input ) )
-	{
-		fprintf ( stderr, "GLSL preprocessing failed\n" );
-		fprintf ( stderr, "\n%s", glslang_shader_get_info_log ( shd ) );
-		fprintf ( stderr, "\n%s", glslang_shader_get_info_debug_log ( shd ) );
-		fprintf ( stderr, "code:\n%s", input.code );
-		return 0;
-	}
-
-	if ( !glslang_shader_parse ( shd, &input ) )
-	{
-		fprintf ( stderr, "GLSL parsing failed\n" );
-		fprintf ( stderr, "\n%s", glslang_shader_get_info_log ( shd ) );
-		fprintf ( stderr, "\n%s", glslang_shader_get_info_debug_log ( shd ) );
-		fprintf ( stderr, "%s", glslang_shader_get_preprocessed_code ( shd ) );
-		return 0;
-	}
-
-	glslang_program_t* prog = glslang_program_create ();
-	glslang_program_add_shader ( prog, shd );
-	int msgs = GLSLANG_MSG_SPV_RULES_BIT | GLSLANG_MSG_VULKAN_RULES_BIT;
-	if ( !glslang_program_link ( prog, msgs ) )
-	{
-		fprintf ( stderr, "GLSL linking failed\n" );
-		fprintf ( stderr, "\n%s", glslang_program_get_info_log ( prog ) );
-		fprintf ( stderr, "\n%s", glslang_program_get_info_debug_log ( prog ) );
-		return 0;
-	}
-
-	glslang_program_SPIRV_generate ( prog, stage );
-	shaderModule.SPIRV.resize ( glslang_program_SPIRV_get_size ( prog ) );
-	glslang_program_SPIRV_get ( prog, shaderModule.SPIRV.data () );
-	const char* spirv_messages = glslang_program_SPIRV_get_messages ( prog );
-	if ( spirv_messages )
-		fprintf ( stderr, "%s", spirv_messages );
-
-	glslang_program_delete ( prog );
-	glslang_shader_delete ( shd );
-	return shaderModule.SPIRV.size ();
-}
-
-*/
-
 size_t compileShaderFile ( const char* file, ShaderModule& shaderModule )
 {
 	if ( auto shaderSource = readShaderFile ( file ); !shaderSource.empty () )
@@ -422,7 +256,7 @@ void createInstance ( VkInstance* instance )
 		.applicationVersion = VK_MAKE_VERSION ( 1, 0, 0 ),
 		.pEngineName = "No Engine",
 		.engineVersion = VK_MAKE_VERSION ( 1, 0, 0 ),
-		.apiVersion = VK_API_VERSION_1_1
+		.apiVersion = VK_API_VERSION_1_3
 	};
 
 	const VkInstanceCreateInfo createInfo = {
@@ -435,6 +269,79 @@ void createInstance ( VkInstance* instance )
 		.enabledExtensionCount = static_cast<uint32_t>(exts.size ()),
 		.ppEnabledExtensionNames = exts.data ()
 	};
+
+	VkResult createInstanceResult = vkCreateInstance ( &createInfo, nullptr, instance );
+
+	if ( createInstanceResult != VK_SUCCESS )
+	{
+		printf ( "Failed to create Vulkan Instance with result %s\n", vulkanResultToString ( createInstanceResult ).c_str () );
+		exit ( EXIT_FAILURE );
+	}
+
+//	VK_CHECK ( vkCreateInstance ( &createInfo, nullptr, instance )  );
+
+	volkLoadInstance ( *instance );
+}
+
+void createInstanceWithDebugging ( VkInstance* instance, const char* appName )
+{
+	std::vector<const char*> validationLayers;
+
+#ifdef _DEBUG
+	validationLayers.push_back ( "VK_LAYER_KHRONOS_validation" );
+#endif
+
+	std::vector<const char*> requiredExtensions = getGLFWRequiredExtensions ();
+
+#ifdef _DEBUG
+	requiredExtensions.push_back ( VK_EXT_DEBUG_UTILS_EXTENSION_NAME );
+#endif
+
+	requiredExtensions.push_back ( VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME );
+
+	if ( !checkValidationLayerSupport ( validationLayers ) )
+	{
+		cout << "Validation Layer Support Not Available" << endl;
+		exit ( EXIT_FAILURE );
+	}
+
+	if ( !checkExtensionSupport ( requiredExtensions ) )
+	{
+		cout << "Extension Support Not Available" << endl;
+		exit ( EXIT_FAILURE );
+	}
+
+	VkApplicationInfo appInfo = {};
+	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+	appInfo.pApplicationName = appName;
+	appInfo.applicationVersion = VK_MAKE_VERSION ( 1, 0, 0 );
+	appInfo.pEngineName = "No Engine";
+	appInfo.engineVersion = VK_MAKE_VERSION ( 1, 0, 0 );
+	appInfo.apiVersion = VK_API_VERSION_1_3;
+
+	VkInstanceCreateInfo createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+	createInfo.pApplicationInfo = &appInfo;
+
+	createInfo.enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size ());
+	createInfo.ppEnabledExtensionNames = requiredExtensions.data ();
+
+	if ( validationLayers.empty () )
+	{
+		createInfo.enabledLayerCount = 0;
+		createInfo.ppEnabledLayerNames = nullptr;
+	}
+	else
+	{
+		createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size ());
+		createInfo.ppEnabledLayerNames = validationLayers.data ();
+	}
+
+#ifdef _DEBUG
+	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {};
+	populateDebugMessengerCreateInfo ( debugCreateInfo );
+	createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+#endif
 
 	VkResult createInstanceResult = vkCreateInstance ( &createInfo, nullptr, instance );
 
@@ -912,6 +819,162 @@ bool createGraphicsPipeline (
 	for ( size_t i = 0; i < shaderFiles.size (); i++ )
 	{
 		const char* file = shaderFiles[i];
+		VK_CHECK ( createShaderModule ( vkDev.device, &shaderModules[i], file ) );
+
+		VkShaderStageFlagBits stage = glslangShaderStageToVulkan ( glslangShaderStageFromFileName ( file ) );
+
+		shaderStages[i] = shaderStageInfo ( stage, shaderModules[i], "main" );
+	}
+
+	const VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
+	};
+
+	const VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+		/* The only difference from createGraphicsPipeline() */
+		.topology = topology,
+		.primitiveRestartEnable = VK_FALSE
+	};
+
+	const VkViewport viewport = {
+		.x = 0.0f,
+		.y = 0.0f,
+		.width = static_cast<float>(customWidth > 0 ? customWidth : vkDev.framebufferWidth),
+		.height = static_cast<float>(customHeight > 0 ? customHeight : vkDev.framebufferHeight),
+		.minDepth = 0.0f,
+		.maxDepth = 1.0f
+	};
+
+	const VkRect2D scissor = {
+		.offset = { 0, 0 },
+		.extent = { customWidth > 0 ? customWidth : vkDev.framebufferWidth, customHeight > 0 ? customHeight : vkDev.framebufferHeight }
+	};
+
+	const VkPipelineViewportStateCreateInfo viewportState = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+		.viewportCount = 1,
+		.pViewports = &viewport,
+		.scissorCount = 1,
+		.pScissors = &scissor
+	};
+
+	const VkPipelineRasterizationStateCreateInfo rasterizer = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+		.polygonMode = VK_POLYGON_MODE_FILL,
+		.cullMode = VK_CULL_MODE_NONE,
+		.frontFace = VK_FRONT_FACE_CLOCKWISE,
+		.lineWidth = 1.0f
+	};
+
+	const VkPipelineMultisampleStateCreateInfo multisampling = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+		.sampleShadingEnable = VK_FALSE,
+		.minSampleShading = 1.0f
+	};
+
+	const VkPipelineColorBlendAttachmentState colorBlendAttachment = {
+		.blendEnable = VK_TRUE,
+		.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+		.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+		.colorBlendOp = VK_BLEND_OP_ADD,
+		.srcAlphaBlendFactor = useBlending ? VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA : VK_BLEND_FACTOR_ONE,
+		.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+		.alphaBlendOp = VK_BLEND_OP_ADD,
+		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+	};
+
+	const VkPipelineColorBlendStateCreateInfo colorBlending = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+		.logicOpEnable = VK_FALSE,
+		.logicOp = VK_LOGIC_OP_COPY,
+		.attachmentCount = 1,
+		.pAttachments = &colorBlendAttachment,
+		.blendConstants = { 0.0f, 0.0f, 0.0f, 0.0f }
+	};
+
+	const VkPipelineDepthStencilStateCreateInfo depthStencil = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+		.depthTestEnable = static_cast<VkBool32>(useDepth ? VK_TRUE : VK_FALSE),
+		.depthWriteEnable = static_cast<VkBool32>(useDepth ? VK_TRUE : VK_FALSE),
+		.depthCompareOp = VK_COMPARE_OP_LESS,
+		.depthBoundsTestEnable = VK_FALSE,
+		.minDepthBounds = 0.0f,
+		.maxDepthBounds = 1.0f
+	};
+
+	VkDynamicState dynamicStateElt = VK_DYNAMIC_STATE_SCISSOR;
+
+	const VkPipelineDynamicStateCreateInfo dynamicState = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.dynamicStateCount = 1,
+		.pDynamicStates = &dynamicStateElt
+	};
+
+	const VkPipelineTessellationStateCreateInfo tessellationState = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.patchControlPoints = numPatchControlPoints
+	};
+
+	const VkGraphicsPipelineCreateInfo pipelineInfo = {
+		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+		.stageCount = static_cast<uint32_t>(shaderStages.size ()),
+		.pStages = shaderStages.data (),
+		.pVertexInputState = &vertexInputInfo,
+		.pInputAssemblyState = &inputAssembly,
+		.pTessellationState = (topology == VK_PRIMITIVE_TOPOLOGY_PATCH_LIST) ? &tessellationState : nullptr,
+		.pViewportState = &viewportState,
+		.pRasterizationState = &rasterizer,
+		.pMultisampleState = &multisampling,
+		.pDepthStencilState = useDepth ? &depthStencil : nullptr,
+		.pColorBlendState = &colorBlending,
+		.pDynamicState = dynamicScissorState ? &dynamicState : nullptr,
+		.layout = pipelineLayout,
+		.renderPass = renderPass,
+		.subpass = 0,
+		.basePipelineHandle = VK_NULL_HANDLE,
+		.basePipelineIndex = -1
+	};
+
+	VK_CHECK ( vkCreateGraphicsPipelines ( vkDev.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, pipeline ) );
+
+	for ( auto m : shaderModules )
+		vkDestroyShaderModule ( vkDev.device, m.shaderModule, nullptr );
+
+	return true;
+}
+
+bool createGraphicsPipeline (
+	VulkanRenderDevice& vkDev,
+	VkRenderPass renderPass,
+	VkPipelineLayout pipelineLayout,
+	const std::vector<std::string>& shaderFiles,
+	VkPipeline* pipeline,
+	VkPrimitiveTopology topology,
+	bool useDepth,
+	bool useBlending,
+	bool dynamicScissorState,
+	int32_t customWidth,
+	int32_t customHeight,
+	uint32_t numPatchControlPoints )
+{
+	std::vector<ShaderModule> shaderModules;
+	std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+
+	shaderStages.resize ( shaderFiles.size () );
+	shaderModules.resize ( shaderFiles.size () );
+
+	shaderStages.resize ( shaderFiles.size () );
+	shaderModules.resize ( shaderFiles.size () );
+
+	for ( size_t i = 0; i < shaderFiles.size (); i++ )
+	{
+		const char* file = shaderFiles[i].c_str();
 		VK_CHECK ( createShaderModule ( vkDev.device, &shaderModules[i], file ) );
 
 		VkShaderStageFlagBits stage = glslangShaderStageToVulkan ( glslangShaderStageFromFileName ( file ) );
@@ -1633,20 +1696,19 @@ bool createImageView (
 		.pNext = nullptr,
 		.flags = 0,
 		.image = image,
-		.viewType = VK_IMAGE_VIEW_TYPE_2D,
+		.viewType = viewType,
 		.format = format,
 		.subresourceRange = {
 			.aspectMask = aspectFlags,
 			.baseMipLevel = 0,
-			.levelCount = 1,
+			.levelCount = mipLevels,
 			.baseArrayLayer = 0,
-			.layerCount = 1
+			.layerCount = layerCount
 		}
 	};
 	VK_CHECK ( vkCreateImageView ( device, &viewInfo, nullptr, imageView ) );
 	return true;
 }
-
 
 bool createTexturedVertexBuffer ( 
 	VulkanRenderDevice& vkDev, 
@@ -1949,13 +2011,13 @@ void transitionImageLayout (
 	endSingleTimeCommands ( vkDev, commandBuffer );
 }
 
-void transitionImageLayoutCmd ( 
-	VkCommandBuffer commandBuffer, 
-	VkImage image, 
+void transitionImageLayoutCmd (
+	VkCommandBuffer commandBuffer,
+	VkImage image,
 	VkFormat format,
 	VkImageLayout oldLayout,
-	VkImageLayout newLayout, 
-	uint32_t layerCount, 
+	VkImageLayout newLayout,
+	uint32_t layerCount,
 	uint32_t mipLevels )
 {
 	VkImageMemoryBarrier barrier = {
@@ -1968,41 +2030,171 @@ void transitionImageLayoutCmd (
 		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 		.image = image,
-		.subresourceRange = VkImageSubresourceRange {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1 }
+		.subresourceRange = VkImageSubresourceRange {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = mipLevels,
+			.baseArrayLayer = 0,
+			.layerCount = layerCount }
 	};
 
-	VkPipelineStageFlags sourceStage, destinationStage;
-	if ( newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL )
+	VkPipelineStageFlags sourceStage;
+	VkPipelineStageFlags destinationStage;
+
+	if ( newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ||
+		(format == VK_FORMAT_D16_UNORM) ||
+		(format == VK_FORMAT_X8_D24_UNORM_PACK32) ||
+		(format == VK_FORMAT_D32_SFLOAT) ||
+		(format == VK_FORMAT_S8_UINT) ||
+		(format == VK_FORMAT_D16_UNORM_S8_UINT) ||
+		(format == VK_FORMAT_D24_UNORM_S8_UINT) )
 	{
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
 		if ( hasStencilComponent ( format ) )
 		{
 			barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-		} 		
-	} else
+		}
+	}
+	else
 	{
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	}
 
-	if ( oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL )
+	if ( oldLayout == VK_IMAGE_LAYOUT_UNDEFINED )
 	{
-		barrier.srcAccessMask = 0;
-		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-	} else if ( oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL )
-	{
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	} else if ( oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL )
-	{
-		barrier.srcAccessMask = 0;
-		barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		switch ( newLayout )
+		{
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			barrier.srcAccessMask = 0;
+			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+			destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_GENERAL:
+			barrier.srcAccessMask = 0;
+			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+			sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+			destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+			barrier.srcAccessMask = 0;
+			barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+			destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+			/* Convert depth texture from undefined state to depth-stencil buffer */
+			barrier.srcAccessMask = 0;
+			barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+			destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+			break;
+		default:
+			break;
+		}
 	}
+	else if ( oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL )
+	{
+		switch ( newLayout )
+		{
+		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+			/* Convert back from read-only to color attachment*/
+			barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+			sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+			/* Convert back from read-only to depth attachment */
+			barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+			sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			destinationStage = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			/* Wait for render pass to complete */
+			barrier.srcAccessMask = 0; // VK_ACCESS_SHADER_READ_BIT
+			barrier.dstAccessMask = 0;
+
+			/*
+			* sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			* destinationStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+			* destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHEMTN_OUTPUT_BIT;
+			*/
+
+			sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+			/* Convert back from read-only to updateable */
+			barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+			barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+			sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+			break;
+		default:
+			break;
+		}
+	}
+	else if ( oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL )
+	{
+		switch ( newLayout )
+		{		
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			/* Convert from updateable texture to shader read-only */
+			barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+			sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+			destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			break;	
+		default:
+			break;
+		}
+	}
+	else if ( oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL )
+	{
+		switch ( newLayout )
+		{
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			/* Convert from updateable texture to shader read-only */
+			barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+			sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			break;	
+		default:
+			break;
+		}
+
+	}
+	else if ( oldLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL )
+	{
+		switch ( newLayout )
+		{
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			/* Convert from updateable depth texture to shader read-only */
+			barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+			sourceStage = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+			destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+			break;
+		default:
+			break;
+		}
+
+	}
+
 	vkCmdPipelineBarrier (
 		/* VkCommandBuffer commandBuffer */							commandBuffer,
 		/* VkPipelineStageFlags srcStageMask */						sourceStage,
@@ -2015,82 +2207,230 @@ void transitionImageLayoutCmd (
 		/* uint32_t imageMemoryBarrierCount */						1,
 		/* const VkImageMemoryBarrier *pImageMemoryBarriers */		&barrier
 		);
-
-
 }
 
-/*
-
-VkCommandBuffer beginSingleTimeCommands ( VkDevice device, VkCommandPool commandPool, VkQueue queue )
+std::vector<VkLayerProperties> getAvailableLayers ( void )
 {
-	VkCommandBuffer commandBuffer;
-	const VkCommandBufferAllocateInfo allocInfo = {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-		.pNext = nullptr,
-		.commandPool = commandPool,
-		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-		.commandBufferCount = 1
-	};
+	uint32_t layerCount;
+	std::vector<VkLayerProperties> availableLayers;
 
-	vkAllocateCommandBuffers ( device, &allocInfo, &commandBuffer );
-	const VkCommandBufferBeginInfo beginInfo = {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		.pNext = nullptr,
-		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-		.pInheritanceInfo = nullptr
-	};
-	vkBeginCommandBuffer ( commandBuffer, &beginInfo );
-	return commandBuffer;
+	vkEnumerateInstanceLayerProperties ( &layerCount, nullptr );
+
+	availableLayers.resize ( static_cast<size_t>(layerCount) );
+
+	vkEnumerateInstanceLayerProperties ( &layerCount, availableLayers.data () );
+
+	return availableLayers;
 }
 
-void endSingleTimeCommands ( VkDevice device, VkCommandPool commandPool, VkQueue graphicsQueue, VkCommandBuffer commandBuffer )
+
+std::vector<VkExtensionProperties> getAvailableExtensionsByLayer ( const char* layer )
 {
-	vkEndCommandBuffer ( commandBuffer );
-	const VkSubmitInfo submitInfo = {
-		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		.pNext = nullptr,
-		.waitSemaphoreCount = 0,
-		.pWaitSemaphores = nullptr,
-		.pWaitDstStageMask = nullptr,
-		.commandBufferCount = 1,
-		.pCommandBuffers = &commandBuffer,
-		.signalSemaphoreCount = 0,
-		.pSignalSemaphores = nullptr
-	};
-	vkQueueSubmit ( graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE );
-	vkQueueWaitIdle ( graphicsQueue );
-	vkFreeCommandBuffers ( device, commandPool, 1, &commandBuffer );
+	uint32_t extensionCount;
+	std::vector<VkExtensionProperties> availableExtensions;
+
+	vkEnumerateInstanceExtensionProperties ( layer, &extensionCount, nullptr );
+
+	availableExtensions.resize ( static_cast<size_t>(extensionCount) );
+
+	vkEnumerateInstanceExtensionProperties ( layer, &extensionCount, availableExtensions.data () );
+
+	return availableExtensions;
 }
 
-void copyBuffer ( 
-	VkDevice device,
-	VkCommandPool commandPool,
-	VkQueue graphicsQueue,
-	VkBuffer srcBuffer,	VkBuffer dstBuffer, 
-	VkDeviceSize size )
+std::vector<VkExtensionProperties> getAvailableExtensions ( void )
 {
-	VkCommandBuffer commandBuffer = beginSingleTimeCommands ( device, commandPool, graphicsQueue );
-	const VkBufferCopy copyParam = {
-		.srcOffset = 0,
-		.dstOffset = 0,
-		.size = size
-	};
-	vkCmdCopyBuffer ( commandBuffer, srcBuffer, dstBuffer, 1, &copyParam );
-	endSingleTimeCommands ( device, commandPool, graphicsQueue, commandBuffer );
+	uint32_t extensionCount;
+	std::vector<VkExtensionProperties> availableExtensions;
+
+	vkEnumerateInstanceExtensionProperties ( nullptr, &extensionCount, nullptr );
+
+	availableExtensions.resize ( static_cast<size_t>(extensionCount) );
+
+	vkEnumerateInstanceExtensionProperties ( nullptr, &extensionCount, availableExtensions.data () );
+
+	return availableExtensions;
 }
 
-void copyBufferToImage ( VkDevice device, VkCommandPool commandPool, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height )
+std::vector<const char*>	getGLFWRequiredExtensions ( void )
 {
-	
+	uint32_t glfwExtensionCount = 0;
+	const char** glfwExtensions;
+	glfwExtensions = glfwGetRequiredInstanceExtensions ( &glfwExtensionCount );
+
+	std::vector<const char*> extensions ( glfwExtensions, glfwExtensions + glfwExtensionCount );
+
+	return extensions;
 }
 
-uint32_t findMemoryType (
-	VkPhysicalDevice device,
-	uint32_t typeFilter,
-	VkMemoryPropertyFlags properties )
+bool checkValidationLayerSupport ( const std::vector<const char*>& requestedLayers )
 {
-	VkPhysicalDeviceProperties memProperties;
+	uint32_t layerCount;
+	std::vector<VkLayerProperties> availableLayers;
+	vkEnumerateInstanceLayerProperties ( &layerCount, nullptr );
 
+	availableLayers.resize ( static_cast<size_t>(layerCount) );
+	vkEnumerateInstanceLayerProperties ( &layerCount, availableLayers.data () );
+
+	bool allLayersFound = false;
+
+	for ( const char* layerName : requestedLayers )
+	{
+		bool layerFound = false;
+
+		for ( const auto& layerProperties : availableLayers )
+		{
+			if ( strcmp ( layerName, layerProperties.layerName ) == 0 )
+			{
+				layerFound = true;
+				break;
+			}
+		}
+
+		if ( !layerFound )
+		{
+			return false;
+		}
+	}
+
+	allLayersFound = true;
+	return allLayersFound;
 }
 
-*/
+bool checkExtensionSupport ( const std::vector<const char*>& requestedExtensions )
+{
+	uint32_t extensionCount;
+	std::vector<VkExtensionProperties> availableExtensions;
+
+	vkEnumerateInstanceExtensionProperties ( nullptr, &extensionCount, nullptr );
+
+	availableExtensions.resize ( static_cast<size_t>(extensionCount) );
+
+	vkEnumerateInstanceExtensionProperties ( nullptr, &extensionCount, availableExtensions.data () );
+
+	bool allExtensionsFound = false;
+
+	for ( const char* extName : requestedExtensions )
+	{
+		bool extensionFound = false;
+
+		for ( const auto& extProps : availableExtensions )
+		{
+			if ( strcmp ( extName, extProps.extensionName ) == 0 )
+			{
+				extensionFound = true;
+				break;
+			}
+		}
+
+		if ( !extensionFound )
+		{
+			return false;
+		}
+	}
+
+	allExtensionsFound = true;
+	return allExtensionsFound;
+}
+
+void printAvailableLayers ( void )
+{
+	uint32_t layerCount;
+	std::vector<VkLayerProperties> availableLayers;
+
+	vkEnumerateInstanceLayerProperties ( &layerCount, nullptr );
+
+	availableLayers.resize ( static_cast<size_t>(layerCount) );
+
+	vkEnumerateInstanceLayerProperties ( &layerCount, availableLayers.data () );
+
+	cout << "----- AVAILABLE VULKAN LAYERS -----" << layerCount << endl;
+
+	for ( const auto& layer : availableLayers )
+	{
+		cout << "==============================================================" << endl;
+		cout << "NAME: " << layer.layerName << endl << "DESCRIPTION: " << layer.description << endl;
+		cout << "==============================================================" << endl << endl;
+	}
+
+	cout << "----- DONE -----" << endl << endl;
+}
+
+void printAvailableExtensions ( void )
+{
+	uint32_t vulkanExtensionCount = 0;
+	std::vector<VkExtensionProperties> extensions;
+	vkEnumerateInstanceExtensionProperties ( nullptr, &vulkanExtensionCount, nullptr );
+
+	extensions.resize ( vulkanExtensionCount );
+	vkEnumerateInstanceExtensionProperties ( nullptr, &vulkanExtensionCount, extensions.data () );
+
+	cout << "----- AVAILABLE VULKAN EXTENSIONS -----" << endl << endl;
+
+	for ( const auto& ext : extensions )
+	{
+		cout << "==============================================================" << endl;
+		cout << ext.extensionName << endl;
+		cout << "==============================================================" << endl << endl;
+	}
+
+	cout << "----- DONE -----" << endl << endl;
+}
+
+void printExtensionsByLayer ( const char* layerName )
+{
+	uint32_t extensionCount;
+	std::vector<VkExtensionProperties> availableExtensions;
+
+	vkEnumerateInstanceExtensionProperties ( layerName, &extensionCount, nullptr );
+
+	availableExtensions.resize ( static_cast<size_t>(extensionCount) );
+	vkEnumerateInstanceExtensionProperties ( layerName, &extensionCount, availableExtensions.data () );
+
+	cout << "----- AVAILABLE VULKAN EXTENSIONS FOR " << layerName << " LAYER -----" << endl << endl;
+
+	for ( const auto& ext : availableExtensions )
+	{
+		cout << "==============================================================" << endl;
+		cout << ext.extensionName << endl;
+		cout << "==============================================================" << endl << endl;
+	}
+
+	cout << "----- DONE -----" << endl << endl;
+}
+
+void printAllExtensionsByLayer ( void )
+{
+	std::vector<VkLayerProperties> availableLayers = getAvailableLayers ();
+
+	cout << "----- ENUMERATING VULKAN EXTENSIONS BY LAYER -----" << endl << endl;
+
+	for ( const auto& layer : availableLayers )
+	{
+		cout << "==============================================================" << endl;
+		cout << "- LAYER NAME: " << layer.layerName << endl << "  - LAYER DESCRIPTION: " << layer.description << endl << "  - AVAILABLE EXTENSIONS: " << endl;
+		std::vector<VkExtensionProperties> availableExtensions = getAvailableExtensionsByLayer ( layer.layerName );
+		for ( const auto& ext : availableExtensions )
+		{
+			cout << "    - " << ext.extensionName << endl;
+		}
+		cout << "==============================================================" << endl << endl;
+	}
+	cout << "----- DONE -----" << endl << endl;
+}
+
+void printVulkanApiVersion ( void )
+{
+	uint32_t apiVersion;
+	VkResult apiCheckResult = vkEnumerateInstanceVersion ( &apiVersion );
+
+	cout << "Result of vkEnumerateInstanceVersion: " << vulkanResultToString ( apiCheckResult ) << endl;
+
+	cout << "VK_API_VERSION_MAJOR: " << VK_API_VERSION_MAJOR ( apiVersion ) << endl;
+	cout << "VK_API_VERSION_MINOR: " << VK_API_VERSION_MINOR ( apiVersion ) << endl;
+	cout << "VK_API_VERSION_VARIANT: " << VK_API_VERSION_VARIANT ( apiVersion ) << endl;
+	cout << "VK_API_VERSION_PATCH: " << VK_API_VERSION_PATCH ( apiVersion ) << endl;
+	cout << "VK_VERSION_MAJOR: " << VK_VERSION_MAJOR ( apiVersion ) << endl;
+	cout << "VK_VERSION_MINOR: " << VK_VERSION_MINOR ( apiVersion ) << endl;
+	cout << "VK_VERSION_PATCH: " << VK_VERSION_PATCH ( apiVersion ) << endl;
+}

@@ -153,6 +153,7 @@ inline VkWriteDescriptorSet imageWriteDescriptorSet ( VkDescriptorSet ds, const 
 }
 
 void createInstance ( VkInstance* instance );
+void createInstanceWithDebugging ( VkInstance* instance, const char* appName = "jc3DTest Vulkan Application" );
 
 VkResult createDevice ( VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures deviceFeatures, uint32_t graphicsFamily, VkDevice* device );
 
@@ -196,6 +197,20 @@ bool createGraphicsPipeline (
 	const std::vector<const char*>& shaderFiles,
 	VkPipeline* pipeline,
 	VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST /* defaults to triangles */,
+	bool useDepth = true,
+	bool useBlending = true,
+	bool dynamicScissorState = false,
+	int32_t customWidth = -1,
+	int32_t customHeight = -1,
+	uint32_t numPatchControlPoints = 0 );
+
+bool createGraphicsPipeline (
+	VulkanRenderDevice& vkDev,
+	VkRenderPass renderPass,
+	VkPipelineLayout pipelineLayout,
+	const std::vector<std::string>& shaderFiles,
+	VkPipeline* pipeline,
+	VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
 	bool useDepth = true,
 	bool useBlending = true,
 	bool dynamicScissorState = false,
@@ -275,4 +290,19 @@ inline bool setVkImageName ( VulkanRenderDevice& vkDev, void* object, const char
 	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_IMAGE, name );
 }
 
+/* Added for debuggging */
+
 std::string vulkanResultToString ( VkResult result );
+
+std::vector<VkLayerProperties> getAvailableLayers ( void );
+std::vector<VkExtensionProperties> getAvailableExtensionsByLayer ( const char* layer );
+std::vector<VkExtensionProperties> getAvailableExtensions ( void );
+std::vector<const char*>	getGLFWRequiredExtensions ( void );
+void printAvailableLayers ( void );
+void printAvailableExtensions ( void );
+void printExtensionsByLayer ( const char* layerName );
+void printAllExtensionsByLayer ( void );
+void printVulkanApiVersion ( void );
+bool checkValidationLayerSupport ( const std::vector<const char*>& requestedLayers );
+bool checkExtensionSupport ( const std::vector<const char*>& requestedExtensions );
+void populateDebugMessengerCreateInfo ( VkDebugUtilsMessengerCreateInfoEXT& createInfo );

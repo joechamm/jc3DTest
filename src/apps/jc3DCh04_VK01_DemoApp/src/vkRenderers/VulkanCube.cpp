@@ -120,7 +120,7 @@ CubeRenderer::CubeRenderer ( VulkanRenderDevice& vkDev, VulkanImage inDepthTextu
 		exit ( EXIT_FAILURE );
 	}
 
-	std::vector<const char*> shaderFilenames = getShaderFilenamesWithRoot ( "assets/shaders/VKCube.vert", "assets/shaders/VKCube.frag" );
+	std::vector<string> shaderFilenames = getShaderFilenamesWithRoot ( "assets/shaders/VKCube.vert", "assets/shaders/VKCube.frag" );
 
 	if ( !createGraphicsPipeline ( vkDev, renderPass_, pipelineLayout_, shaderFilenames, &graphicsPipeline_ ) )
 	{
