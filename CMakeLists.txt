@@ -75,6 +75,7 @@ add_subdirectory(extern/src/assimp)
 add_subdirectory(extern/src/meshoptimizer)
 add_subdirectory(extern/src/volk) 
 add_subdirectory(extern/src/glslang)
+add_subdirectory(extern/src/imgui)
 
 # Configure assets header file 
 configure_file(src/helpers/RootDir.h.in src/helpers/RootDir.h)
@@ -85,6 +86,7 @@ include_directories(extern/src)
 include_directories(extern/src/glfw/include)
 include_directories(extern/src/glm)
 include_directories(extern/src/gli)
+include_directories(extern/src/imgui)
 include_directories(extern/src/glad/include)
 include_directories(extern/src/assimp/include)
 include_directories(extern/src/glslang/glslang/Include)
@@ -118,6 +120,7 @@ set_property(TARGET OGLCompiler PROPERTY FOLDER "ThirdPartyLibraries")
 set_property(TARGET OSDependent PROPERTY FOLDER "ThirdPartyLibraries")
 set_property(TARGET SPIRV PROPERTY FOLDER "ThirdPartyLibraries")
 set_property(TARGET SPVRemapper PROPERTY FOLDER "ThirdPartyLibraries")
+set_property(TARGET imgui PROPERTY FOLDER "ThirdPartyLibraries")
 
 add_subdirectory(src/libs)
 
