@@ -1,4 +1,6 @@
 #include "vkRenderers/VulkanFinish.h"
+#include "EasyProfilerWrapper.h"
+
 
 // The VulkanFinish class essentially hides all the hassle necessary to finalize frame rendering in Vulkan.
 VulkanFinish::VulkanFinish ( VulkanRenderDevice& vkDev, VulkanImage depthTexture )
@@ -17,6 +19,8 @@ VulkanFinish::VulkanFinish ( VulkanRenderDevice& vkDev, VulkanImage depthTexture
 // This is the last rendering pass and we should not clear any buffers
 void VulkanFinish::fillCommandBuffer ( VkCommandBuffer commandBuffer, size_t currentImage )
 {
+	EASY_FUNCTION ();
+
 	const VkRect2D screenRect = {
 		.offset = { 0, 0 },
 		.extent = {.width = framebufferWidth_, .height = framebufferHeight_ }

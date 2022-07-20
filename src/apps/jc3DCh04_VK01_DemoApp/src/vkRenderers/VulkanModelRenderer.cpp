@@ -1,4 +1,5 @@
 #include "vkRenderers/VulkanModelRenderer.h"
+#include "EasyProfilerWrapper.h"
 
 #include "ResourceString.h"
 
@@ -144,8 +145,11 @@ void ModelRenderer::updateUniformBuffer ( VulkanRenderDevice& vkDev, uint32_t cu
 
 void ModelRenderer::fillCommandBuffer ( VkCommandBuffer commandBuffer, size_t currentImage )
 {
+	EASY_FUNCTION ();
+
 	beginRenderPass ( commandBuffer, currentImage );
-	vkCmdDraw ( commandBuffer, indexBufferSize_ / (sizeof ( uint32_t )), 1, 0, 0 );
+
+	vkCmdDraw ( commandBuffer, static_cast<uint32_t>(indexBufferSize_ / (sizeof ( uint32_t ))), 1, 0, 0 );
 	vkCmdEndRenderPass ( commandBuffer );
 }
 

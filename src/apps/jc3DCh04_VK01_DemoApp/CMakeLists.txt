@@ -29,6 +29,7 @@ target_sources(jc3DCh04_VK01_DemoApp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/vkRenderers/VulkanImGui.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/vkRenderers/VulkanModelRenderer.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/vkRenderers/VulkanRendererBase.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/EasyProfilerWrapper.h 
 	PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}/src/vkRenderers/VulkanCanvas.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/vkRenderers/VulkanClear.cpp
@@ -44,7 +45,9 @@ target_sources(jc3DCh04_VK01_DemoApp
 
 target_sources(jc3DCh04_VK01_DemoApp PRIVATE ${CMAKE_SOURCE_DIR}/extern/src/glslang/StandAlone/ResourceLimits.cpp)
 
-target_sources(jc3DCh04_VK01_DemoApp PUBLIC ${CMAKE_SOURCE_DIR}/extern/src/imgui/imgui.h PRIVATE ${CMAKE_SOURCE_DIR}/extern/src/imgui/imgui.cpp)
+target_sources(jc3DCh04_VK01_DemoApp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/imgui_wrapper.cpp)
+
+#target_sources(jc3DCh04_VK01_DemoApp PUBLIC ${CMAKE_SOURCE_DIR}/extern/src/imgui/imgui.h PRIVATE ${CMAKE_SOURCE_DIR}/extern/src/imgui/imgui.cpp)
 
 target_include_directories(jc3DCh04_VK01_DemoApp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/vkRenderers)
 
@@ -54,5 +57,12 @@ target_link_libraries(jc3DCh04_VK01_DemoApp PRIVATE
 	glslang
 	SPIRV
 	assimp
-	imgui
 )
+
+if(BUILD_WITH_EASY_PROFILER)
+	target_link_libraries(jc3DCh04_VK01_DemoApp PRIVATE easy_profiler)
+endif()
+
+if(BUILD_WITH_OPTICK)
+	target_link_libraries(jc3DCh04_VK01_DemoApp PRIVATE OptickCore)
+endif()

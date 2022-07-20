@@ -9,12 +9,9 @@ include(CMakePrintHelpers)
 
 message(STATUS "Building ${PROJECT_NAME}")
 
-option(BUILD_WITH_EASY_PROFILER "Enable EasyProfiler usage" OFF)
+option(BUILD_WITH_EASY_PROFILER "Enable EasyProfiler usage" ON)
 option(BUILD_WITH_OPTICK "Enable Optick usage" OFF)
 
-set(EASY_PROFILER_NO_GUI ON CACHE BOOL "")
-set(EASY_PROFILER_NO_SAMPLES ON CACHE BOOL "")
-	
 # use folders
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
@@ -22,6 +19,9 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "")
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "")
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "")
 set(GLFW_INSTALL OFF CACHE BOOL "")
+
+set(EASY_PROFILER_NO_GUI ON CACHE BOOL "")
+set(EASY_PROFILER_NO_SAMPLES ON CACHE BOOL "")
 
 set(ASSIMP_NO_EXPORT ON CACHE BOOL "")
 set(ASSIMP_BUILD_DRACO OFF CACHE BOOL "")
@@ -36,14 +36,32 @@ set(MESHOPT_BUILD_DEMO OFF CACHE BOOL "")
 set(MESHOPT_BUILD_TOOLS OFF CACHE BOOL "")
 set(MESHOPT_BUILD_SHARED_LIBS OFF CACHE BOOL "")
 
+add_subdirectory(extern/src/etc2comp)
+
+if(WIN32)
+	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+endif()
+
+add_subdirectory(extern/src/glfw)
+
+if(BUILD_WITH_OPTICK)
+	add_subdirectory(extern/src/optick)
+endif()
+
+add_subdirectory(extern/src/easy_sources) 
+add_subdirectory(extern/src/assimp)
+add_subdirectory(extern/src/meshoptimizer)
+add_subdirectory(extern/src/volk) 
+
 set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "")
 set(ENABLE_HLSL OFF CACHE BOOL "")
 set(ENABLE_CTEST OFF CACHE BOOL "")
 set(ENABLE_OPT OFF CACHE BOOL "")
 set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "")
 
+add_subdirectory(extern/src/glslang)
+
 # external dependencies
-add_subdirectory(extern/src/etc2comp)
 
 include_directories(extern/src/etc2comp/EtcLib/Etc)
 include_directories(extern/src/etc2comp/EtcLib/EtcCodec)
@@ -53,7 +71,8 @@ set_property(TARGET EtcTool	PROPERTY FOLDER "ThirdPartyLibraries")
 
 if(BUILD_WITH_EASY_PROFILER)
 	message("Enabled EasyProfiler")	
-	add_subdirectory(extern/src/easy_sources)
+#	add_subdirectory(extern/src/easy_sources)
+#	add_subdirectory(extern/src/easy_sources/easy_profiler_converter)
 	add_definitions(-DBUILD_WITH_EASY_PROFILER=1)
 	include_directories(extern/src/easy_profiler/include)
 	set_property(TARGET easy_profiler PROPERTY FOLDER "ThirdPartyLibraries")
@@ -61,21 +80,10 @@ if(BUILD_WITH_EASY_PROFILER)
 endif()
 if(BUILD_WITH_OPTICK)
 	message("Enabled Optick")
-	add_subdirectory(extern/src/optick)
+#	add_subdirectory(extern/src/optick)
 	add_definitions(-DBUILD_WITH_OPTICK=1)
 	set_property(TARGET OptickCore PROPERTY FOLDER "ThirdPartyLibraries")
 endif()
-
-if(WIN32)
-	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-endif()
-
-add_subdirectory(extern/src/glfw)
-add_subdirectory(extern/src/assimp)
-add_subdirectory(extern/src/meshoptimizer)
-add_subdirectory(extern/src/volk) 
-add_subdirectory(extern/src/glslang)
-add_subdirectory(extern/src/imgui)
 
 # Configure assets header file 
 configure_file(src/helpers/RootDir.h.in src/helpers/RootDir.h)
@@ -105,6 +113,8 @@ endif()
 
 add_library(glad ${GLAD_SOURCES}) 
 
+#add_subdirectory(extern/src/imgui)
+
 set_property(TARGET glfw PROPERTY FOLDER "ThirdPartyLibraries")
 set_property(TARGET assimp PROPERTY FOLDER "ThirdPartyLibraries")
 set_property(TARGET glad PROPERTY FOLDER "ThirdPartyLibraries")
@@ -113,14 +123,14 @@ set_property(TARGET volk PROPERTY FOLDER "ThirdPartyLibraries")
 if(WIN32)
 #	set_property(TARGET zlib PROPERTY FOLDER "ThirdPartyLibraries")
 #	set_property(TARGET zlibstatic	PROPERTY FOLDER "ThirdPartyLibraries")
-#	set_property(TARGET UpdateAssimpLibsDebugSymbolsAndDLLs PROPERTY FOLDER "ThirdPartyLibraries")
+	set_property(TARGET UpdateAssimpLibsDebugSymbolsAndDLLs PROPERTY FOLDER "ThirdPartyLibraries")
 endif()
 set_property(TARGET glslang PROPERTY FOLDER "ThirdPartyLibraries")
 set_property(TARGET OGLCompiler PROPERTY FOLDER "ThirdPartyLibraries")
 set_property(TARGET OSDependent PROPERTY FOLDER "ThirdPartyLibraries")
 set_property(TARGET SPIRV PROPERTY FOLDER "ThirdPartyLibraries")
 set_property(TARGET SPVRemapper PROPERTY FOLDER "ThirdPartyLibraries")
-set_property(TARGET imgui PROPERTY FOLDER "ThirdPartyLibraries")
+#set_property(TARGET imgui PROPERTY FOLDER "ThirdPartyLibraries")
 
 add_subdirectory(src/libs)
 

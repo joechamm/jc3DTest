@@ -1,8 +1,8 @@
 #include <imgui/imgui.h>
 
 #include "vkRenderers/VulkanImGui.h"
-
 #include "ResourceString.h"
+#include "EasyProfilerWrapper.h"
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
@@ -242,6 +242,8 @@ bool ImGuiRenderer::createDescriptorSet ( VulkanRenderDevice& vkDev )
 
 void ImGuiRenderer::fillCommandBuffer ( VkCommandBuffer commandBuffer, size_t currentImage )
 {
+	EASY_FUNCTION ();
+
 	beginRenderPass ( commandBuffer, currentImage );
 
 	ImVec2 clipOff = drawData_->DisplayPos;			// (0,0) unless using multi-viewports

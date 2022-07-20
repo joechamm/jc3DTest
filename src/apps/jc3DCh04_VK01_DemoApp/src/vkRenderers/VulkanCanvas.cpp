@@ -1,4 +1,5 @@
 #include "vkRenderers/VulkanCanvas.h"
+#include "EasyProfilerWrapper.h"
 
 #include "ResourceString.h"
 
@@ -146,6 +147,8 @@ void VulkanCanvas::updateUniformBuffer ( VulkanRenderDevice& vkDev, const mat4& 
 
 void VulkanCanvas::fillCommandBuffer ( VkCommandBuffer commandBuffer, size_t currentImage )
 {
+	EASY_FUNCTION ();
+
 	if ( lines_.empty () )
 	{
 		return;

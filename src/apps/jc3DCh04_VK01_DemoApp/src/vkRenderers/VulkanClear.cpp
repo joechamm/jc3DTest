@@ -1,4 +1,5 @@
 #include "vkRenderers/VulkanClear.h"
+#include "EasyProfilerWrapper.h"
 
 VulkanClear::VulkanClear ( VulkanRenderDevice& vkDev, VulkanImage depthTexture )
 	: RendererBase ( vkDev, depthTexture )
@@ -20,6 +21,7 @@ VulkanClear::VulkanClear ( VulkanRenderDevice& vkDev, VulkanImage depthTexture )
 
 void VulkanClear::fillCommandBuffer ( VkCommandBuffer commandBuffer, size_t swapFramebuffer )
 {
+	EASY_FUNCTION ();
 
 	const VkClearValue clearValues[2] = {
 		VkClearValue{ .color = { 1.0f, 1.0f, 1.0f, 1.0f } },
@@ -36,7 +38,7 @@ void VulkanClear::fillCommandBuffer ( VkCommandBuffer commandBuffer, size_t swap
 		.renderPass = renderPass_,
 		.framebuffer = swapchainFramebuffers_[swapFramebuffer],
 		.renderArea = screenRect,
-		.clearValueCount = shouldClearDepth ? 2u : 1u,
+		.clearValueCount = static_cast<uint32_t>(shouldClearDepth ? 2u : 1u),
 		.pClearValues = &clearValues[0]
 	};
 

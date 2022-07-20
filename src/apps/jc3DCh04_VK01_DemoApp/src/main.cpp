@@ -20,6 +20,7 @@
 #include "vkRenderers/VulkanClear.h"
 #include "vkRenderers/VulkanFinish.h"
 #include "vkRenderers/VulkanModelRenderer.h"
+#include "EasyProfilerWrapper.h"
 #include "Camera.h"
 #include "Graph.h"
 
@@ -77,6 +78,8 @@ const char* currentComboBoxItem = cameraType;
 
 bool initVulkan ()
 {
+	EASY_FUNCTION ();
+
 //	createInstance ( &vk.instance );
 	createInstanceWithDebugging ( &vk.instance, "jc3DCh04_VK01_DemoApp" );
 
@@ -152,6 +155,7 @@ void reinitCamera ()
 
 void renderGUI ( uint32_t imageIndex )
 {
+	EASY_FUNCTION ();
 
 	int width, height;
 	glfwGetFramebufferSize ( window, &width, &height );
@@ -234,10 +238,14 @@ void update3D ( uint32_t imageIndex )
 	const mat4 mtx = p * view * m1;
 
 	{
+		EASY_BLOCK ( "UpdateUniformBuffers" );
+
 		modelRenderer->updateUniformBuffer ( vkDev, imageIndex, glm::value_ptr ( mtx ), sizeof ( mat4 ) );
 		canvas->updateUniformBuffer ( vkDev, p * view, 0.0f, imageIndex );
 		canvas2d->updateUniformBuffer ( vkDev, glm::ortho ( 0, 1, 1, 0 ), 0.0f, imageIndex );
 		cubeRenderer->updateUniformBuffer ( vkDev, imageIndex, p * view * m1 );
+		
+		EASY_END_BLOCK;
 	}
 }
 
@@ -254,6 +262,8 @@ void composeFrame ( uint32_t imageIndex, const std::vector<RendererBase*>& rende
 	update3D ( imageIndex );
 	renderGUI ( imageIndex );
 	update2D ( imageIndex );
+
+	EASY_BLOCK ( "FillCommandBuffers" );
 
 	VkCommandBuffer commandBuffer = vkDev.commandBuffers[imageIndex];
 
@@ -272,10 +282,14 @@ void composeFrame ( uint32_t imageIndex, const std::vector<RendererBase*>& rende
 	}
 
 	VK_CHECK ( vkEndCommandBuffer ( commandBuffer ) );
+
+	EASY_END_BLOCK;
 }
 
 bool drawFrame ( const std::vector<RendererBase*>& renderers )
 {
+	EASY_FUNCTION ();
+
 	uint32_t imageIndex = 0;
 	VkResult result = vkAcquireNextImageKHR ( vkDev.device, vkDev.swapchain, 0, vkDev.semaphore, VK_NULL_HANDLE, &imageIndex );
 	VK_CHECK ( vkResetCommandPool ( vkDev.device, vkDev.commandPool, 0 ) );
@@ -303,7 +317,9 @@ bool drawFrame ( const std::vector<RendererBase*>& renderers )
 	};
 
 	{
+		EASY_BLOCK ( "vkQueueSubmit", profiler::colors::Magenta );
 		VK_CHECK ( vkQueueSubmit ( vkDev.graphicsQueue, 1, &si, nullptr ) );
+		EASY_END_BLOCK;
 	}
 
 	const VkPresentInfoKHR pi = {
@@ -317,11 +333,15 @@ bool drawFrame ( const std::vector<RendererBase*>& renderers )
 	};
 
 	{
+		EASY_BLOCK ( "vkQueuePresentKHR", profiler::colors::Magenta );
 		VK_CHECK ( vkQueuePresentKHR ( vkDev.graphicsQueue, &pi ) );
+		EASY_END_BLOCK;
 	}
 
 	{
+		EASY_BLOCK ( "vkDeviceWaitIdle", profiler::colors::Red );
 		VK_CHECK ( vkDeviceWaitIdle ( vkDev.device ) );
+		EASY_END_BLOCK;
 	}
 
 	return true;
@@ -330,6 +350,9 @@ bool drawFrame ( const std::vector<RendererBase*>& renderers )
 
 int main ()
 {
+	EASY_PROFILER_ENABLE;
+	EASY_MAIN_THREAD;
+
 	// initialize the glslang compiler, the Volk library, and GLFW
 	glslang_initialize_process ();
 	volkInitialize ();
@@ -430,8 +453,10 @@ int main ()
 	while ( !glfwWindowShouldClose ( window ) )
 	{
 		{
+			EASY_BLOCK ( "UpdateCameraPositioners" );
 			positioner_firstPerson.update ( deltaSeconds, mouseState.pos, mouseState.pressedLeft );
 			positioner_moveTo.update ( deltaSeconds, mouseState.pos, mouseState.pressedLeft );
+			EASY_END_BLOCK;
 		}
 
 		const double newTimeStamp = glfwGetTime ();
@@ -444,10 +469,13 @@ int main ()
 		{
 			fpsGraph.addPoint(fpsCounter.getFPS());
 		}
+
 		sineGraph.addPoint ( (float)sin ( glfwGetTime () * 10.0 ) );
 
 		{
+			EASY_BLOCK ( "PollEvents" );
 			glfwPollEvents ();
+			EASY_END_BLOCK;
 		}
 
 	}
@@ -457,6 +485,8 @@ int main ()
 	terminateVulkan ();
 	glfwTerminate ();
 	glslang_finalize_process ();
+
+	PROFILER_DUMP ( "profiling.prof" );
 
 	return 0;
 }

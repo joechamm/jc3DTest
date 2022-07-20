@@ -14,6 +14,14 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
+
+using glm::mat4;
+using glm::vec4;
+using glm::vec3;
+using glm::vec2;
+
 struct VertexData
 {
 	vec3 pos;

@@ -1,5 +1,5 @@
 #include "vkRenderers/VulkanCube.h"
-
+#include "EasyProfilerWrapper.h"
 #include "ResourceString.h"
 
 using glm::mat4;
@@ -63,6 +63,8 @@ bool CubeRenderer::createDescriptorSet ( VulkanRenderDevice& vkDev )
 
 void CubeRenderer::fillCommandBuffer ( VkCommandBuffer commandBuffer, size_t currentImage )
 {
+	EASY_FUNCTION ();
+
 	beginRenderPass ( commandBuffer, currentImage );
 
 	vkCmdDraw ( commandBuffer, 36, 1, 0, 0 );

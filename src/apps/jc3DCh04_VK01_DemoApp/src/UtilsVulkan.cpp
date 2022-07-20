@@ -2,7 +2,7 @@
 #include "UtilsVulkan.h"
 #include "Bitmap.h"
 #include "UtilsCubemap.h"
-
+#include "EasyProfilerWrapper.h"
 #include "StandAlone/ResourceLimits.h"
 
 #define VK_NO_PROTOTYPES
@@ -1315,6 +1315,8 @@ bool createUniformBuffer ( VulkanRenderDevice& vkDev, VkBuffer& buffer, VkDevice
 
 void uploadBufferData ( VulkanRenderDevice& vkDev, const VkDeviceMemory& bufferMemory, VkDeviceSize deviceOffset, const void* data, const size_t dataSize )
 {
+	EASY_FUNCTION ();
+
 	void* mappedData = nullptr;
 	vkMapMemory ( vkDev.device, bufferMemory, deviceOffset, dataSize, 0, &mappedData );
 	memcpy ( mappedData, data, dataSize );
