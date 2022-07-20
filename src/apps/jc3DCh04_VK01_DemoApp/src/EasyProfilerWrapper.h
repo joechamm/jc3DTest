@@ -16,7 +16,7 @@
 #endif // !BUILD_WITH_EASY_PROFILER && !BUILD_WITH_OPTICK
 
 #if	BUILD_WITH_EASY_PROFILER
-#	include "easy/profiler.h"
+#	include <easy_profiler/include/easy/profiler.h>
 #	define PROFILER_FRAME(...)
 #	define PROFILER_DUMP(fileName) profiler::dumpBlocksToFile(fileName)
 #endif // BUILD_WITH_EASY_PROFILER
