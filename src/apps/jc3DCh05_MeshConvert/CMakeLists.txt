@@ -1,0 +1,29 @@
+# CMakeLists.txt for jc3DCh05_MeshConvert
+
+cmake_minimum_required(VERSION 3.14)
+
+project(jc3DCh05_MeshConvert CXX C)
+
+add_executable(jc3DCh05_MeshConvert)
+
+set_property(TARGET jc3DCh05_MeshConvert PROPERTY FOLDER "apps")
+
+target_compile_features(jc3DCh05_MeshConvert PUBLIC cxx_std_20)
+
+target_sources(jc3DCh05_MeshConvert 
+	PUBLIC
+	${CMAKE_CURRENT_SOURCE_DIR}/src/Utils.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/UtilsMath.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/debug.h
+	${CMAKE_CURRENT_SOURCE_DIR}/src/VtxData.h
+	PRIVATE
+	${CMAKE_CURRENT_SOURCE_DIR}/src/Utils.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/VtxData.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+
+target_include_directories(jc3DCh05_MeshConvert PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+target_link_libraries(jc3DCh05_MeshConvert PRIVATE
+	assimp
+	meshoptimizer
+)
