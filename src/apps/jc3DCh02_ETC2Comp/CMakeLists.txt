@@ -17,12 +17,7 @@ target_include_directories(jc3DCh02_ETC2Comp PUBLIC ${CMAKE_SOURCE_DIR}/extern/s
 target_include_directories(jc3DCh02_ETC2Comp PUBLIC ${CMAKE_SOURCE_DIR}/extern/src/etc2comp/EtcLib/Etc)
 target_include_directories(jc3DCh02_ETC2Comp PUBLIC ${CMAKE_SOURCE_DIR}/extern/src/etc2comp/EtcLib/EtcCodec)
 
-#if(MSVC)
-#	set_property(TARGET jc3DCh02_ex07 PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
-#endif()
-
 target_link_libraries(jc3DCh02_ETC2Comp PUBLIC  
-	glad::glad 
+	glad
 	glfw
-	glm::glm 
 	EtcLib)

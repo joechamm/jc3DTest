@@ -26,6 +26,9 @@ add_library(jc3DTestSharedLibs)
 
 target_sources(jc3DTestSharedLibs PRIVATE ${SRC_FILES} ${HEADER_FILES})
 
+# include StandAlone ResourceLimits.cpp
+target_sources(jc3DTestSharedLibs PRIVATE ${CMAKE_SOURCE_DIR}/extern/src/glslang/StandAlone/ResourceLimits.cpp)
+
 target_compile_features(jc3DTestSharedLibs PUBLIC cxx_std_20)
 
 target_include_directories(jc3DTestSharedLibs 
@@ -56,15 +59,12 @@ if(MSVC_IDE)
 endif()
 
 target_link_libraries(jc3DTestSharedLibs PUBLIC 
-	glad::glad 
+	glad
 	glfw 
-	volk::volk
-	volk::volk_headers
+	volk
 	glslang
 	SPIRV
-	assimp::assimp
-	glm::glm
-	Taskflow::Taskflow
-	imgui::imgui 
-
+	assimp
+	Taskflow
+	imgui
 	)

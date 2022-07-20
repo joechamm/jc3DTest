@@ -18,12 +18,7 @@ target_sources(jc3DCh03_GL03CubeMap PRIVATE
 
 target_include_directories(jc3DCh03_GL03CubeMap PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-#if(MSVC)
-#	set_property(TARGET jc3DCh03_GL03CubeMap PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
-#endif()
-
 target_link_libraries(jc3DCh03_GL03CubeMap PRIVATE 
-	glad::glad 
-	glm::glm 
+	glad 
 	glfw 
-	assimp::assimp)
+	assimp)
