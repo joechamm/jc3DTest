@@ -13,16 +13,12 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
 
 #include "GLShader.h"
 #include "UtilsMath.h"
-#include "Bitmap.h"
-#include "UtilsCubemap.h"
 #include "debug.h"
 #include "Camera.h"
-#include "UtilsFPS.h"
+#include "VtxData.h"
 
 #include <vector>
 
@@ -47,8 +43,58 @@ struct MouseState
 	bool pressedLeft = false;
 } mouseState;
 
-CameraPositioner_FirstPerson positioner ( vec3 ( 0.0f ), vec3 ( 0.0f, 0.0f, -1.0f ), vec3 ( 0.0f, 1.0f, 0.0f ) );
+CameraPositioner_FirstPerson positioner ( vec3 ( -31.5f, 7.5f, -9.5f ), vec3 ( 0.0f, 0.0f, -1.0f ), vec3 ( 0.0f, 1.0f, 0.0f ) );
 Camera camera ( positioner );
+
+struct DrawElementsIndirectCommand
+{
+	GLuint count_;
+	GLuint instanceCount_;
+	GLuint firstIndex_;
+	GLuint baseVertex_;
+	GLuint baseInstance_;
+};
+
+/**
+ * @brief GLMesh helper class constructor accepts pointers to the indices and vertices data buffers. 
+ * The Data buffers are used as-is, and they are uploaded directly into the respective OpenGL buffers. 
+ * The number of indices is inferred from the indices buffer size, assuming indices are stored as 32-bit unsigned integers.
+*/
+class GLMesh final
+{
+private:
+	GLuint vao_;
+	uint32_t numIndices_;
+	GLBuffer bufferIndices_;
+	GLBuffer bufferVertices_;
+
+public:
+	GLMesh ( const uint32_t* indices, uint32_t indicesSizeBytes, const float* vertexData, uint32_t verticesSizeBytes )
+		: numIndices_ ( indicesSizeBytes / sizeof ( uint32_t ) )
+		, bufferIndices_ ( indicesSizeBytes, indices, 0 )
+		, bufferVertices_ ( verticesSizeBytes, vertexData, 0 )
+	{
+		glCreateVertexArrays ( 1, &vao_ );
+		glVertexArrayElementBuffer ( vao_, bufferIndices_.getHandle () );
+		glVertexArrayVertexBuffer ( vao_, 0, bufferVertices_.getHandle (), 0, sizeof ( vec3 ) );
+		// the vertex data format for this recipe only contains vertices that are represented as vec3
+		glEnableVertexArrayAttrib ( vao_, 0 );
+		glVertexArrayAttribFormat ( vao_, 0, 3, GL_FLOAT, GL_FALSE, 0 );
+		glVertexArrayAttribBinding ( vao_, 0, 0 );
+	}
+
+	~GLMesh ()
+	{
+		glDeleteVertexArrays ( 1, &vao_ );
+	}
+
+	void draw () const
+	{
+		glBindVertexArray ( vao_ );
+		glDrawElements ( GL_TRIANGLES, static_cast<GLsizei>(numIndices_), GL_UNSIGNED_INT, nullptr );
+
+	}
+};
 
 int main ( void )
 {
