@@ -1,4 +1,4 @@
-#include <glad/glad.h>
+#include <glad/gl.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <glm/glm.hpp>
@@ -66,7 +66,7 @@ int main ( void )
 
 	glfwMakeContextCurrent ( window );
 	//	gladLoadGL(glfwGetProcAddress);
-	gladLoadGL ();
+	gladLoadGL (glfwGetProcAddress);
 	glfwSwapInterval ( 1 );
 
 	/// SETUP vertex and element buffers and associate with vertex array object

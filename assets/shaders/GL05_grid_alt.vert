@@ -1,12 +1,27 @@
 #version 460 core
 
-layout (location = 0) in vec4 aPos;
-
 layout(std140, binding = 0) uniform PerFrameData
 {
 	mat4 view;
 	mat4 proj;
 	vec4 cameraPos;
+};
+
+struct Vertex
+{
+	float p[3];
+	float n[3];
+	float tc[2];
+};
+
+layout(std430, binding = 1) restrict readonly buffer Vertices
+{
+	Vertex in_Vertices[];
+};
+
+layout(std430, binding = 2) restrict readonly buffer Matrices
+{
+	mat4 in_ModelMatrices[];
 };
 
 // extents of grid in world coordinates
@@ -41,10 +56,8 @@ void main()
 {
 	mat4 MVP = proj * view;
 
-//	int idx = indices[gl_VertexID];
-//	vec3 position = pos[idx] * gridSize;
-	vec3 position = aPos.xyz * gridSize;
 	int idx = indices[gl_VertexID];
+	vec3 position = pos[idx] * gridSize;
 
 	gl_Position = MVP * vec4(position, 1.0);
 	uv = position.xz;

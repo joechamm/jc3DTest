@@ -1,4 +1,4 @@
-#include <glad/glad.h>
+#include <glad/gl.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
@@ -115,7 +115,7 @@ int main ( void )
 	);
 
 	glfwMakeContextCurrent ( window );
-	gladLoadGL ();
+	gladLoadGL (glfwGetProcAddress);
 	glfwSwapInterval ( 1 );
 
 	const GLuint shaderVertex = glCreateShader ( GL_VERTEX_SHADER );
