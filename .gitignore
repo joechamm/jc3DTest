@@ -551,3 +551,4 @@ cython_debug/
 # CMake
 build/
 CMakeUserPresets.json
+assets/models/Exterior/test.meshes
