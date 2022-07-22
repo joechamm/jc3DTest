@@ -2,12 +2,13 @@
 #include <stdlib.h>
 #include <vector>
 
-#include <glfw/glfw3.h>
 #include "glFramework/GLShader.h"
 #include "UtilsMath.h"
 #include "Camera.h"
 #include "ResourceString.h"
 #include "glFramework/UtilsGLImGui.h"
+
+#include <glfw/glfw3.h>
 
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
