@@ -93,7 +93,7 @@ void MultiMeshRenderer::updateIndirectBuffers ( VulkanRenderDevice& vkDev, size_
 	{
 		const uint32_t j = instances_[i].meshIndex;
 		data[i] = {
-			.vertexCount = static_cast<uint32_t>(meshes_[j].lodSize ( instances_[i].LOD ) / sizeof ( uint32_t )),
+			.vertexCount = static_cast<uint32_t>(meshes_[j].getLODIndicesCount ( instances_[i].LOD ) / sizeof ( uint32_t )),
 			// TODO: allow more than one instance count by making modifications to the instance buffer layout with transformation matrices
 			.instanceCount = 1,
 			// the vertex offset has to be recalculated into a float value count. As we have one instance, we just set the first and only firstInstance value to i
@@ -138,10 +138,10 @@ void MultiMeshRenderer::loadInstanceData ( const char* instanceFilename )
 	size_t fsize = ftell ( f );
 	fseek ( f, 0, SEEK_SET );
 	/* calculate the number of instances in the file */
-	maxInstances_ = static_cast<uint32_t>(fsize / sizeof ( InstanceData ));
+	maxInstances_ = static_cast<uint32_t>(fsize / sizeof ( DrawData ));
 	instances_.resize ( maxInstances_ );
 	/* load the instance data */
-	if ( fread ( instances_.data (), sizeof ( InstanceData ), maxInstances_, f ) != maxInstances_ )
+	if ( fread ( instances_.data (), sizeof ( DrawData ), maxInstances_, f ) != maxInstances_ )
 	{
 		printf ( "MultiMeshRenderer: unable to read instance data from %s\n", instanceFilename );
 		exit ( 255 );
@@ -208,7 +208,7 @@ MultiMeshRenderer::MultiMeshRenderer (
 	loadInstanceData ( instanceFilename );
 	MeshFileHeader header = loadMeshData ( meshFilename );
 	const uint32_t indirectDataSize = maxInstances_ * sizeof ( VkDrawIndirectCommand );
-	maxInstanceSize_ = maxInstances_ * sizeof ( InstanceData );
+	maxInstanceSize_ = maxInstances_ * sizeof ( DrawData );
 	maxMaterialSize_ = 1024;
 
 	// we need a copy of the instance and indirect rendering data for each of the swapchain images

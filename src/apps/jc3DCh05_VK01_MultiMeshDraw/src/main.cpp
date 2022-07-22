@@ -82,7 +82,7 @@ bool initVulkan ()
 	}
 
 	string meshesFilename = appendToRoot ( "assets/models/exterior/test.meshes" );
-	string instancesFilename = appendToRoot ( "assets/models/exterior/test.meshes.instanceData" );
+	string instancesFilename = appendToRoot ( "assets/models/exterior/test.meshes.drawData" );
 
 	string vtxShaderFilename = appendToRoot ( "assets/shaders/VK05.vert" );
 	string fragShaderFilename = appendToRoot ( "assets/shaders/VK05.frag" );

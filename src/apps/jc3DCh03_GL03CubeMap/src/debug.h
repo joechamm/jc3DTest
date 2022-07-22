@@ -1,7 +1,7 @@
 #pragma once
 
 #include <iostream>
-#include <glad/glad.h>
+#include <glad/gl.h>
 
 void message_callback ( GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, GLchar const* message, void const* user_parm )
 {

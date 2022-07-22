@@ -17,7 +17,7 @@ class MultiMeshRenderer : public RendererBase
 {
 private:
 	/* Mesh data */
-	std::vector<InstanceData>	instances_;
+	std::vector<DrawData>		instances_;
 	std::vector<Mesh>			meshes_;
 	std::vector<uint32_t>		indexData_;
 	std::vector<float>			vertexData_;
