@@ -29,7 +29,7 @@ bool g_exportNormals = false;
 
 void processLods ( std::vector<uint32_t>& indices, std::vector<float>& vertices, std::vector<std::vector<uint32_t>>& outLods )
 {
-	size_t verticesCountIn = vertices.size () / 2;
+	size_t verticesCountIn = vertices.size () / 3;
 	size_t targetIndicesCount = indices.size ();
 
 	uint8_t LOD = 1;

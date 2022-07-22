@@ -1,44 +1,35 @@
-#include <glad/gl.h>
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-#include <glm/ext.hpp>
+#include <stdio.h>
+#include <stdlib.h>
+#include <vector>
+
+#include <glfw/glfw3.h>
+#include "glFramework/GLShader.h"
+#include "UtilsMath.h"
+#include "Camera.h"
+#include "ResourceString.h"
+#include "glFramework/UtilsGLImGui.h"
+
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <assimp/cimport.h>
 #include <assimp/version.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <iostream>
-
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
-
-#include "GLShader.h"
-#include "UtilsMath.h"
-#include "Bitmap.h"
-#include "UtilsCubemap.h"
-#include "debug.h"
-#include "Camera.h"
-#include "UtilsFPS.h"
-
-#include <vector>
-
-#include <helpers/RootDir.h>
 
 using glm::mat4;
 using glm::vec4;
 using glm::vec3;
 using glm::vec2;
 using glm::ivec2;
+using std::string;
 
 struct PerFrameData
 {
 	mat4 view;
 	mat4 proj;
 	vec4 cameraPos;
+	float tessellationScale;
 };
 
 struct MouseState
@@ -47,7 +38,9 @@ struct MouseState
 	bool pressedLeft = false;
 } mouseState;
 
-CameraPositioner_FirstPerson positioner ( vec3 ( 0.0f ), vec3 ( 0.0f, 0.0f, -1.0f ), vec3 ( 0.0f, 1.0f, 0.0f ) );
+float tessellationScale = 1.0f;
+
+CameraPositioner_FirstPerson positioner ( vec3 ( 0.0f, 0.5f, 0.0f ), vec3 ( 0.0f, 0.0f, -1.0f ), vec3 ( 0.0f, 1.0f, 0.0f ) );
 Camera camera ( positioner );
 
 int main ( void )
@@ -69,7 +62,7 @@ int main ( void )
 	glfwWindowHint ( GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE );
 #endif
 
-	GLFWwindow* window = glfwCreateWindow ( 1280, 720, "OpenGL Camera example", nullptr, nullptr );
+	GLFWwindow* window = glfwCreateWindow ( 1280, 720, "3D Graphics Rendering Cookbook Chapter 05 Tessellation Example", nullptr, nullptr );
 	if ( !window )
 	{
 		glfwTerminate ();
@@ -95,65 +88,87 @@ int main ( void )
 		}
 	);
 
-	glfwSetCursorPosCallback ( window, []( auto* window, double x, double y ) {
-		int width, height;
-		glfwGetFramebufferSize ( window, &width, &height );
-		mouseState.pos.x = static_cast<float>(x / width);
-		mouseState.pos.y = static_cast<float>(y / height);
-		}
-	);
-
-	glfwSetMouseButtonCallback ( window, []( auto* window, int button, int action, int mods ) {
-		if ( button == GLFW_MOUSE_BUTTON_LEFT )
+	glfwSetCursorPosCallback (
+		window,
+		[]( auto* window, double x, double y )
 		{
-			mouseState.pressedLeft = action == GLFW_PRESS;
-		}
+			int width, height;
+			glfwGetFramebufferSize ( window, &width, &height );
+			mouseState.pos.x = static_cast<float>(x / width);
+			mouseState.pos.y = static_cast<float>(y / height);
+
+			ImGui::GetIO ().MousePos = ImVec2 ( (float)x, (float)y );
 		}
 	);
 
+	glfwSetMouseButtonCallback (
+		window,
+		[]( auto* window, int button, int action, int mods )
+		{
+			if ( button == GLFW_MOUSE_BUTTON_LEFT )
+				mouseState.pressedLeft = action == GLFW_PRESS;
+
+			auto& io = ImGui::GetIO ();
+			const int idx = button == GLFW_MOUSE_BUTTON_LEFT ? 0 : button == GLFW_MOUSE_BUTTON_RIGHT ? 2 : 1;
+			io.MouseDown[idx] = action == GLFW_PRESS;
+		}
+	);
 
 	glfwMakeContextCurrent ( window );
 	gladLoadGL ( glfwGetProcAddress );
-	glfwSwapInterval ( 0 );
+	glfwSwapInterval ( 1 );
+		
+	// asset filenames
+	
+	// grid shader
+	string shdGridVtFname = appendToRoot ( "assets/shaders/GL05_grid.vert" );
+	string shdGridFrFname = appendToRoot ( "assets/shaders/GL05_grid.frag" );
+	// duck shader
+	string shdDuckVtFname = appendToRoot ( "assets/shaders/GL05_duck.vert" );
+	string shdDuckTcFname = appendToRoot ( "assets/shaders/GL05_duck.tesc" );
+	string shdDuckTeFname = appendToRoot ( "assets/shaders/GL05_duck.tese" );
+	string shdDuckGeFname = appendToRoot ( "assets/shaders/GL05_duck.geom" );
+	string shdDuckFrFname = appendToRoot ( "assets/shaders/GL05_duck.frag" );
+	// duck scene
+	string sceneDuckFname = appendToRoot ( "assets/models/rubber_duck/scene.gltf" );
+	// duck texture
+	string textureDuckFname = appendToRoot ( "assets/models/rubber_duck/textures/Duck_baseColor.png" );
 
-	// setup debugging
-	initDebug ();
+	// grid shader program
+	GLShader shdGridVertex ( shdGridVtFname.c_str () );
+	GLShader shdGridFragment ( shdGridFrFname.c_str () );
+	GLProgram progGrid ( shdGridVertex, shdGridFragment );
 
-	// load shaders
-	std::string shdModelVtxFilename = ROOT_DIR + std::string ( "assets/shaders/GL04_duck.vert" );
-	std::string shdModelFragFilename = ROOT_DIR + std::string ( "assets/shaders/GL04_duck.frag" );
-	std::string shdCubeVtxFilename = ROOT_DIR + std::string ( "assets/shaders/GL04_cube.vert" );
-	std::string shdCubeFragFilename = ROOT_DIR + std::string ( "assets/shaders/GL04_cube.frag" );
-
-	GLShader shdModelVertex ( shdModelVtxFilename.c_str () );
-	GLShader shdModelFragment ( shdModelFragFilename.c_str () );
-	GLProgram progModel ( shdModelVertex, shdModelFragment );
-	progModel.useProgram ();
-
-	GLShader shdCubeVertex ( shdCubeVtxFilename.c_str () );
-	GLShader shdCubeFragment ( shdCubeFragFilename.c_str () );
-	GLProgram progCube ( shdCubeVertex, shdCubeFragment );
+	// duck shader program
+	GLShader shdDuckVertex ( shdDuckVtFname.c_str () );
+	GLShader shdDuckTessControl ( shdDuckTcFname.c_str () );
+	GLShader shdDuckTessEval ( shdDuckTeFname.c_str () );
+	GLShader shdDuckGeom ( shdDuckGeFname.c_str () );
+	GLShader shdDuckFrag ( shdDuckFrFname.c_str () );
+	GLProgram progDuck ( shdDuckVertex, shdDuckTessControl, shdDuckTessEval, shdDuckGeom, shdDuckFrag );
 
 	// SETUP uniform buffer 
 	const GLsizeiptr kUniformBufferSize = sizeof ( PerFrameData );
 
-	GLuint perFrameDataBuffer;
-	glCreateBuffers ( 1, &perFrameDataBuffer );
-	glNamedBufferStorage ( perFrameDataBuffer, kUniformBufferSize, nullptr, GL_DYNAMIC_STORAGE_BIT );
-	glBindBufferRange ( GL_UNIFORM_BUFFER, 0, perFrameDataBuffer, 0, kUniformBufferSize );
+	GLBuffer perFrameDataBuffer ( kUniformBufferSize, nullptr, GL_DYNAMIC_STORAGE_BIT );
+	glBindBufferRange ( GL_UNIFORM_BUFFER, 0, perFrameDataBuffer.getHandle (), 0, kUniformBufferSize );
+
+	GLuint vao;
+	glCreateVertexArrays ( 1, &vao );
+	glBindVertexArray ( vao );
 
 	// Set the clear color and enable depth testing
 	glClearColor ( 1.0f, 1.0f, 1.0f, 1.0f );
+	glEnable ( GL_BLEND );
+	glBlendFunc ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 	glEnable ( GL_DEPTH_TEST );
 
-	// Use assimp to import our scene and convert any primitives to triangles
-	std::string sceneFilename = ROOT_DIR + std::string ( "assets/models/rubber_duck/scene.gltf" );
-	const aiScene* scene = aiImportFile ( sceneFilename.c_str (), aiProcess_Triangulate );
+	const aiScene* scene = aiImportFile ( sceneDuckFname.c_str (), aiProcess_Triangulate );
 
 	// Error checking
 	if ( !scene || !scene->HasMeshes () )
 	{
-		printf ( "Unable to load %s\n", sceneFilename.c_str () );
+		printf ( "Unable to load %s\n", sceneDuckFname.c_str () );
 		exit ( 255 );
 	}
 
@@ -161,7 +176,6 @@ int main ( void )
 	struct VertexData
 	{
 		vec3 pos;
-		vec3 n;
 		vec2 tc;
 	};
 
@@ -170,11 +184,9 @@ int main ( void )
 	for ( unsigned i = 0; i != mesh->mNumVertices; i++ )
 	{
 		const aiVector3D v = mesh->mVertices[i];
-		const aiVector3D n = mesh->mNormals[i];
 		const aiVector3D t = mesh->mTextureCoords[0][i];
 		vertices.push_back ( {
-			.pos = vec3 ( v.x, v.z, v.y ),
-			.n = vec3 ( n.x, n.y, n.z ),
+			.pos = vec3 ( v.x, v.z, v.y ),		
 			.tc = vec2 ( t.x, t.y )
 			} );
 	}
@@ -197,9 +209,6 @@ int main ( void )
 	GLuint dataIndices;
 	glCreateBuffers ( 1, &dataIndices );
 	glNamedBufferStorage ( dataIndices, kSizeIndices, indices.data (), 0 );
-	GLuint vao;
-	glCreateVertexArrays ( 1, &vao );
-	glBindVertexArray ( vao );
 	glVertexArrayElementBuffer ( vao, dataIndices );
 
 	// vertices
@@ -211,73 +220,36 @@ int main ( void )
 	// model matrices
 	GLuint modelMatrices;
 	glCreateBuffers ( 1, &modelMatrices );
-	glNamedBufferStorage ( modelMatrices, sizeof ( mat4 ) * 2, nullptr, GL_DYNAMIC_STORAGE_BIT );
+	glNamedBufferStorage ( modelMatrices, sizeof ( mat4 ), nullptr, GL_DYNAMIC_STORAGE_BIT );
 	glBindBufferBase ( GL_SHADER_STORAGE_BUFFER, 2, modelMatrices );
 
-	glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
-
 	// texture
+	int w, h, comp;
+	const uint8_t* img = stbi_load ( textureDuckFname.c_str (), &w, &h, &comp, 3 );
+
 	GLuint texture;
-	{
-		std::string textureFilename = ROOT_DIR + std::string ( "assets/models/rubber_duck/textures/Duck_baseColor.png" );
-		int w, h, comp;
-		const uint8_t* img = stbi_load ( textureFilename.c_str (), &w, &h, &comp, 3 );
+	glCreateTextures ( GL_TEXTURE_2D, 1, &texture );
+	glTextureParameteri ( texture, GL_TEXTURE_MAX_LEVEL, 0 );
+	glTextureParameteri ( texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTextureParameteri ( texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+	glTextureStorage2D ( texture, 1, GL_RGB8, w, h );
+	glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
+	glTextureSubImage2D ( texture, 0, 0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, img );
 
-		glCreateTextures ( GL_TEXTURE_2D, 1, &texture );
-		glTextureParameteri ( texture, GL_TEXTURE_MAX_LEVEL, 0 );
-		glTextureParameteri ( texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-		glTextureParameteri ( texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-		glTextureStorage2D ( texture, 1, GL_RGB8, w, h );
-		glTextureSubImage2D ( texture, 0, 0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, img );
-		glBindTextures ( 0, 1, &texture );
-
-		stbi_image_free ( (void*)img );
-	}
-
-	// cube map
-	GLuint cubemapTex;
-	{
-		std::string imgFilename = ROOT_DIR + std::string ( "assets/images/piazza_bologni_1k.hdr" );
-		int w, h, comp;
-		const float* img = stbi_loadf ( imgFilename.c_str (), &w, &h, &comp, 3 );
-		Bitmap in ( w, h, comp, eBitmapFormat_Float, img );
-		Bitmap out = convertEquirectangularMapToVerticalCross ( in );
-		stbi_image_free ( (void*)img );
-
-		Bitmap cubemap = convertVerticalCrossToCubeMapFaces ( out );
-
-		glCreateTextures ( GL_TEXTURE_CUBE_MAP, 1, &cubemapTex );
-		glTextureParameteri ( cubemapTex, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
-		glTextureParameteri ( cubemapTex, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
-		glTextureParameteri ( cubemapTex, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE );
-		glTextureParameteri ( cubemapTex, GL_TEXTURE_BASE_LEVEL, 0 );
-		glTextureParameteri ( cubemapTex, GL_TEXTURE_MAX_LEVEL, 0 );
-		glTextureParameteri ( cubemapTex, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-		glTextureParameteri ( cubemapTex, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-		glTextureStorage2D ( cubemapTex, 1, GL_RGB32F, cubemap.w_, cubemap.h_ );
-		const uint8_t* data = cubemap.data_.data ();
-
-		for ( unsigned i = 0; i != 6; ++i )
-		{
-			glTextureSubImage3D ( cubemapTex, 0, 0, 0, i, cubemap.w_, cubemap.h_, 1, GL_RGB, GL_FLOAT, data );
-			data += cubemap.w_ * cubemap.h_ * cubemap.comp_ * Bitmap::getBytesPerComponent ( cubemap.fmt_ );
-		}
-		glBindTextures ( 1, 1, &cubemapTex );
-	}
+	stbi_image_free ( (void*)img );
 
 	double timeStamp = glfwGetTime ();
 	float deltaSeconds = 0.0f;
 
-	FramesPerSecondCounter fpsCounter ( 0.5f );
-
+	ImGuiGLRenderer rendererUI;
 
 	// main loop
 	while ( !glfwWindowShouldClose ( window ) )
 	{
-		fpsCounter.tick ( deltaSeconds );
+		ImGuiIO& io = ImGui::GetIO ();
 
-		positioner.update ( deltaSeconds, mouseState.pos, mouseState.pressedLeft );
-
+		positioner.update ( deltaSeconds, mouseState.pos, mouseState.pressedLeft && !io.WantCaptureMouse );
+		
 		const double newTimeStamp = glfwGetTime ();
 		deltaSeconds = static_cast<float>(newTimeStamp - timeStamp);
 		timeStamp = newTimeStamp;
@@ -295,23 +267,33 @@ int main ( void )
 		const PerFrameData perFrameData = {
 			.view = view,
 			.proj = p,
-			.cameraPos = glm::vec4 ( camera.getPosition (), 1.0f )
+			.cameraPos = glm::vec4 ( camera.getPosition (), 1.0f ),
+			.tessellationScale = tessellationScale
 		};
 
-		glNamedBufferSubData ( perFrameDataBuffer, 0, kUniformBufferSize, &perFrameData );
+		glNamedBufferSubData ( perFrameDataBuffer.getHandle(), 0, kUniformBufferSize, &perFrameData );
 
-		const mat4 Matrices[2]{
-			glm::rotate ( glm::translate ( mat4 ( 1.0f ), vec3 ( 0.0f, -0.5f, -1.5f ) ), (float)glfwGetTime (), vec3 ( 0.0f, 1.0f, 0.0f ) ),
-			glm::scale ( mat4 ( 1.0f ), vec3 ( 10.0f ) )
-		};
+		const mat4 s = glm::scale ( mat4 ( 1.0f ), vec3 ( 10.0f ) );
+		const mat4 m = s * glm::rotate ( glm::translate ( mat4 ( 1.0f ), vec3 ( 0.0f, -0.5f, -1.5f ) ), (float)glfwGetTime () * 0.1f, vec3 ( 0.0f, 1.0f, 0.0f ) );
+		glNamedBufferSubData ( modelMatrices, 0, sizeof ( mat4 ), glm::value_ptr ( m ) );
 
-		glNamedBufferSubData ( modelMatrices, 0, sizeof ( mat4 ) * 2, &Matrices );
+		glBindVertexArray ( vao );
+		glEnable ( GL_DEPTH_TEST );
 
-		progModel.useProgram ();
-		glDrawElementsInstancedBaseVertexBaseInstance ( GL_TRIANGLES, static_cast<unsigned>(indices.size ()), GL_UNSIGNED_INT, nullptr, 1, 0, 0 );
+		glDisable ( GL_BLEND );
+		progDuck.useProgram ();
+		glBindTextures ( 0, 1, &texture );
+		glDrawElements ( GL_PATCHES, static_cast<unsigned>(indices.size ()), GL_UNSIGNED_INT, nullptr );
 
-		progCube.useProgram ();
-		glDrawArraysInstancedBaseInstance ( GL_TRIANGLES, 0, 36, 1, 1 );
+		glEnable ( GL_BLEND );
+		progGrid.useProgram ();
+		glDrawArraysInstancedBaseInstance ( GL_TRIANGLES, 0, 6, 1, 0 );
+
+		io.DisplaySize = ImVec2 ( (float)width, (float)height );
+		ImGui::NewFrame ();
+		ImGui::SliderFloat ( "Tessellation scale", &tessellationScale, 1.0f, 2.0f, "%.1f" );
+		ImGui::Render ();
+		rendererUI.render ( width, height, ImGui::GetDrawData () );
 
 		glfwSwapBuffers ( window );
 		glfwPollEvents ();
@@ -320,9 +302,10 @@ int main ( void )
 	}
 
 	// Teardown
+	glDeleteTextures ( 1, &texture );
+
 	glDeleteBuffers ( 1, &dataIndices );
 	glDeleteBuffers ( 1, &dataVertices );
-	glDeleteBuffers ( 1, &perFrameDataBuffer );
 	glDeleteBuffers ( 1, &modelMatrices );
 	glDeleteVertexArrays ( 1, &vao );
 
