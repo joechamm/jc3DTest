@@ -5,8 +5,11 @@
 
 # Large files
 assets/images/*
-vkconfig/*
-models/*
+assets/images/explosion0/*
+assets/images/explosion1/*
+assets/images/explosion2/*
+assets/vkconfig/*
+assets/models/*
 
 # User-specific files
 *.rsuser

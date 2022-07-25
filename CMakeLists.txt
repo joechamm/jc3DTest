@@ -9,7 +9,7 @@ include(CMakePrintHelpers)
 
 message(STATUS "Building ${PROJECT_NAME}")
 
-option(BUILD_WITH_EASY_PROFILER "Enable EasyProfiler usage" ON)
+option(BUILD_WITH_EASY_PROFILER "Enable EasyProfiler usage" OFF)
 	
 # use folders
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -107,6 +107,7 @@ set_property(TARGET SPVRemapper   PROPERTY FOLDER "ThirdPartyLibraries/glslang")
 # add shared utils code for GL and Vulkan
 #add_subdirectory(src/libs)
 #target_sources(jc3DTestSharedLibs PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/extern/src/glslang/StandAlone/ResourceLimits.cpp)
+add_subdirectory(libs/jcVkFramework)
 
 add_subdirectory(src/apps/jc3DCh02_Assimp)
 if(BUILD_WITH_EASY_PROFILER)
@@ -128,3 +129,10 @@ add_subdirectory(src/apps/jc3DCh05_GL01_Grid)
 add_subdirectory(src/apps/jc3DCh05_GL02_Tessellation)
 add_subdirectory(src/apps/jc3DCh05_GL03_MeshRenderer)
 add_subdirectory(src/apps/jc3DCh05_VK01_MultiMeshDraw)
+#add_subdirectory(src/apps/jc3DCh06_GL01_PBR)
+#add_subdirectory(src/apps/jc3DCh06_Util01_FilterEnvmap)
+#add_subdirectory(src/apps/jc3DCh06_VK01_BRDF_LUT)
+add_subdirectory(src/apps/jc3DCh06_VK02_DescriptorIndexing)
+#add_subdirectory(src/apps/jc3DCh06_VK03_ComputeTexture)
+#add_subdirectory(src/apps/jc3DCh06_VK04_ComputeMesh)
+#add_subdirectory(src/apps/jc3DCh06_VK05_PBR)
