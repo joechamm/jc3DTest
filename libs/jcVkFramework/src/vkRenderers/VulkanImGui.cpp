@@ -19,6 +19,16 @@ using std::string;
 constexpr uint32_t ImGuiVtxBufferSize = 512 * 1024 * sizeof ( ImDrawVert );
 constexpr uint32_t ImGuiIdxBufferSize = 512 * 1024 * sizeof ( uint32_t );
 
+void imguiTextureWindow ( const char* title, uint32_t texId )
+{
+	ImGui::Begin ( title, nullptr );
+	ImVec2 vMin = ImGui::GetWindowContentRegionMin ();
+	ImVec2 vMax = ImGui::GetWindowContentRegionMax ();
+
+	ImGui::Image ( (void*)(intptr_t)texId, ImVec2 ( vMax.x - vMin.x, vMax.y - vMin.y ) );
+	ImGui::End ();
+}
+
 bool createFontTexture ( ImGuiIO& io, const char* fontFile, VulkanRenderDevice& vkDev, VkImage& textureImage, VkDeviceMemory& textureImageMemory )
 {
 	// Build texture atlas
@@ -79,8 +89,13 @@ void addImGuiItem ( uint32_t width, uint32_t height, VkCommandBuffer commandBuff
 
 		if ( textures.size () > 0 )
 		{
-			uint32_t texture = (uint32_t)(intptr_t)pcmd->TextureId;
-			vkCmdPushConstants ( commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof ( uint32_t ), (const void*)&texture );
+			uint32_t texture = (uint32_t)(intptr_t)pcmd->TextureId;	
+			vkCmdPushConstants (
+				/*VkCommandBuffer*/commandBuffer, 
+				/*VkPipelineLayout*/pipelineLayout, 
+				/*VkShaderStageFlags stageFlags*/ VK_SHADER_STAGE_FRAGMENT_BIT, 
+				/*uint32_t offset*/0, /*uint32_t size*/sizeof ( uint32_t ), 
+				/*const void *pValues*/(const void*)&texture );
 		}
 
 		vkCmdDraw ( commandBuffer, pcmd->ElemCount, 1, pcmd->IdxOffset + idxOffset, pcmd->VtxOffset + vtxOffset );
@@ -162,6 +177,53 @@ ImGuiRenderer::ImGuiRenderer ( VulkanRenderDevice& vkDev ) : RendererBase ( vkDe
 	}
 }
 
+ImGuiRenderer::ImGuiRenderer ( VulkanRenderDevice& vkDev, const std::vector<VulkanTexture>& textures ) : RendererBase ( vkDev, VulkanImage () ), extTextures_ ( textures )
+{
+	// Resource loading
+	ImGuiIO& io = ImGui::GetIO ();
+	string fontFilename = appendToRoot ( "assets/fonts/OpenSans-Light.ttf" );
+	createFontTexture ( io, fontFilename.c_str (), vkDev, font_.image, font_.imageMemory );
+
+	createImageView ( vkDev.device, font_.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, &font_.imageView );
+	createTextureSampler ( vkDev.device, &fontSampler_ );
+
+	// Buffer allocation
+	const size_t imgCount = vkDev.swapchainImages.size ();
+
+	storageBuffer_.resize ( imgCount );
+	storageBufferMemory_.resize ( imgCount );
+
+	bufferSize_ = ImGuiVtxBufferSize + ImGuiIdxBufferSize;
+
+	for ( size_t i = 0; i < imgCount; i++ )
+	{
+		if ( !createBuffer ( vkDev.device, vkDev.physicalDevice, bufferSize_,
+			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			storageBuffer_[i], storageBufferMemory_[i] ) )
+		{
+			printf ( "ImGuiRenderer: createBuffer() failed\n" );
+			exit ( EXIT_FAILURE );
+		}
+	}
+
+	// Pipeline creation
+	std::vector<string> shaderFilenames = getShaderFilenamesWithRoot ( "assets/shaders/imgui.vert", "assets/imgui_multi.frag" );
+
+	if ( !createColorAndDepthRenderPass ( vkDev, false, &renderPass_, RenderPassCreateInfo () ) ||
+		!createColorAndDepthFramebuffers ( vkDev, renderPass_, VK_NULL_HANDLE, swapchainFramebuffers_ ) ||
+		!createUniformBuffers ( vkDev, sizeof ( mat4 ) ) ||
+		!createDescriptorPool ( vkDev, 1, 2, 1 + static_cast<uint32_t>(textures.size ()), &descriptorPool_ ) ||
+		!createMultiDescriptorSet ( vkDev ) ||
+		!createPipelineLayoutWithConstants ( vkDev.device, descriptorSetLayout_, &pipelineLayout_, 0, sizeof ( uint32_t ) ) ||
+		!createGraphicsPipeline ( vkDev, renderPass_, pipelineLayout_, shaderFilenames, &graphicsPipeline_, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, true, true, true ) )
+	{
+		printf ( "ImGuiRenderer: pipeline creation failed\n" );
+		exit ( EXIT_FAILURE );
+	}
+		
+}
+
 ImGuiRenderer::~ImGuiRenderer ()
 {
 	for ( size_t i = 0; i < swapchainFramebuffers_.size (); i++ )
@@ -235,6 +297,91 @@ bool ImGuiRenderer::createDescriptorSet ( VulkanRenderDevice& vkDev )
 			bufferWriteDescriptorSet ( ds, &bufferInfo2, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER ),
 			bufferWriteDescriptorSet ( ds, &bufferInfo3, 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER ),
 			imageWriteDescriptorSet ( ds, &imageInfo, 3 )
+		};
+
+		vkUpdateDescriptorSets ( vkDev.device, static_cast<uint32_t>(descriptorWrites.size ()), descriptorWrites.data (), 0, nullptr );
+	}
+
+	return true;
+}
+
+bool ImGuiRenderer::createMultiDescriptorSet ( VulkanRenderDevice& vkDev )
+{
+	const std::array<VkDescriptorSetLayoutBinding, 4> bindings = {
+		descriptorSetLayoutBinding ( 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT ),
+		descriptorSetLayoutBinding ( 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT ),
+		descriptorSetLayoutBinding ( 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT ),
+		descriptorSetLayoutBinding ( 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, static_cast<uint32_t>(1 + extTextures_.size()) )
+	};
+
+	const VkDescriptorSetLayoutCreateInfo layoutInfo = {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.bindingCount = static_cast<uint32_t>(bindings.size ()),
+		.pBindings = bindings.data ()
+	};
+
+	VK_CHECK ( vkCreateDescriptorSetLayout ( vkDev.device, &layoutInfo, nullptr, &descriptorSetLayout_ ) );
+
+	std::vector<VkDescriptorSetLayout> layouts ( vkDev.swapchainImages.size (), descriptorSetLayout_ );
+
+	const VkDescriptorSetAllocateInfo allocInfo = {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+		.pNext = nullptr,
+		.descriptorPool = descriptorPool_,
+		.descriptorSetCount = static_cast<uint32_t>(vkDev.swapchainImages.size ()),
+		.pSetLayouts = layouts.data ()
+	};
+
+	descriptorSets_.resize ( vkDev.swapchainImages.size () );
+
+	VK_CHECK ( vkAllocateDescriptorSets ( vkDev.device, &allocInfo, descriptorSets_.data () ) );
+
+	// use the font texture initialized in the constructor
+
+	std::vector<VkDescriptorImageInfo> textureDescriptors = {
+		{ fontSampler_, font_.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
+	};
+
+	for ( size_t i = 0; i < extTextures_.size (); i++ )
+	{
+		textureDescriptors.push_back ( {
+			.sampler = extTextures_[i].sampler,
+			.imageView = extTextures_[i].image.imageView,
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL /// TODO: select type from VulkanTexture object (GENERAL or SHADER_READ_ONLY_OPTIMAL)
+			} );
+	}
+
+	for ( size_t i = 0; i < vkDev.swapchainImages.size (); i++ )
+	{
+		VkDescriptorSet ds = descriptorSets_[i];
+
+		const VkDescriptorBufferInfo bufferInfo = {
+			uniformBuffers_[i], 0, sizeof ( mat4 )
+		};
+
+		const VkDescriptorBufferInfo bufferInfo2 = {
+			storageBuffer_[i], 0, ImGuiVtxBufferSize
+		};
+
+		const VkDescriptorBufferInfo bufferInfo3 = {
+			storageBuffer_[i], ImGuiVtxBufferSize, ImGuiIdxBufferSize
+		};
+
+		const std::array<VkWriteDescriptorSet, 4> descriptorWrites = {
+			bufferWriteDescriptorSet ( ds, &bufferInfo, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ),
+			bufferWriteDescriptorSet ( ds, &bufferInfo2, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER ),
+			bufferWriteDescriptorSet ( ds, &bufferInfo3, 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER ),
+			VkWriteDescriptorSet {
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = descriptorSets_[i],
+				.dstBinding = 3,
+				.dstArrayElement = 0,
+				.descriptorCount = static_cast<uint32_t>(1 + extTextures_.size()),
+				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				.pImageInfo = textureDescriptors.data()
+			}
 		};
 
 		vkUpdateDescriptorSets ( vkDev.device, static_cast<uint32_t>(descriptorWrites.size ()), descriptorWrites.data (), 0, nullptr );

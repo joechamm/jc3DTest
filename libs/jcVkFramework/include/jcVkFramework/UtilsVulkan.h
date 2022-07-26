@@ -16,24 +16,28 @@
 #define VK_CHECK_RET(value) if (value != VK_SUCCESS) { CHECK(false, __FILE__,__LINE__); return value; }
 #define BL_CHECK(value) CHECK(value, __FILE__,__LINE__);
 
-struct ShaderModule final {
+struct ShaderModule final 
+{
 	std::vector<unsigned int> SPIRV;
-	VkShaderModule shaderModule;
+	VkShaderModule shaderModule = nullptr;
 };
 
-struct SwapchainSupportDetails {
+struct SwapchainSupportDetails final 
+{
 	VkSurfaceCapabilitiesKHR capabilities = {};
 	std::vector<VkSurfaceFormatKHR> formats;
 	std::vector<VkPresentModeKHR> presentModes;
 };
 
-struct VulkanInstance {
+struct VulkanInstance final 
+{
 	VkInstance instance;
 	VkSurfaceKHR surface;
 	VkDebugUtilsMessengerEXT messenger;
 };
 
-struct VulkanRenderDevice {
+struct VulkanRenderDevice final
+{
 
 	uint32_t framebufferWidth;
 	uint32_t framebufferHeight;
@@ -60,6 +64,7 @@ struct VulkanRenderDevice {
 	uint32_t computeFamily;
 	VkQueue computeQueue;
 
+	// a list of all queus (for shared buffer allocation)
 	std::vector<uint32_t> deviceQueueIndices;
 	std::vector<VkQueue> deviceQueues;
 
@@ -67,7 +72,8 @@ struct VulkanRenderDevice {
 	VkCommandPool computeCommandPool;
 };
 
-struct VulkanBuffer {
+struct VulkanBuffer 
+{
 	VkBuffer buffer;
 	VkDeviceSize size;
 	VkDeviceMemory memory;
@@ -76,15 +82,16 @@ struct VulkanBuffer {
 	void* ptr;
 };
 
-struct VulkanImage {
+struct VulkanImage final
+{
 	VkImage image = nullptr;
 	VkDeviceMemory imageMemory = nullptr;
 	VkImageView imageView = nullptr;
 };
 
 // Aggregate structure for passing around the texture data
-struct VulkanTexture {
-
+struct VulkanTexture final 
+{
 	uint32_t width;
 	uint32_t height;
 	uint32_t depth;
@@ -246,6 +253,8 @@ bool createUniformBuffer ( VulkanRenderDevice& vkDev, VkBuffer& buffer, VkDevice
 
 /* Copy [data] to GPU device buffer */
 void uploadBufferData ( VulkanRenderDevice& vkDev, const VkDeviceMemory& bufferMemory, VkDeviceSize deviceOffset, const void* data, const size_t dataSize );
+/* Copy GPU device buffer data to [outData] */
+void downloadBufferData ( VulkanRenderDevice& vkDev, const VkDeviceMemory& bufferMemory, VkDeviceSize deviceOffset, void* outData, size_t dataSize );
 
 bool createImageView ( VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, VkImageView* imageView, VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D, uint32_t layerCount = 1, uint32_t mipLevels = 1 );
 
@@ -281,6 +290,7 @@ bool createColorAndDepthFramebuffers ( VulkanRenderDevice& vkDev, VkRenderPass r
 bool createDepthOnlyFramebuffer ( VulkanRenderDevice& vkDev, uint32_t width, uint32_t height, VkRenderPass renderPass, VkImageView depthImageView, VkFramebuffer* framebuffer );
 
 void copyBufferToImage ( VulkanRenderDevice& vkDev, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount = 1 );
+void copyImageToBuffer ( VulkanRenderDevice& vkDev, VkImage image, VkBuffer buffer, uint32_t width, uint32_t height, uint32_t layerCount = 1 );
 
 void destroyVulkanImage ( VkDevice device, VulkanImage& image );
 void destroyVulkanTexture ( VkDevice device, VulkanTexture& texture );
@@ -289,6 +299,8 @@ uint32_t bytesPerTexFormat ( VkFormat fmt );
 
 /* VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL for real update of an existing texture */
 bool updateTextureImage ( VulkanRenderDevice& vkDev, VkImage& textureImage, VkDeviceMemory& textureImageMemory, uint32_t texWidth, uint32_t texHeight, VkFormat texFormat, uint32_t layerCount, const void* imageData, VkImageLayout sourceImageLayout = VK_IMAGE_LAYOUT_UNDEFINED );
+
+bool downloadImageData ( VulkanRenderDevice& vkDev, VkImage& textureImage, uint32_t texWidth, uint32_t texHeight, VkFormat texFormat, uint32_t layerCount, void* imageData, VkImageLayout sourceImageLayout );
 
 bool createDepthResources ( VulkanRenderDevice& vkDev, uint32_t width, uint32_t height, VulkanImage& depth );
 
@@ -304,6 +316,8 @@ bool createCubeTextureImage ( VulkanRenderDevice& vkDev, const char* filename, V
 bool createTexturedVertexBuffer ( VulkanRenderDevice& vkDev, const char* filename, VkBuffer* storageBuffer, VkDeviceMemory* storageBufferMemory, size_t* vertexBufferSize, size_t* indexBufferSize );
 
 bool executeComputeShader ( VulkanRenderDevice& vkDev, VkPipeline computePipeline, VkPipelineLayout pl, VkDescriptorSet ds, uint32_t xsize, uint32_t ysize, uint32_t zsize );
+
+void insertComputedImageBarrier ( VkCommandBuffer commandBuffer, VkImage image );
 
 bool setVkObjectName ( VulkanRenderDevice& vkDev, void* object, VkObjectType objType, const char* name );
 

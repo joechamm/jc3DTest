@@ -20,6 +20,7 @@ private:
 
 public:
 	explicit ImGuiRenderer ( VulkanRenderDevice& vkDev );
+	explicit ImGuiRenderer ( VulkanRenderDevice& vkDev, const std::vector<VulkanTexture>& textures );
 	virtual ~ImGuiRenderer ();
 
 	virtual void fillCommandBuffer ( VkCommandBuffer commandBuffer, size_t currentImage ) override;
@@ -27,6 +28,7 @@ public:
 
 private:
 	bool createDescriptorSet ( VulkanRenderDevice& vkDev );
+	bool createMultiDescriptorSet ( VulkanRenderDevice& vkDev );
 
 };
 

@@ -1,15 +1,9 @@
-//#include "Utils.h"
-//#include "UtilsVulkan.h"
-//#include "Bitmap.h"
-//#include "UtilsCubemap.h"
-//#include "EasyProfilerWrapper.h"
-//#include "StandAlone/ResourceLimits.h"
-
 #include <jcVkFramework/Utils.h>
 #include <jcVkFramework/UtilsVulkan.h>
 #include <jcVkFramework/Bitmap.h>
 #include <jcVkFramework/UtilsCubemap.h>
 #include <jcVkFramework/EasyProfilerWrapper.h>
+
 #include <StandAlone/ResourceLimits.h>
 
 #define VK_NO_PROTOTYPES
@@ -17,11 +11,9 @@
 #include <glfw/glfw3.h>
 
 #define STB_IMAGE_IMPLEMENTATION
-//#include "stb_image.h"
 #include <stb/stb_image.h>
 
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
-//#include "stb_image_resize.h"
 #include <stb/stb_image_resize.h>
 
 #include <assimp/scene.h>
@@ -1633,6 +1625,37 @@ void uploadBufferData ( VulkanRenderDevice& vkDev, const VkDeviceMemory& bufferM
 	vkUnmapMemory ( vkDev.device, bufferMemory );
 }
 
+void downloadBufferData ( VulkanRenderDevice& vkDev, const VkDeviceMemory& bufferMemory, VkDeviceSize deviceOffset, void* outData, const size_t dataSize )
+{
+	void* mappedData = nullptr;
+	vkMapMemory ( vkDev.device, bufferMemory, deviceOffset, dataSize, 0, &mappedData );
+	memcpy ( outData, mappedData, dataSize );
+	vkUnmapMemory ( vkDev.device, bufferMemory );
+}
+
+bool downloadImageData ( VulkanRenderDevice& vkDev, VkImage& textureImage, uint32_t texWidth, uint32_t texHeight, VkFormat texFormat, uint32_t layerCount, void* imageData, VkImageLayout sourceImageLayout )
+{
+	uint32_t bytesPerPixel = bytesPerTexFormat ( texFormat );
+
+	VkDeviceSize layerSize = texWidth * texHeight * bytesPerPixel;
+	VkDeviceSize imageSize = layerSize * layerCount;
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	createBuffer ( vkDev.device, vkDev.physicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory );
+
+	transitionImageLayout ( vkDev, textureImage, texFormat, sourceImageLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, layerCount );
+	copyImageToBuffer ( vkDev, textureImage, stagingBuffer, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), layerCount );
+	transitionImageLayout ( vkDev, textureImage, texFormat, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, sourceImageLayout, layerCount );
+
+	downloadBufferData ( vkDev, stagingBufferMemory, 0, imageData, imageSize );
+
+	vkDestroyBuffer ( vkDev.device, stagingBuffer, nullptr );
+	vkFreeMemory ( vkDev.device, stagingBufferMemory, nullptr );
+
+	return true;
+}
+
 bool createDepthResources (
 	VulkanRenderDevice& vkDev,
 	uint32_t width, uint32_t height,
@@ -2339,6 +2362,29 @@ void copyBufferToImage (
 	endSingleTimeCommands ( vkDev, commandBuffer );
 }
 
+void copyImageToBuffer ( VulkanRenderDevice& vkDev, VkImage image, VkBuffer buffer, uint32_t width, uint32_t height, uint32_t layerCount )
+{
+	VkCommandBuffer commandBuffer = beginSingleTimeCommands ( vkDev );
+
+	const VkBufferImageCopy region = {
+		.bufferOffset = 0,
+		.bufferRowLength = 0,
+		.bufferImageHeight = 0,
+		.imageSubresource = VkImageSubresourceLayers {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.mipLevel = 0,
+			.baseArrayLayer = 0,
+			.layerCount = layerCount
+		},
+		.imageOffset = VkOffset3D {.x = 0, .y = 0, .z = 0 },
+		.imageExtent = VkExtent3D {.width = width, .height = height, .depth = 1 }
+	};
+
+	vkCmdCopyImageToBuffer ( commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer, 1, &region );
+
+	endSingleTimeCommands ( vkDev, commandBuffer );
+}
+
 void transitionImageLayout ( 
 	VulkanRenderDevice& vkDev, 
 	VkImage image, 
@@ -2588,6 +2634,21 @@ bool executeComputeShader ( VulkanRenderDevice& vkDev, VkPipeline computePipelin
 	VK_CHECK ( vkQueueWaitIdle ( vkDev.computeQueue ) );
 
 	return true;
+}
+
+void insertComputedImageBarrier ( VkCommandBuffer commandBuffer, VkImage image )
+{
+	const VkImageMemoryBarrier barrier = {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+		.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+		.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+		.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+		.image = image,
+		.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 } 
+	};
+
+	vkCmdPipelineBarrier ( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
 }
 
 std::vector<VkLayerProperties> getAvailableLayers ( void )
