@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __UTILS_VULKAN_H__
+#define __UTILS_VULKAN_H__
 
 #include <array>
 #include <functional>
@@ -327,3 +328,5 @@ void printVulkanApiVersion ( void );
 bool checkValidationLayerSupport ( const std::vector<const char*>& requestedLayers );
 bool checkExtensionSupport ( const std::vector<const char*>& requestedExtensions );
 void populateDebugMessengerCreateInfo ( VkDebugUtilsMessengerCreateInfoEXT& createInfo );
+
+#endif // __UTILS_VULKAN_H__

@@ -98,5 +98,5 @@ if(MSVC_IDE)
 	
 	# Run Macro
 	GroupSources(src)
-	GroupSources(include/jc3DTestSharedLibs)
+	GroupSources(include/jcVkFramework)
 endif()
