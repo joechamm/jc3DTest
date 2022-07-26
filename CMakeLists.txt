@@ -109,6 +109,8 @@ set_property(TARGET SPVRemapper   PROPERTY FOLDER "ThirdPartyLibraries/glslang")
 #target_sources(jc3DTestSharedLibs PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/extern/src/glslang/StandAlone/ResourceLimits.cpp)
 add_subdirectory(libs/jcVkFramework)
 
+target_sources(jcVkFramework PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/extern/src/glslang/StandAlone/ResourceLimits.cpp)
+
 add_subdirectory(src/apps/jc3DCh02_Assimp)
 if(BUILD_WITH_EASY_PROFILER)
 	add_subdirectory(src/apps/jc3DCh02_EasyProfiler)

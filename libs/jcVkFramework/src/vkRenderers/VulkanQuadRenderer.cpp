@@ -1,5 +1,8 @@
-#include "vkRenderers/VulkanQuadRenderer.h"
-#include "ResourceString.h"
+//#include "vkRenderers/VulkanQuadRenderer.h"
+//#include "ResourceString.h"
+
+#include <jcVkFramework/vkRenderers/VulkanQuadRenderer.h>
+#include <jcVkFramework/ResourceString.h>
 
 static constexpr int MAX_QUADS = 256;
 
@@ -147,7 +150,7 @@ VulkanQuadRenderer::VulkanQuadRenderer ( VulkanRenderDevice& vkDev, const std::v
 	framebufferWidth_ = vkDev.framebufferWidth;
 	framebufferHeight_ = vkDev.framebufferHeight;
 
-	storageBuffersMemory_.resize ( imgCount );
+	storageBuffers_.resize ( imgCount );
 	storageBuffersMemory_.resize ( imgCount );
 
 	vertexBufferSize_ = MAX_QUADS * 6 * sizeof ( VertexData );
@@ -186,7 +189,7 @@ VulkanQuadRenderer::VulkanQuadRenderer ( VulkanRenderDevice& vkDev, const std::v
 	}
 	printf ( "\n" );
 
-	std::vector<string> shaderFilenames = getShaderFilenamesWithRoot ( "assets/shaders/VK02_texture_array.vert", "assets/shaders/VK02_texture_array.frag" );
+	std::vector<string> shaderFilenames = getShaderFilenamesWithRoot ( "assets/shaders/VK06_texture_array.vert", "assets/shaders/VK06_texture_array.frag" );
 
 	if ( !createDepthResources ( vkDev, vkDev.framebufferWidth, vkDev.framebufferHeight, depthTexture_ ) ||
 		!createDescriptorPool ( vkDev, 1, 1, 1 * static_cast<uint32_t>(textures_.size ()), &descriptorPool_ ) ||

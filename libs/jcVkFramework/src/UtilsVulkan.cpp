@@ -1,19 +1,28 @@
-#include "Utils.h"
-#include "UtilsVulkan.h"
-#include "Bitmap.h"
-#include "UtilsCubemap.h"
-#include "EasyProfilerWrapper.h"
-#include "StandAlone/ResourceLimits.h"
+//#include "Utils.h"
+//#include "UtilsVulkan.h"
+//#include "Bitmap.h"
+//#include "UtilsCubemap.h"
+//#include "EasyProfilerWrapper.h"
+//#include "StandAlone/ResourceLimits.h"
+
+#include <jcVkFramework/Utils.h>
+#include <jcVkFramework/UtilsVulkan.h>
+#include <jcVkFramework/Bitmap.h>
+#include <jcVkFramework/UtilsCubemap.h>
+#include <jcVkFramework/EasyProfilerWrapper.h>
+#include <StandAlone/ResourceLimits.h>
 
 #define VK_NO_PROTOTYPES
 #define GLFW_INCLUDE_VULKAN
 #include <glfw/glfw3.h>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+//#include "stb_image.h"
+#include <stb/stb_image.h>
 
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
-#include "stb_image_resize.h"
+//#include "stb_image_resize.h"
+#include <stb/stb_image_resize.h>
 
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>

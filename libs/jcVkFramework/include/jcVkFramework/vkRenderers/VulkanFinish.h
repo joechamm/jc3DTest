@@ -1,7 +1,8 @@
 #ifndef __VULKAN_FINISH_H__
 #define __VULKAN_FINISH_H__
 
-#include "vkRenderers/VulkanRendererBase.h"
+//#include "vkRenderers/VulkanRendererBase.h"
+#include <jcVkFramework/vkRenderers/VulkanRendererBase.h>
 
 /**
  * @brief VulkanFinish object helps create another empty rendering pass that transitions the swapchain image to the VK_IMAGE_LAYOUT_PRESENT_SRC_KHR format

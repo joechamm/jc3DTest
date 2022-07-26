@@ -1,7 +1,8 @@
 #ifndef __VULKAN_CLEAR_H__
 #define __VULKAN_CLEAR_H__
 
-#include "vkRenderers/VulkanRendererBase.h"
+//#include "vkRenderers/VulkanRendererBase.h"
+#include <jcVkFramework/vkRenderers/VulkanRendererBase.h>
 
 /* The VulkanClear object initializes and starts an empty rendering pass whose only purpose is to clear the color and depth buffers */
 

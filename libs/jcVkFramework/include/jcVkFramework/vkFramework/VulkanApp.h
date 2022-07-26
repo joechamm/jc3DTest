@@ -5,9 +5,21 @@
 #define GLFW_INCLUDE_VULKAN
 #include <glfw/glfw3.h>
 
-#include "Utils.h"
-#include "UtilsMath.h"
-#include "UtilsVulkan.h"
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <functional>
+#include <chrono>
+#include <memory>
+#include <limits>
+#include <deque>
+
+//#include "Utils.h"
+//#include "UtilsMath.h"
+//#include "UtilsVulkan.h"
+#include <jcVkFramework/Utils.h>
+#include <jcVkFramework/UtilsMath.h>
+#include <jcVkFramework/UtilsVulkan.h>
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
@@ -25,6 +37,12 @@ struct Resolution
 
 GLFWwindow* initVulkanApp ( int width, int height, Resolution* outResolution = nullptr );
 
+extern "C" bool drawVulkanAppFrame (VulkanRenderDevice & vkDev, const std::function<void (uint32_t)>&updateBuffersFunc, const std::function<void (VkCommandBuffer, uint32_t)>&composeFrameFunc);
 bool drawFrame ( VulkanRenderDevice& vkDev, const std::function<void ( uint32_t )>& updateBuffersFunc, const std::function<void ( VkCommandBuffer, uint32_t )>& composeFrameFunc );
+
+namespace jcvkfw {
+	GLFWwindow* jcInitVulkanApp ( int width, int height, Resolution* outResolution = nullptr );
+	bool jcDrawFrame ( VulkanRenderDevice& vkDev, const std::function<void ( uint32_t )>& updateBuffersFunc, const std::function<void ( VkCommandBuffer, uint32_t )>& composeFrameFunc );
+}
 
 #endif // __VULKAN_APP_H__

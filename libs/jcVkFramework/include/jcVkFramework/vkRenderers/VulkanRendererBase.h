@@ -1,7 +1,8 @@
 #ifndef __VULKAN_RENDERER_BASE_H__
 #define __VULKAN_RENDERER_BASE_H__
 
-#include "UtilsVulkan.h"
+//#include "UtilsVulkan.h"
+#include <jcVkFramework/UtilsVulkan.h>
 
 /*
 	According to Chapter 04: Adding User Interaction and Productivity Tools of 3D Graphics Rendering Cookbook, we will assume that each frame is

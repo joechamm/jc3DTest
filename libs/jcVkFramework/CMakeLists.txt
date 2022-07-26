@@ -2,8 +2,9 @@ cmake_minimum_required(VERSION 2.8...3.20)
 
 project(jcVkFramework 
   VERSION 0.1.0
-  PROJECT_DESCRIPTION "Library of helper functions and classes for simple Vulkan Applications. Derived mainly from 3D Graphics Rendering Cookbook"
-  LANGUAGES CXX)
+  LANGUAGES CXX
+  DESCRIPTION "Library of helper functions and classes for simple Vulkan Applications. Derived mainly from 3D Graphics Rendering Cookbook"
+)
 
 # Debugging cmake
 include(CMakePrintHelpers)
@@ -25,7 +26,7 @@ cmake_print_variables(CMAKE_CURRENT_SOURCE_DIR)
 message(STATUS "Checking file globs...")
 
 cmake_print_variables(SRC_FILES)
-cmake_print_variables(HEADER_FILES);
+cmake_print_variables(HEADER_FILES)
 
 SETUP_GROUPS("${HEADER_FILES}")
 SETUP_GROUPS("${SRC_FILES}")
@@ -50,6 +51,9 @@ target_include_directories(jcVkFramework
   ${CMAKE_CURRENT_SOURCE_DIR}/src 
   ${CMAKE_CURRENT_SOURCE_DIR}/src/vkRenderers 
   ${CMAKE_CURRENT_SOURCE_DIR}/src/vkFramework
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/jcVkFramework
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/jcVkFramework/vkRenderers
+  ${CMAKE_CURRENT_SOURCE_DIR}/include/jcVkFramework/vkFramework
 	PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/include
 #	${CMAKE_CURRENT_SOURCE_DIR}/include/jcVkFramework
