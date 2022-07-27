@@ -1,0 +1,6 @@
+#ifndef __VULKAN_MULTI_MESH_RENDERER_H__
+#define __VULKAN_MULTI_MESH_RENDERER_H__
+
+// TODO: implement!
+
+#endif // !__VULKAN_MULTI_MESH_RENDERER_H__

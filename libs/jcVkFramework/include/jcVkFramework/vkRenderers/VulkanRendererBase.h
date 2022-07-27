@@ -1,7 +1,6 @@
 #ifndef __VULKAN_RENDERER_BASE_H__
 #define __VULKAN_RENDERER_BASE_H__
 
-//#include "UtilsVulkan.h"
 #include <jcVkFramework/UtilsVulkan.h>
 
 /*

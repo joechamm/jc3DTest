@@ -254,6 +254,7 @@ bool createUniformBuffer ( VulkanRenderDevice& vkDev, VkBuffer& buffer, VkDevice
 /* Copy [data] to GPU device buffer */
 void uploadBufferData ( VulkanRenderDevice& vkDev, const VkDeviceMemory& bufferMemory, VkDeviceSize deviceOffset, const void* data, const size_t dataSize );
 /* Copy GPU device buffer data to [outData] */
+/* NOTE: downloadBufferData should only be called after a corresponding memory barrier was executed in the compute cammand queue. */
 void downloadBufferData ( VulkanRenderDevice& vkDev, const VkDeviceMemory& bufferMemory, VkDeviceSize deviceOffset, void* outData, size_t dataSize );
 
 bool createImageView ( VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, VkImageView* imageView, VkImageViewType viewType = VK_IMAGE_VIEW_TYPE_2D, uint32_t layerCount = 1, uint32_t mipLevels = 1 );
@@ -317,6 +318,9 @@ bool createTexturedVertexBuffer ( VulkanRenderDevice& vkDev, const char* filenam
 
 bool executeComputeShader ( VulkanRenderDevice& vkDev, VkPipeline computePipeline, VkPipelineLayout pl, VkDescriptorSet ds, uint32_t xsize, uint32_t ysize, uint32_t zsize );
 
+bool createComputeDescriptorSetLayout ( VkDevice device, VkDescriptorSetLayout* descriptorSetLayout );
+
+void insertComputedBufferBarrier ( VulkanRenderDevice& vkDev, VkCommandBuffer commandBuffer, VkBuffer buffer );
 void insertComputedImageBarrier ( VkCommandBuffer commandBuffer, VkImage image );
 
 bool setVkObjectName ( VulkanRenderDevice& vkDev, void* object, VkObjectType objType, const char* name );

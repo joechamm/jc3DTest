@@ -1,7 +1,3 @@
-//#include "vkRenderers/VulkanCube.h"
-//#include "EasyProfilerWrapper.h"
-//#include "ResourceString.h"
-
 #include <jcVkFramework/vkRenderers/VulkanCube.h>
 #include <jcVkFramework/EasyProfilerWrapper.h>
 #include <jcVkFramework/ResourceString.h>

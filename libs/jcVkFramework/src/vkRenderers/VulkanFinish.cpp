@@ -1,8 +1,5 @@
-//#include "vkRenderers/VulkanFinish.h"
-//#include "EasyProfilerWrapper.h"
 #include <jcVkFramework/vkRenderers/VulkanFinish.h>
 #include <jcVkFramework/EasyProfilerWrapper.h>
-
 
 // The VulkanFinish class essentially hides all the hassle necessary to finalize frame rendering in Vulkan.
 VulkanFinish::VulkanFinish ( VulkanRenderDevice& vkDev, VulkanImage depthTexture )

@@ -5,8 +5,11 @@
 
 #include <glm/glm.hpp>
 
+//#include "Utils.h"
+//#include "UtilsMath.h"
 #include <jcVkFramework/Utils.h>
 #include <jcVkFramework/UtilsMath.h>
+
 
 /**
  * @brief we need two constants to define the limits on how many LODs and vertex streams we can have in a single mesh

@@ -1,0 +1,6 @@
+#ifndef __VULKAN_PBR_MODEL_RENDERER_H__
+#define __VULKAN_PBR_MODEL_RENDERER_H__
+
+// TODO: implement!
+
+#endif // !__VULKAN_PBR_MODEL_RENDERER_H__

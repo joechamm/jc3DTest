@@ -1,6 +1,3 @@
-//#include "vkRenderers/VulkanQuadRenderer.h"
-//#include "ResourceString.h"
-
 #include <jcVkFramework/vkRenderers/VulkanQuadRenderer.h>
 #include <jcVkFramework/ResourceString.h>
 

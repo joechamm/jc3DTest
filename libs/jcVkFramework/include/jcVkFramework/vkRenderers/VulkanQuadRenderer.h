@@ -1,7 +1,6 @@
 #ifndef __VULKAN_QUAD_RENDERER_H__
 #define __VULKAN_QUAD_RENDERER_H__
 
-//#include "vkRenderers/VulkanRendererBase.h"
 #include <jcVkFramework/vkRenderers/VulkanRendererBase.h>
 
 #include <string>

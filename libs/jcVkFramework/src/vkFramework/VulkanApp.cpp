@@ -1,4 +1,3 @@
-//#include "vkFramework/VulkanApp.h"
 #include <jcVkFramework/vkFramework/VulkanApp.h>
 
 Resolution detectResolution ( int width, int height )

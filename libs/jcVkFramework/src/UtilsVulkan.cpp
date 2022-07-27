@@ -766,6 +766,11 @@ void destroyVulkanRenderDevice ( VulkanRenderDevice& vkDev )
 	vkDestroySemaphore ( vkDev.device, vkDev.semaphore, nullptr );
 	vkDestroySemaphore ( vkDev.device, vkDev.renderSemaphore, nullptr );
 
+	if ( vkDev.useCompute )
+	{
+		vkDestroyCommandPool ( vkDev.device, vkDev.computeCommandPool, nullptr );
+	}
+
 	vkDestroyDevice ( vkDev.device, nullptr );
 }
 
@@ -1361,6 +1366,22 @@ VkResult createComputePipeline ( VkDevice device, VkShaderModule computeShader, 
 	};
 
 	return vkCreateComputePipelines ( device, 0, 1, &computePipelineCreateInfo, nullptr, pipeline );
+}
+
+/* Default DS layout for In/Out buffer pair */
+bool createComputeDescriptorSetLayout ( VkDevice device, VkDescriptorSetLayout* descriptorSetLayout )
+{
+	VkDescriptorSetLayoutBinding descriptorSetLayoutBindings[2] = {
+		{ 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, 0 },
+		{ 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, 0 }
+	};
+
+	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+		0, 0, 2, descriptorSetLayoutBindings
+	};
+
+	return (vkCreateDescriptorSetLayout ( device, &descriptorSetLayoutCreateInfo, 0, descriptorSetLayout ) == VK_SUCCESS);
 }
 
 //
@@ -2636,6 +2657,27 @@ bool executeComputeShader ( VulkanRenderDevice& vkDev, VkPipeline computePipelin
 	return true;
 }
 
+void insertComputedBufferBarrier ( VulkanRenderDevice& vkDev, VkCommandBuffer commandBuffer, VkBuffer buffer )
+{
+	uint32_t compute = vkDev.graphicsFamily;
+	uint32_t graphics = vkDev.computeFamily;
+
+	// make sure compute shader finishes before vertex shader reads vertices
+	const VkBufferMemoryBarrier barrier = {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+		.pNext = nullptr,
+		.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+		.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+		.srcQueueFamilyIndex = compute,
+		.dstQueueFamilyIndex = graphics,
+		.buffer = buffer,
+		.offset = 0,
+		.size = VK_WHOLE_SIZE
+	};
+
+	vkCmdPipelineBarrier ( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, 0 /*VK_FLAGS_NONE*/, 0, nullptr, 1, &barrier, 0, nullptr );
+}
+
 void insertComputedImageBarrier ( VkCommandBuffer commandBuffer, VkImage image )
 {
 	const VkImageMemoryBarrier barrier = {
@@ -2648,7 +2690,7 @@ void insertComputedImageBarrier ( VkCommandBuffer commandBuffer, VkImage image )
 		.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 } 
 	};
 
-	vkCmdPipelineBarrier ( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier );
+	vkCmdPipelineBarrier ( commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0 /*VK_FLAGS_NONE*/, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
 std::vector<VkLayerProperties> getAvailableLayers ( void )

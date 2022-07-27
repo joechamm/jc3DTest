@@ -1,11 +1,6 @@
-//#include "vkRenderers/VulkanCanvas.h"
-//#include "EasyProfilerWrapper.h"
-
-//#include "ResourceString.h"
 #include <jcVkFramework/vkRenderers/VulkanCanvas.h>
 #include <jcVkFramework/EasyProfilerWrapper.h>
 #include <jcVkFramework/ResourceString.h>
-
 
 VulkanCanvas::VulkanCanvas ( VulkanRenderDevice& vkDev, VulkanImage depth ) : RendererBase ( vkDev, depth )
 {

@@ -1,8 +1,5 @@
 #include <imgui/imgui.h>
 
-//#include "vkRenderers/VulkanImGui.h"
-//#include "ResourceString.h"
-//#include "EasyProfilerWrapper.h"
 #include <jcVkFramework/vkRenderers/VulkanImGui.h>
 #include <jcVkFramework/ResourceString.h>
 #include <jcVkFramework/EasyProfilerWrapper.h>

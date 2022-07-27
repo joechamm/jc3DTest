@@ -1,7 +1,6 @@
 #ifndef __VULKAN_IM_GUI_H__
 #define __VULKAN_IM_GUI_H__
 
-//#include "vkRenderers/VulkanRendererBase.h"
 #include <jcVkFramework/vkRenderers/VulkanRendererBase.h>
 
 class ImGuiRenderer : public RendererBase

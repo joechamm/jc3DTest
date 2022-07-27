@@ -1,4 +1,3 @@
-//#include "vkRenderers/VulkanRendererBase.h"
 #include <jcVkFramework/vkRenderers/VulkanRendererBase.h>
 #include <stdio.h>
 

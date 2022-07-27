@@ -1,16 +1,16 @@
-# CMakeLists.txt for jc3DCh05_GL02_Tessellation
+# CMakeLists.txt for jc3DCh06_GL01_PBR
 
 cmake_minimum_required(VERSION 3.14)
 
-project(jc3DCh05_GL02_Tessellation CXX C)
+project(jc3DCh06_GL01_PBR CXX C)
 
-add_executable(jc3DCh05_GL02_Tessellation)
+add_executable(jc3DCh06_GL01_PBR)
 
-set_property(TARGET jc3DCh05_GL02_Tessellation PROPERTY FOLDER "apps")
+set_property(TARGET jc3DCh06_GL01_PBR PROPERTY FOLDER "apps")
 
-target_compile_features(jc3DCh05_GL02_Tessellation PUBLIC cxx_std_20)
+target_compile_features(jc3DCh06_GL01_PBR PUBLIC cxx_std_20)
 
-target_sources(jc3DCh05_GL02_Tessellation 
+target_sources(jc3DCh06_GL01_PBR 
 	PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/src/Utils.h
 	${CMAKE_CURRENT_SOURCE_DIR}/src/UtilsMath.h
@@ -27,7 +27,7 @@ target_sources(jc3DCh05_GL02_Tessellation
 	${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
 ## imgui sources
-#target_sources(jc3DCh05_GL02_Tessellation 
+#target_sources(jc3DCh06_GL01_PBR 
 #	PUBLIC 
 #	${CMAKE_CURRENT_SOURCE_DIR}/src/imconfig.h
 #	${CMAKE_CURRENT_SOURCE_DIR}/src/imgui.h 
@@ -44,9 +44,9 @@ target_sources(jc3DCh05_GL02_Tessellation
 #	${CMAKE_CURRENT_SOURCE_DIR}/src/imgui_wrapper.cpp
 #)
 
-target_include_directories(jc3DCh05_GL02_Tessellation PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/glFramework)
+target_include_directories(jc3DCh06_GL01_PBR PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/glFramework)
 
-target_link_libraries(jc3DCh05_GL02_Tessellation PRIVATE
+target_link_libraries(jc3DCh06_GL01_PBR PRIVATE
 	glad
 	glfw
 	assimp

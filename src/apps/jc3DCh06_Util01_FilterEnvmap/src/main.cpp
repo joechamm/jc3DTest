@@ -1,342 +1,112 @@
-#define VK_NO_PROTOTYPES
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-#include <cstdio>
-#include <cstdlib>
-#include <chrono>
-#include <deque>
-#include <memory>
-#include <limits>
-#include <string>
+#include <imgui/imgui.h>
+#include <jcVkFramework/vkFramework/VulkanApp.h>
 
-#include "Utils.h"
-#include "UtilsMath.h"
-#include "UtilsFPS.h"
-#include "UtilsVulkan.h"
-#include "vkRenderers/VulkanClear.h"
-#include "vkRenderers/VulkanFinish.h"
-#include "vkRenderers/VulkanMultiMeshRenderer.h"
-#include "EasyProfilerWrapper.h"
-#include "Camera.h"
+#include <stb/stb_image.h>
 
-#include <glm/glm.hpp>
-#include <glm/ext.hpp>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+// Image_Resize's implementation is included in UtilsVulkan.cpp
+#include "stb_image_resize.h"
 
-#include <iostream>
-#include <string>
+#include <jcVkFramework/ResourceString.h>
 
-#include <helpers/RootDir.h>
-#include "ResourceString.h"
+int numPoints = 1024;
 
-using glm::mat4;
-using glm::vec3;
-using glm::vec4;
-using std::string;
-
-const uint32_t kScreenWidth = 1280;
-const uint32_t kScreenHeight = 720;
-
-GLFWwindow* window;
-
-VulkanInstance vk;
-VulkanRenderDevice vkDev;
-
-std::unique_ptr<MultiMeshRenderer> multiRenderer;
-std::unique_ptr<VulkanClear> clear;
-std::unique_ptr<VulkanFinish> finish;
-
-FramesPerSecondCounter fpsCounter ( 0.02f );
-
-struct MouseState
+/// From Henry J. Warren's "Hacker's Delight"
+float radicalInverse_VdC ( uint32_t bits )
 {
-	glm::vec2 pos = glm::vec2 ( 0.0f );
-	bool pressedLeft = false;
-} mouseState;
-
-CameraPositioner_FirstPerson positioner_firstPerson ( vec3(0.0f, -5.0f, 15.0f), vec3 ( 0.0f, 0.0f, -1.0f ), vec3 ( 0.0f, 1.0f, 0.0f ) );
-Camera camera = Camera ( positioner_firstPerson );
-
-bool initVulkan ()
-{
-	EASY_FUNCTION ();
-
-//	createInstance ( &vk.instance );
-	createInstanceWithDebugging ( &vk.instance, "jc3DCh05_VK01_MultiMeshDraw" );
-
-	if ( !setupDebugCallbacks ( vk.instance, &vk.messenger ) )
-	{
-		printf ( "Failed to setup debug callbacks\n" );
-		exit ( EXIT_FAILURE );
-	}
-
-	if ( glfwCreateWindowSurface ( vk.instance, window, nullptr, &vk.surface ) != VK_SUCCESS )
-	{
-		printf ( "Failed to create window surface\n" );
-		exit ( EXIT_FAILURE );
-	}
-
-	if ( !initVulkanRenderDevice ( vk, vkDev, kScreenWidth, kScreenHeight, isDeviceSuitable, { .multiDrawIndirect = VK_TRUE, .drawIndirectFirstInstance = VK_TRUE } ) )
-	{
-		printf ( "Failed to initialize vulkan render device\n" );
-		exit ( EXIT_FAILURE );
-	}
-
-	string meshesFilename = appendToRoot ( "assets/models/exterior/test.meshes" );
-	string instancesFilename = appendToRoot ( "assets/models/exterior/test.meshes.drawData" );
-
-	string vtxShaderFilename = appendToRoot ( "assets/shaders/VK05.vert" );
-	string fragShaderFilename = appendToRoot ( "assets/shaders/VK05.frag" );
-
-	printf ( "Creating VulkanClear\n" );
-	clear = std::make_unique<VulkanClear> ( vkDev, VulkanImage() );
-	printf ( "Creating VulkanFinish\n" );
-	finish = std::make_unique<VulkanFinish> ( vkDev, VulkanImage() );
-	printf ( "Creating MultiMeshRenderer\n" );
-	multiRenderer = std::make_unique<MultiMeshRenderer> ( vkDev, 
-		meshesFilename.c_str (),
-		instancesFilename.c_str (), 
-		"", 
-		vtxShaderFilename.c_str (), fragShaderFilename.c_str () );
-
-	return true;
+	bits = (bits << 16u) | (bits >> 16u);
+	bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+	bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+	bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+	bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+	return float ( bits ) * 2.3283064365386963e-10f; // / 0x100000000
 }
 
-void terminateVulkan ()
-{
-	
-	finish = nullptr;
-	clear = nullptr;
-	multiRenderer = nullptr;
+// The i-th point is then computed by
 
-	destroyVulkanRenderDevice ( vkDev );
-	destroyVulkanInstance ( vk );
+/// From http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html
+
+vec2 hammersley2d ( uint32_t i, uint32_t N )
+{
+	return vec2 ( float ( i ) / float ( N ), radicalInverse_VdC ( i ) );
 }
 
-void update3D ( uint32_t imageIndex )
+void convolveDiffuse ( const vec3* data, int srcW, int srcH, int dstW, int dstH, vec3* output, int numMonteCarloSamples )
 {
-	int width, height;
-	glfwGetFramebufferSize ( window, &width, &height );
-	const float ratio = width / (float)height;
+	// only equirecangular maps are supported
+	assert ( srcW == 2 * srcH );
 
-	const mat4 m1 = glm::rotate ( mat4 ( 1.0f ), glm::pi<float> (), vec3 ( 1, 0, 0 ) );
-	const mat4 p = glm::perspective ( 45.0f, ratio, 0.1f, 1000.0f );
+	if ( srcW != 2 * srcH ) return;
 
-	const mat4 view = camera.getViewMatrix ();
-	const mat4 mtx = p * view * m1;
+	std::vector<vec3> tmp ( dstW * dstH );
 
+
+	stbir_resize_float_generic (
+		reinterpret_cast<const float*>(data), srcW, srcH, 0,
+		reinterpret_cast<float*>(tmp.data ()), dstW, dstH, 0, 3,
+		STBIR_ALPHA_CHANNEL_NONE, 0, STBIR_EDGE_CLAMP, STBIR_FILTER_CUBICBSPLINE, STBIR_COLORSPACE_LINEAR, nullptr );
+
+	const vec3* scratch = tmp.data ();
+	srcW = dstW;
+	srcH = dstH;
+
+	for ( int y = 0; y != dstH; y++ )
 	{
-		EASY_BLOCK ( "UpdateUniformBuffers" );
-
-		multiRenderer->updateUniformBuffer ( vkDev, imageIndex, mtx );
-		
-		EASY_END_BLOCK;
+		printf ( "Line %i...\n", y );
+		const float theta1 = float ( y ) / float ( dstH ) * Math::PI;
+		for ( int x = 0; x != dstW; x++ )
+		{
+			const float phi1 = float ( x ) / float ( dstW ) * Math::TWOPI;
+			const vec3 V1 = vec3 ( sin ( theta1 ) * cos ( phi1 ), sin ( theta1 ) * sin ( phi1 ), cos ( theta1 ) );
+			vec3 color = vec3 ( 0.0f );
+			float weight = 0.0f;
+			for ( int i = 0; i != numMonteCarloSamples; i++ )
+			{
+				const vec2 h = hammersley2d ( i, numMonteCarloSamples );
+				const int x1 = int ( floor ( h.x * srcW ) );
+				const int y1 = int ( floor ( h.y * srcH ) );
+				const float theta2 = float ( y1 ) / float ( srcH ) * Math::PI;
+				const float phi2 = float ( x1 ) / float ( srcW ) * Math::TWOPI;
+				const vec3 V2 = vec3 ( sin ( theta2 ) * cos ( phi2 ), sin ( theta2 ) * sin ( phi2 ), cos ( theta2 ) );
+				const float D = std::max ( 0.0f, glm::dot ( V1, V2 ) );
+				if ( D > 0.01f )
+				{
+					color += scratch[y1 * srcW + x1] * D;
+					weight += D;
+				}
+			}
+			output[y * dstW + x] = color / weight;
+		}
 	}
 }
 
-void composeFrame ( uint32_t imageIndex, const std::vector<RendererBase*>& renderers )
+void process_cubemap ( const char* filename, const char* outFilename )
 {
-	update3D ( imageIndex );
-	
-	EASY_BLOCK ( "FillCommandBuffers" );
+	int w, h, comp;
+	const float* img = stbi_loadf ( filename, &w, &h, &comp, 3 );
 
-	VkCommandBuffer commandBuffer = vkDev.commandBuffers[imageIndex];
-
-	const VkCommandBufferBeginInfo bi = {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		.pNext = nullptr,
-		.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,
-		.pInheritanceInfo = nullptr
-	};
-
-	VK_CHECK ( vkBeginCommandBuffer ( commandBuffer, &bi ) );
-
-	for ( auto& r : renderers )
+	if ( !img )
 	{
-		r->fillCommandBuffer ( commandBuffer, imageIndex );
+		printf ( "Failed to load [%s] texture\n", filename );
+		fflush ( stdout );
+		return;
 	}
 
-	VK_CHECK ( vkEndCommandBuffer ( commandBuffer ) );
+	const int dstW = 256;
+	const int dstH = 128;
 
-	EASY_END_BLOCK;
+	std::vector<vec3> out ( dstW * dstH );
+
+	convolveDiffuse ( (vec3*)img, w, h, dstW, dstH, out.data (), numPoints );
+
+	stbi_image_free ( (void*)img );
+	stbi_write_hdr ( outFilename, dstW, dstH, 3, (float*)out.data () );
 }
-
-bool drawFrame ( const std::vector<RendererBase*>& renderers )
-{
-	EASY_FUNCTION ();
-
-	uint32_t imageIndex = 0;
-	VkResult result = vkAcquireNextImageKHR ( vkDev.device, vkDev.swapchain, 0, vkDev.semaphore, VK_NULL_HANDLE, &imageIndex );
-	VK_CHECK ( vkResetCommandPool ( vkDev.device, vkDev.commandPool, 0 ) );
-
-	if ( result != VK_SUCCESS )
-	{
-		return false;
-	}
-
-	composeFrame ( imageIndex, renderers );
-
-	const VkPipelineStageFlags waitStages[] = {
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };  // or even VERTEX_SHADER_STAGE
-
-	const VkSubmitInfo si = {
-		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		.pNext = nullptr,
-		.waitSemaphoreCount = 1,
-		.pWaitSemaphores = &vkDev.semaphore,
-		.pWaitDstStageMask = waitStages,
-		.commandBufferCount = 1,
-		.pCommandBuffers = &vkDev.commandBuffers[imageIndex],
-		.signalSemaphoreCount = 1,
-		.pSignalSemaphores = &vkDev.renderSemaphore
-	};
-
-	{
-		EASY_BLOCK ( "vkQueueSubmit", profiler::colors::Magenta );
-		VK_CHECK ( vkQueueSubmit ( vkDev.graphicsQueue, 1, &si, nullptr ) );
-		EASY_END_BLOCK;
-	}
-
-	const VkPresentInfoKHR pi = {
-		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-		.pNext = nullptr,
-		.waitSemaphoreCount = 1,
-		.pWaitSemaphores = &vkDev.renderSemaphore,
-		.swapchainCount = 1,
-		.pSwapchains = &vkDev.swapchain,
-		.pImageIndices = &imageIndex
-	};
-
-	{
-		EASY_BLOCK ( "vkQueuePresentKHR", profiler::colors::Magenta );
-		VK_CHECK ( vkQueuePresentKHR ( vkDev.graphicsQueue, &pi ) );
-		EASY_END_BLOCK;
-	}
-
-	{
-		EASY_BLOCK ( "vkDeviceWaitIdle", profiler::colors::Red );
-		VK_CHECK ( vkDeviceWaitIdle ( vkDev.device ) );
-		EASY_END_BLOCK;
-	}
-
-	return true;
-}
-
 
 int main ()
 {
-	EASY_PROFILER_ENABLE;
-	EASY_MAIN_THREAD;
-
-	// initialize the glslang compiler, the Volk library, and GLFW
-	glslang_initialize_process ();
-	volkInitialize ();
-	if ( !glfwInit () )
-	{
-		exit ( EXIT_FAILURE );
-	}
-	if ( !glfwVulkanSupported () )
-	{
-		exit ( EXIT_FAILURE );
-	}
-	// disable OpenGL context creation
-	glfwWindowHint ( GLFW_CLIENT_API, GLFW_NO_API );
-	glfwWindowHint ( GLFW_RESIZABLE, GL_FALSE );
-
-	window = glfwCreateWindow ( kScreenWidth, kScreenHeight, "Vulkan Multi Mesh Draw App", nullptr, nullptr );
-
-	if ( !window )
-	{
-		glfwTerminate ();
-		exit ( EXIT_FAILURE );
-	}
-
-	glfwSetCursorPosCallback (
-		window,
-		[]( auto* window, double x, double y ) {
-			if ( mouseState.pressedLeft )
-			{
-				mouseState.pos.x = static_cast<float>(x);
-				mouseState.pos.y = static_cast<float>(y);
-			}
-		}
-	);
-
-	glfwSetMouseButtonCallback (
-		window,
-		[]( auto* window, int button, int action, int mods ) {
-			if ( button == GLFW_MOUSE_BUTTON_LEFT )
-			{
-				mouseState.pressedLeft = action == GLFW_PRESS;
-			}
-		}
-	);
-
-	glfwSetKeyCallback (
-		window,
-		[]( GLFWwindow* window, int key, int scancode, int action, int mods )
-		{
-			const bool pressed = action != GLFW_RELEASE;
-			if ( key == GLFW_KEY_ESCAPE && pressed )
-			{
-				glfwSetWindowShouldClose ( window, GLFW_TRUE );
-			}
-			if ( key == GLFW_KEY_W )
-			{
-				positioner_firstPerson.movement_.forward_ = pressed;
-			}
-			if ( key == GLFW_KEY_S )
-			{
-				positioner_firstPerson.movement_.backward_ = pressed;
-			}
-			if ( key == GLFW_KEY_A )
-			{
-				positioner_firstPerson.movement_.left_ = pressed;
-			}
-			if ( key == GLFW_KEY_D )
-			{
-				positioner_firstPerson.movement_.right_ = pressed;
-			}
-			if ( key == GLFW_KEY_SPACE )
-			{
-				positioner_firstPerson.setUpVector ( vec3 ( 0.0f, 1.0f, 0.0f ) );
-			}
-		}
-	);
-
-	initVulkan ();	
-
-	double timeStamp = glfwGetTime ();
-	float deltaSeconds = 0.0f;
-
-	const std::vector<RendererBase*> renderers = { clear.get (), multiRenderer.get(), finish.get () };
-
-	while ( !glfwWindowShouldClose ( window ) )
-	{
-		{
-			EASY_BLOCK ( "UpdateCameraPositioners" );
-			positioner_firstPerson.update ( deltaSeconds, mouseState.pos, mouseState.pressedLeft );
-			EASY_END_BLOCK;
-		}
-
-		const double newTimeStamp = glfwGetTime ();
-		deltaSeconds = static_cast<float>(newTimeStamp - timeStamp);
-		timeStamp = newTimeStamp;
-
-		const bool frameRendered = drawFrame ( renderers );		
-
-		{
-			EASY_BLOCK ( "PollEvents" );
-			glfwPollEvents ();
-			EASY_END_BLOCK;
-		}
-
-	}
-
-	terminateVulkan ();
-	glfwTerminate ();
-	glslang_finalize_process ();
-
-	PROFILER_DUMP ( "profiling.prof" );
+	process_cubemap ( appendToRoot ( "assets/images/piazza_bologni_1k.hdr" ).c_str (), appendToRoot ( "assets/images/piazza_bologni_1k_irradiance.hdr" ).c_str () );
 
 	return 0;
 }

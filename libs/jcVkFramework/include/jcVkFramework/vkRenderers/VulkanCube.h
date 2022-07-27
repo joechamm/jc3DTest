@@ -1,7 +1,6 @@
 #ifndef __VULKAN_CUBE_H__
 #define __VULKAN_CUBE_H__
 
-//#include "vkRenderers/VulkanRendererBase.h"
 #include <jcVkFramework/vkRenderers/VulkanRendererBase.h>
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
