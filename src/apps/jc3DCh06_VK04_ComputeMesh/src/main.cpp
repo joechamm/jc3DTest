@@ -1,51 +1,15 @@
-#define VK_NO_PROTOTYPES
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-#include <cstdio>
-#include <cstdlib>
-#include <chrono>
-#include <deque>
-#include <memory>
-#include <limits>
-#include <string>
+#include <jcVkFramework/vkFramework/VulkanApp.h>
 
-#include "Utils.h"
-#include "UtilsMath.h"
-#include "UtilsFPS.h"
-#include "UtilsVulkan.h"
-#include "vkRenderers/VulkanClear.h"
-#include "vkRenderers/VulkanFinish.h"
-#include "vkRenderers/VulkanMultiMeshRenderer.h"
-#include "EasyProfilerWrapper.h"
-#include "Camera.h"
+#include <imgui/imgui.h>
 
-#include <glm/glm.hpp>
-#include <glm/ext.hpp>
+#include <jcVkFramework/vkRenderers/VulkanClear.h>
+#include <jcVkFramework/vkRenderers/VulkanComputedVB.h>
+#include <jcVkFramework/vkRenderers/VulkanComputedImage.h>
+#include <jcVkFramework/vkRenderers/VulkanFinish.h>
+#include <jcVkFramework/vkRenderers/VulkanModelRenderer.h>
+#include <jcVkFramework/vkRenderers/VulkanImGui.h>
 
-#include <iostream>
-#include <string>
-
-#include <helpers/RootDir.h>
-#include "ResourceString.h"
-
-using glm::mat4;
-using glm::vec3;
-using glm::vec4;
-using std::string;
-
-const uint32_t kScreenWidth = 1280;
-const uint32_t kScreenHeight = 720;
-
-GLFWwindow* window;
-
-VulkanInstance vk;
-VulkanRenderDevice vkDev;
-
-std::unique_ptr<MultiMeshRenderer> multiRenderer;
-std::unique_ptr<VulkanClear> clear;
-std::unique_ptr<VulkanFinish> finish;
-
-FramesPerSecondCounter fpsCounter ( 0.02f );
+#include <jcVkFramework/ResourceString.h>
 
 struct MouseState
 {
@@ -53,221 +17,236 @@ struct MouseState
 	bool pressedLeft = false;
 } mouseState;
 
-CameraPositioner_FirstPerson positioner_firstPerson ( vec3(0.0f, -5.0f, 15.0f), vec3 ( 0.0f, 0.0f, -1.0f ), vec3 ( 0.0f, 1.0f, 0.0f ) );
-Camera camera = Camera ( positioner_firstPerson );
+GLFWwindow* window;
 
-bool initVulkan ()
+const uint32_t kScreenWidth = 1600;
+const uint32_t kScreenHeight = 900;
+
+/*
+*	We store a queue of P-Q pairs that defines the order of morphing. The queue always has at least two elements that define the current and the next torus knot. 
+*	We also store a morphCoef floating-point value that is the 0...1 morphing factor between these two pairs in the queue. 
+*	The mesh is regenerated every frame and the morphing coefficient is increased until it reaches 1.0. 
+*	At this point, we will either stop morphing or, in case there are more than two elements in the queue, remove the top element from it, reset morphCoef back to 0, and repeat. 
+*	The animationSpeed value defines how fast one torus knot mesh morphs into another.*
+*/
+
+/// Should contain at least two elements
+std::deque<std::pair<uint32_t, uint32_t>> morphQueue = { { 5, 8}, {5, 8} };
+
+/// morphing between two torus knots 0..1
+float morphCoef = 0.0f;
+float animationSpeed = 1.0f;
+
+/* Define the tessellation level of the torus knot using the parameters numU and numV. */
+const uint32_t numU = 1024;
+const uint32_t numV = 1024;
+
+bool useColorMesh = false;
+
+VulkanInstance vk;
+VulkanRenderDevice vkDev;
+
+std::unique_ptr<VulkanClear> clear;
+std::unique_ptr<ComputedVertexBuffer> meshGen;
+std::unique_ptr<ModelRenderer> mesh;
+std::unique_ptr<ModelRenderer> meshColor;
+std::unique_ptr<ComputedImage> imgGen;
+std::unique_ptr<ImGuiRenderer> imgui;
+std::unique_ptr<VulkanFinish> finish;
+
+struct MeshUniformBuffer
 {
-	EASY_FUNCTION ();
+	float time;
+	uint32_t numU;
+	uint32_t numV;
+	float minU, maxU;
+	float minV, maxV;
+	uint32_t p1, p2;
+	uint32_t q1, q2;
+	float morph;
+} ubo;
 
-//	createInstance ( &vk.instance );
-	createInstanceWithDebugging ( &vk.instance, "jc3DCh05_VK01_MultiMeshDraw" );
-
-	if ( !setupDebugCallbacks ( vk.instance, &vk.messenger ) )
+/* generateIndices() prepares index buffer data. Regardless of the P and Q parameter values, we have a single order in which we should traverse vertices to produce torus knot triangles */
+void generateIndices ( uint32_t* indices )
+{
+	for ( uint32_t j = 0; j < numV - 1; j++ )
 	{
-		printf ( "Failed to setup debug callbacks\n" );
-		exit ( EXIT_FAILURE );
+		for ( uint32_t i = 0; i < numU - 1; i++ )
+		{
+			uint32_t offset = (j * (numU - 1) + i) * 6;
+			uint32_t i1 = (j + 0) * numU + (i + 0);
+			uint32_t i2 = (j + 0) * numU + (i + 1);
+			uint32_t i3 = (j + 1) * numU + (i + 1);
+			uint32_t i4 = (j + 1) * numU + (i + 0);
+			indices[offset + 0] = i1;
+			indices[offset + 1] = i2;
+			indices[offset + 2] = i4;
+			indices[offset + 3] = i2;
+			indices[offset + 4] = i3;
+			indices[offset + 5] = i4;
+		}
 	}
-
-	if ( glfwCreateWindowSurface ( vk.instance, window, nullptr, &vk.surface ) != VK_SUCCESS )
-	{
-		printf ( "Failed to create window surface\n" );
-		exit ( EXIT_FAILURE );
-	}
-
-	if ( !initVulkanRenderDevice ( vk, vkDev, kScreenWidth, kScreenHeight, isDeviceSuitable, { .multiDrawIndirect = VK_TRUE, .drawIndirectFirstInstance = VK_TRUE } ) )
-	{
-		printf ( "Failed to initialize vulkan render device\n" );
-		exit ( EXIT_FAILURE );
-	}
-
-	string meshesFilename = appendToRoot ( "assets/models/exterior/test.meshes" );
-	string instancesFilename = appendToRoot ( "assets/models/exterior/test.meshes.drawData" );
-
-	string vtxShaderFilename = appendToRoot ( "assets/shaders/VK05.vert" );
-	string fragShaderFilename = appendToRoot ( "assets/shaders/VK05.frag" );
-
-	printf ( "Creating VulkanClear\n" );
-	clear = std::make_unique<VulkanClear> ( vkDev, VulkanImage() );
-	printf ( "Creating VulkanFinish\n" );
-	finish = std::make_unique<VulkanFinish> ( vkDev, VulkanImage() );
-	printf ( "Creating MultiMeshRenderer\n" );
-	multiRenderer = std::make_unique<MultiMeshRenderer> ( vkDev, 
-		meshesFilename.c_str (),
-		instancesFilename.c_str (), 
-		"", 
-		vtxShaderFilename.c_str (), fragShaderFilename.c_str () );
-
-	return true;
 }
 
-void terminateVulkan ()
+/* initMesh() allocates all the necessary buffers, uploads indices data into the GPU, loads compute shaders for texture and mesh generation, and creates two model renderers, one for a textured mesh and another for a colored one */
+void initMesh ()
 {
-	
-	finish = nullptr;
-	clear = nullptr;
-	multiRenderer = nullptr;
+	/* Allocate storage for our generated indices data. To make things simpler, we do not use triangle strips, so it is always 6 indices for each quad defined by the UV mapping. */
+	std::vector<uint32_t> indicesGen ( (numU - 1) * (numV - 1) * 6 );
+	generateIndices ( indicesGen.data () );
 
-	destroyVulkanRenderDevice ( vkDev );
-	destroyVulkanInstance ( vk );
+	/* Compute all the necessary sizes for our GPU buffer. 12 floats are necessary to store three vec4 components per vertex. In GLSL the data struct is "struct VertexData { vec4 pos; vec4 tc; vec4 norm; } */
+	uint32_t vertexBufferSize = 12 * sizeof ( float ) * numU * numV;
+	uint32_t indexBufferSize = 6 * sizeof ( uint32_t ) * (numU - 1) * (numV - 1);
+	uint32_t bufferSize = vertexBufferSize + indexBufferSize;
+
+	/* Load both compute shaders. The grid size for texture generation is fixed at 1024x1024. The grid size for the mesh can be tweaked using numU and numV. */
+	std::string compTexShdFilename = appendToRoot ( "assets/shaders/VK06_compute_texture.comp" );
+	std::string compMeshShdFilename = appendToRoot ( "assets/shaders/VK06_compute_mesh.comp" );
+	imgGen = std::make_unique<ComputedImage> ( vkDev, compTexShdFilename.c_str (), 1024, 1024, false );
+	meshGen = std::make_unique<ComputedVertexBuffer>(vkDev, compMeshShdFilename.c_str(), indexBufferSize, sizeof(MeshUniformBuffer), 12 * sizeof(float), numU * numV);
+
+	/* Use a staging buffer to upload indices data int the GPU memory */
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	createBuffer ( vkDev.device, vkDev.physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory );
+
+	void* data = nullptr;
+	vkMapMemory ( vkDev.device, stagingBufferMemory, 0, bufferSize, 0, &data );
+	memcpy ( (void*)((uint8_t*)data + vertexBufferSize), indicesGen.data (), indexBufferSize );
+	vkUnmapMemory ( vkDev.device, stagingBufferMemory );
+	copyBuffer ( vkDev, stagingBuffer, meshGen->computedBuffer_, bufferSize );
+	vkDestroyBuffer ( vkDev.device, stagingBuffer, nullptr );
+	vkFreeMemory ( vkDev.device, stagingBufferMemory, nullptr );
+
+	/* Fill the Vulkan command buffer for our computed mesh generator, submit it for execution, and wait for the results. */
+	meshGen->fillComputeComandBuffer ();
+	meshGen->submit ();
+	vkDeviceWaitIdle ( vkDev.device );
+
+	std::vector<std::string> renderShaders = getShaderFilenamesWithRoot ( "assets/shaders/VK06_render.vert", "assets/shaders/VK06_render.frag" );
+	std::vector<std::string> renderColorShaders = getShaderFilenamesWithRoot ( "assets/shaders/VK06_render.vert", "assets/shaders/VK06_render_color.frag" );
+
+	mesh = std::make_unique<ModelRenderer> ( vkDev, true, meshGen->computedBuffer_, meshGen->computedMemory_, vertexBufferSize, indexBufferSize, imgGen->computed_, imgGen->computedImageSampler_, renderShaders, (uint32_t)sizeof ( mat4 ), true );
+
+	meshColor = std::make_unique<ModelRenderer> ( vkDev, true, meshGen->computedBuffer_, meshGen->computedMemory_, vertexBufferSize, indexBufferSize, imgGen->computed_, imgGen->computedImageSampler_, renderColorShaders, (uint32_t)sizeof ( mat4 ), true, mesh->getDepthTexture (), false );
 }
 
-void update3D ( uint32_t imageIndex )
+void renderGUI ( uint32_t imageIndex )
+{
+	int width, height;
+	glfwGetFramebufferSize ( window, &width, &height );
+
+	ImGuiIO& io = ImGui::GetIO ();
+	io.DisplaySize = ImVec2 ( (float)width, (float)height );
+	ImGui::NewFrame ();
+
+	const ImGuiWindowFlags flags =
+		ImGuiWindowFlags_NoTitleBar |
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoScrollbar |
+		ImGuiWindowFlags_NoSavedSettings |
+		ImGuiWindowFlags_NoInputs |
+		ImGuiWindowFlags_NoBackground;
+
+	// Each torus not is specified by a pair of coprime integers p and q.
+	static const std::vector<std::pair<uint32_t, uint32_t>> PQ = {
+		{2, 3}, {2, 5}, {2, 7}, {3, 4}, {2, 9}, {3, 5}, {5, 8}
+	};
+
+	ImGui::Begin ( "Torus Knot params", nullptr );
+	{
+		ImGui::Checkbox ( "Use colored mesh", &useColorMesh );
+		ImGui::SliderFloat ( "Animation Speed", &animationSpeed, 0.0f, 2.0f );
+
+		for ( size_t i = 0; i != PQ.size (); i++ )
+		{
+			std::string title = std::to_string ( PQ[i].first ) + ", " + std::to_string ( PQ[i].second );
+			if ( ImGui::Button ( title.c_str () ) )
+			{
+				if ( PQ[i] != morphQueue.back () )
+				{
+					morphQueue.push_back ( PQ[i] );
+				}
+			}
+		}
+	}
+	ImGui::End ();
+	ImGui::Render ();
+
+	imgui->updateBuffers ( vkDev, imageIndex, ImGui::GetDrawData () );
+}
+
+void updateBuffers ( uint32_t imageIndex )
 {
 	int width, height;
 	glfwGetFramebufferSize ( window, &width, &height );
 	const float ratio = width / (float)height;
 
-	const mat4 m1 = glm::rotate ( mat4 ( 1.0f ), glm::pi<float> (), vec3 ( 1, 0, 0 ) );
+	const mat4 m1 = glm::translate ( mat4 ( 1.0f ), vec3 ( 0.0f, 0.0f, -18.0f ) );
 	const mat4 p = glm::perspective ( 45.0f, ratio, 0.1f, 1000.0f );
+	const mat4 mtx = p * m1;
 
-	const mat4 view = camera.getViewMatrix ();
-	const mat4 mtx = p * view * m1;
-
+	if ( useColorMesh )
 	{
-		EASY_BLOCK ( "UpdateUniformBuffers" );
-
-		multiRenderer->updateUniformBuffer ( vkDev, imageIndex, mtx );
-		
-		EASY_END_BLOCK;
+		meshColor->updateUniformBuffer ( vkDev, imageIndex, glm::value_ptr ( mtx ), sizeof ( mat4 ) );
 	}
+	else
+	{
+		mesh->updateUniformBuffer ( vkDev, imageIndex, glm::value_ptr ( mtx ), sizeof ( mat4 ) );
+	}
+
+	renderGUI ( imageIndex );
 }
 
-void composeFrame ( uint32_t imageIndex, const std::vector<RendererBase*>& renderers )
+void composeFrame ( VkCommandBuffer commandBuffer, uint32_t imageIndex )
 {
-	update3D ( imageIndex );
-	
-	EASY_BLOCK ( "FillCommandBuffers" );
+	clear->fillCommandBuffer ( commandBuffer, imageIndex );
 
-	VkCommandBuffer commandBuffer = vkDev.commandBuffers[imageIndex];
-
-	const VkCommandBufferBeginInfo bi = {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		.pNext = nullptr,
-		.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,
-		.pInheritanceInfo = nullptr
-	};
-
-	VK_CHECK ( vkBeginCommandBuffer ( commandBuffer, &bi ) );
-
-	for ( auto& r : renderers )
+	if ( useColorMesh )
 	{
-		r->fillCommandBuffer ( commandBuffer, imageIndex );
+		meshColor->fillCommandBuffer ( commandBuffer, imageIndex );
+	}
+	else
+	{
+		mesh->fillCommandBuffer ( commandBuffer, imageIndex );
 	}
 
-	VK_CHECK ( vkEndCommandBuffer ( commandBuffer ) );
-
-	EASY_END_BLOCK;
+	imgui->fillCommandBuffer ( commandBuffer, imageIndex );
+	finish->fillCommandBuffer ( commandBuffer, imageIndex );
 }
 
-bool drawFrame ( const std::vector<RendererBase*>& renderers )
+float easing ( float x )
 {
-	EASY_FUNCTION ();
-
-	uint32_t imageIndex = 0;
-	VkResult result = vkAcquireNextImageKHR ( vkDev.device, vkDev.swapchain, 0, vkDev.semaphore, VK_NULL_HANDLE, &imageIndex );
-	VK_CHECK ( vkResetCommandPool ( vkDev.device, vkDev.commandPool, 0 ) );
-
-	if ( result != VK_SUCCESS )
-	{
-		return false;
-	}
-
-	composeFrame ( imageIndex, renderers );
-
-	const VkPipelineStageFlags waitStages[] = {
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };  // or even VERTEX_SHADER_STAGE
-
-	const VkSubmitInfo si = {
-		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		.pNext = nullptr,
-		.waitSemaphoreCount = 1,
-		.pWaitSemaphores = &vkDev.semaphore,
-		.pWaitDstStageMask = waitStages,
-		.commandBufferCount = 1,
-		.pCommandBuffers = &vkDev.commandBuffers[imageIndex],
-		.signalSemaphoreCount = 1,
-		.pSignalSemaphores = &vkDev.renderSemaphore
-	};
-
-	{
-		EASY_BLOCK ( "vkQueueSubmit", profiler::colors::Magenta );
-		VK_CHECK ( vkQueueSubmit ( vkDev.graphicsQueue, 1, &si, nullptr ) );
-		EASY_END_BLOCK;
-	}
-
-	const VkPresentInfoKHR pi = {
-		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-		.pNext = nullptr,
-		.waitSemaphoreCount = 1,
-		.pWaitSemaphores = &vkDev.renderSemaphore,
-		.swapchainCount = 1,
-		.pSwapchains = &vkDev.swapchain,
-		.pImageIndices = &imageIndex
-	};
-
-	{
-		EASY_BLOCK ( "vkQueuePresentKHR", profiler::colors::Magenta );
-		VK_CHECK ( vkQueuePresentKHR ( vkDev.graphicsQueue, &pi ) );
-		EASY_END_BLOCK;
-	}
-
-	{
-		EASY_BLOCK ( "vkDeviceWaitIdle", profiler::colors::Red );
-		VK_CHECK ( vkDeviceWaitIdle ( vkDev.device ) );
-		EASY_END_BLOCK;
-	}
-
-	return true;
+	return (x < 0.5) ? (4 * x * x * (3 * x - 1)) : (4 * (x - 1) * (x - 1) * (3 * (x - 1) + 1) + 1);
 }
-
 
 int main ()
 {
-	EASY_PROFILER_ENABLE;
-	EASY_MAIN_THREAD;
+	ImGui::CreateContext ();
+	ImGuiIO& io = ImGui::GetIO ();
 
-	// initialize the glslang compiler, the Volk library, and GLFW
-	glslang_initialize_process ();
-	volkInitialize ();
-	if ( !glfwInit () )
-	{
-		exit ( EXIT_FAILURE );
-	}
-	if ( !glfwVulkanSupported () )
-	{
-		exit ( EXIT_FAILURE );
-	}
-	// disable OpenGL context creation
-	glfwWindowHint ( GLFW_CLIENT_API, GLFW_NO_API );
-	glfwWindowHint ( GLFW_RESIZABLE, GL_FALSE );
-
-	window = glfwCreateWindow ( kScreenWidth, kScreenHeight, "Vulkan Multi Mesh Draw App", nullptr, nullptr );
-
-	if ( !window )
-	{
-		glfwTerminate ();
-		exit ( EXIT_FAILURE );
-	}
+	window = initVulkanApp ( kScreenWidth, kScreenHeight );
 
 	glfwSetCursorPosCallback (
 		window,
-		[]( auto* window, double x, double y ) {
-			if ( mouseState.pressedLeft )
-			{
-				mouseState.pos.x = static_cast<float>(x);
-				mouseState.pos.y = static_cast<float>(y);
-			}
+		[]( auto* window, double x, double y )
+		{
+			ImGui::GetIO ().MousePos = ImVec2 ( (float)x, (float)y );
 		}
 	);
 
 	glfwSetMouseButtonCallback (
 		window,
-		[]( auto* window, int button, int action, int mods ) {
+		[]( auto* window, int button, int action, int mods )
+		{
+			auto& io = ImGui::GetIO ();
+			const int idx = button == GLFW_MOUSE_BUTTON_LEFT ? 0 : button == GLFW_MOUSE_BUTTON_RIGHT ? 2 : 1;
+			io.MouseDown[idx] = action == GLFW_PRESS;
+
 			if ( button == GLFW_MOUSE_BUTTON_LEFT )
-			{
 				mouseState.pressedLeft = action == GLFW_PRESS;
-			}
 		}
 	);
 
@@ -280,63 +259,86 @@ int main ()
 			{
 				glfwSetWindowShouldClose ( window, GLFW_TRUE );
 			}
-			if ( key == GLFW_KEY_W )
-			{
-				positioner_firstPerson.movement_.forward_ = pressed;
-			}
-			if ( key == GLFW_KEY_S )
-			{
-				positioner_firstPerson.movement_.backward_ = pressed;
-			}
-			if ( key == GLFW_KEY_A )
-			{
-				positioner_firstPerson.movement_.left_ = pressed;
-			}
-			if ( key == GLFW_KEY_D )
-			{
-				positioner_firstPerson.movement_.right_ = pressed;
-			}
-			if ( key == GLFW_KEY_SPACE )
-			{
-				positioner_firstPerson.setUpVector ( vec3 ( 0.0f, 1.0f, 0.0f ) );
-			}
 		}
 	);
 
-	initVulkan ();	
+//	createInstance ( &vk.instance );
+	createInstanceWithDebugging ( &vk.instance, "jc3DTest Chapter 06 Exercise Compute Mesh" );
 
-	double timeStamp = glfwGetTime ();
-	float deltaSeconds = 0.0f;
+	BL_CHECK ( setupDebugCallbacks ( vk.instance, &vk.messenger ) );
+	VK_CHECK ( glfwCreateWindowSurface ( vk.instance, window, nullptr, &vk.surface ) );
+	BL_CHECK ( initVulkanRenderDeviceWithCompute ( vk, vkDev, kScreenWidth, kScreenHeight, VkPhysicalDeviceFeatures{} ) );
 
-	const std::vector<RendererBase*> renderers = { clear.get (), multiRenderer.get(), finish.get () };
+	initMesh ();
 
-	while ( !glfwWindowShouldClose ( window ) )
+	clear = std::make_unique<VulkanClear> ( vkDev, mesh->getDepthTexture () );
+	finish = std::make_unique<VulkanFinish> ( vkDev, mesh->getDepthTexture () );
+	imgui = std::make_unique<ImGuiRenderer> ( vkDev );
+
+	double lastTime = glfwGetTime ();
+
+	do
 	{
+		auto iter = morphQueue.begin ();
+
+		ubo.time = (float)glfwGetTime ();
+		ubo.morph = easing ( morphCoef );
+		ubo.p1 = iter->first;
+		ubo.q1 = iter->second;
+		ubo.p2 = (iter + 1)->first;
+		ubo.q2 = (iter + 1)->second;
+
+		ubo.numU = numU;
+		ubo.numV = numV;
+		ubo.minU = -1.0f;
+		ubo.maxU = +1.0f;
+		ubo.minV = -1.0f;
+		ubo.maxV = +1.0f;
+
+		meshGen->uploadUniformBuffer ( sizeof ( MeshUniformBuffer ), &ubo );
+
+		meshGen->fillComputeComandBuffer ( nullptr, 0, meshGen->computedVertexCount_ / 2, 1, 1 );
+		meshGen->submit ();
+		vkDeviceWaitIdle ( vkDev.device );
+
+		drawFrame ( vkDev, updateBuffers, composeFrame );
+
+		const double newTime = glfwGetTime ();
+		const float deltaSeconds = static_cast<float>(newTime - lastTime);
+		lastTime = newTime;
+		morphCoef += animationSpeed * deltaSeconds;
+		if ( morphCoef > 1.0f )
 		{
-			EASY_BLOCK ( "UpdateCameraPositioners" );
-			positioner_firstPerson.update ( deltaSeconds, mouseState.pos, mouseState.pressedLeft );
-			EASY_END_BLOCK;
+			morphCoef = 1.0f;
+			if ( morphQueue.size () > 2 )
+			{
+				morphCoef = 0.0f;
+				morphQueue.pop_front ();
+			}
 		}
 
-		const double newTimeStamp = glfwGetTime ();
-		deltaSeconds = static_cast<float>(newTimeStamp - timeStamp);
-		timeStamp = newTimeStamp;
+		glfwPollEvents ();
 
-		const bool frameRendered = drawFrame ( renderers );		
+	} while ( !glfwWindowShouldClose ( window ) );
 
-		{
-			EASY_BLOCK ( "PollEvents" );
-			glfwPollEvents ();
-			EASY_END_BLOCK;
-		}
+	clear = nullptr;
+	finish = nullptr;
 
-	}
+	imgui = nullptr;
+	meshGen = nullptr;
+	imgGen = nullptr;
+	mesh = nullptr;
+	meshColor->freeTextureSampler (); // release sampler handle
+	meshColor = nullptr;
 
-	terminateVulkan ();
+	destroyVulkanRenderDevice ( vkDev );
+	destroyVulkanInstance ( vk );
+
+	ImGui::DestroyContext ();
+
 	glfwTerminate ();
 	glslang_finalize_process ();
 
-	PROFILER_DUMP ( "profiling.prof" );
 
 	return 0;
 }
