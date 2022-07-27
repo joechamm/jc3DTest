@@ -1,8 +1,8 @@
 #ifndef __UTILS_GL_IMGUI_H__
 #define __UTILS_GL_IMGUI_H__
 
-#include "glFramework/GLShader.h"
-#include "ResourceString.h"
+#include <jcGLframework/glFramework/GLShader.h>
+#include <jcGLframework/ResourceString.h>
 
 #include <imgui/imgui.h>
 #include <imgui/imgui_internal.h>

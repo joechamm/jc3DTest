@@ -1,22 +1,31 @@
-#pragma once
+#ifndef __GL_SHADER_H__
+#define __GL_SHADER_H__
 
 #include <glad/gl.h>
+#include <string>
 
 /// The GLShader, GLProgram, and GLBuffer classes use the RAII idiom
-class GLShader 
+class GLShader
 {
 public:
 	explicit GLShader ( const char* filename );
+	GLShader ( const std::string& filename );
 	GLShader ( GLenum type, const char* text, const char* debugFileName = "" );
 	~GLShader ();
-	GLenum getType () const { return type_;  }
-	GLuint getHandle () const { return handle_;  }
+	GLenum getType () const
+	{
+		return type_;
+	}
+	GLuint getHandle () const
+	{
+		return handle_;
+	}
 private:
 	GLenum type_;
 	GLuint handle_;
 };
 
-class GLProgram 
+class GLProgram
 {
 public:
 	GLProgram ( const GLShader& a );
@@ -26,7 +35,10 @@ public:
 	~GLProgram ();
 
 	void useProgram () const;
-	GLuint getHandle () const { return handle_; }
+	GLuint getHandle () const
+	{
+		return handle_;
+	}
 
 private:
 	GLuint handle_;
@@ -35,14 +47,19 @@ private:
 /// return the shader type based on file's extension
 GLenum GLShaderTypeFromFileName ( const char* fileName );
 
-class GLBuffer 
+class GLBuffer
 {
 public:
 	GLBuffer ( GLsizeiptr size, const void* data, GLbitfield flags );
 	~GLBuffer ();
 
-	GLuint getHandle () const { return handle_; }
+	GLuint getHandle () const
+	{
+		return handle_;
+	}
 
 private:
 	GLuint handle_;
 };
+
+#endif // !__GL_SHADER_H__

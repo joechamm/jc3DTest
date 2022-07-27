@@ -1,5 +1,5 @@
-#include "GLShader.h"
-#include "Utils.h"
+#include <jcGLframework/glFramework/GLShader.h>
+#include <jcGLframework/Utils.h>
 
 #include <glad/gl.h>
 #include <assert.h>
@@ -9,6 +9,9 @@
 GLShader::GLShader ( const char* fileName ) : GLShader ( GLShaderTypeFromFileName ( fileName ), readShaderFile ( fileName ).c_str (), fileName )
 {
 }
+
+GLShader::GLShader ( const std::string& filename ) : GLShader(GLShaderTypeFromFileName(filename.c_str()), readShaderFile(filename.c_str()).c_str(), filename.c_str())
+{}
 
 GLShader::GLShader ( GLenum type, const char* text, const char* debugFilename ) : 
 			type_ ( type )

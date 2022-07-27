@@ -6,8 +6,7 @@
 #include <string.h>
 #include <string>
  
-//#include "Utils.h"
-#include <jcVkFramework/Utils.h>
+#include <jcGLframework/Utils.h>
 
 void printShaderSource(const char* text) {
 	int line = 1;

@@ -1,5 +1,4 @@
-//#include "VtxData.h"
-#include <jcVkFramework/VtxData.h>
+#include <jcGLframework/scene/VtxData.h>
 
 #include <algorithm>
 #include <assert.h>

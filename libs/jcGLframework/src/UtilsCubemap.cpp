@@ -1,8 +1,5 @@
-//#include "UtilsMath.h"
-//#include "UtilsCubemap.h"
-
-#include <jcVkFramework/UtilsMath.h>
-#include <jcVkFramework/UtilsCubemap.h>
+#include <jcGLframework/UtilsMath.h>
+#include <jcGLframework/UtilsCubemap.h>
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
