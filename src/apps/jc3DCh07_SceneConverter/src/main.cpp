@@ -421,6 +421,18 @@ void traverse ( const aiScene* sourceScene, Scene& scene, aiNode* node, int pare
 	}
 }
 
+void dumpMaterial ( const vector<string>& files, const MaterialDescription& d )
+{
+	printf("files: %d\n", (int)files.size());
+	printf ( "maps: %u%u%u%u%u\n", (uint32_t)d.albedoMap_, (uint32_t)d.ambientOcclusionMap_, (uint32_t)d.emissiveMap_, (uint32_t)d.opacityMap_, (uint32_t)d.metallicRoughnessMap_ );
+	printf ( " albedo:	%s\n", (d.albedoMap_ < 0xFFFF) ? files[d.albedoMap_].c_str () : "" );
+	printf ( " occlusion:	%s\n", (d.ambientOcclusionMap_ < 0xFFFF) ? files[d.ambientOcclusionMap_].c_str () : "" );
+	printf ( " emission:	%s\n", (d.emissiveMap_ < 0xFFFF) ? files[d.emissiveMap_].c_str () : "" );
+	printf ( " opacity:	%s\n", (d.opacityMap_ < 0xFFFF) ? files[d.opacityMap_].c_str () : "" );
+	printf ( " MeR:	%s\n", (d.metallicRoughnessMap_ < 0xFFFF) ? files[d.metallicRoughnessMap_].c_str () : "" );
+	printf ( " Normal:	%s\n", (d.normalMap_ < 0xFFFF) ? files[d.normalMap_].c_str () : "" );
+}
+
 string replaceAll ( const string& str, const string& oldSubStr, const string& newSubStr )
 {
 	string result = str;
@@ -700,5 +712,7 @@ int main ()
 	{
 		processScene ( cfg );
 	}
+
+	// Final step: optimize bistro scene
 	return 0;
 }
