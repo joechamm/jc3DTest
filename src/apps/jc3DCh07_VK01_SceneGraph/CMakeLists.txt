@@ -1,0 +1,32 @@
+# CMakeLists.txt for jc3DCh07_VK01_SceneGraph
+
+cmake_minimum_required(VERSION 3.14)
+
+project(jc3DCh07_VK01_SceneGraph CXX C)
+
+include_directories(${CMAKE_SOURCE_DIR}/extern/src/vulkan/include)
+include_directories(${CMAKE_SOURCE_DIR}/extern/src/imgui)
+include_directories(${CMAKE_SOURCE_DIR}/extern/src/ImGuizmo)
+include_directories(${CMAKE_SOURCE_DIR}/libs/jcVkFramework/include)
+
+add_executable(jc3DCh07_VK01_SceneGraph)
+
+set_property(TARGET jc3DCh07_VK01_SceneGraph PROPERTY FOLDER "apps")
+
+target_compile_features(jc3DCh07_VK01_SceneGraph PUBLIC cxx_std_20)
+
+target_sources(jc3DCh07_VK01_SceneGraph 
+	PUBLIC
+	PRIVATE
+	${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+
+target_include_directories(jc3DCh07_VK01_SceneGraph PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+target_link_libraries(jc3DCh07_VK01_SceneGraph PRIVATE 
+	jcVkFramework
+	ImGuizmo
+)
+
+if(BUILD_WITH_EASY_PROFILER)
+	target_link_libraries(jc3DCh07_VK01_SceneGraph PRIVATE easy_profiler)
+endif()

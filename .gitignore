@@ -10,6 +10,7 @@ assets/images/explosion1/*
 assets/images/explosion2/*
 assets/vkconfig/*
 assets/models/*
+assets/meshes/*
 
 # User-specific files
 *.rsuser
