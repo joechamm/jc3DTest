@@ -45,6 +45,7 @@ struct SceneConfig
 	string	outputMesh;
 	string	outputScene;
 	string	outputMaterials;
+	string  outputBoxes;
 	float	scale;
 	bool	calculateLODs;
 	bool	mergeInstances;
@@ -193,7 +194,7 @@ void processLods ( vector<uint32_t>& indices, vector<float>& vertices, vector<ve
 
 	uint8_t LOD = 1;
 
-	printf ( "\n   LOD0: %i indices", int ( indices.size () );
+	printf ( "\n   LOD0: %i indices", int ( indices.size () ));
 
 	outLods.push_back ( indices );
 
@@ -301,7 +302,7 @@ Mesh convertAIMesh ( const aiMesh* m, const SceneConfig& cfg )
 		}
 		for ( unsigned j = 0; j != m->mFaces[i].mNumIndices; j++ )
 		{
-			srcIndices.push_back ( m->mNumFaces[i].mIndices[j] );
+			srcIndices.push_back ( m->mFaces[i].mIndices[j] );
 		}
 	}
 
@@ -603,6 +604,7 @@ vector<SceneConfig> readConfigFile ( const char* cfgFilename )
 			.outputMesh = document[i]["output_mesh"].GetString (),
 			.outputScene = document[i]["output_scene"].GetString (),
 			.outputMaterials = document[i]["output_materials"].GetString (),
+			.outputBoxes = document[i].HasMember("output_boxes") ? document[i]["output_boxes"].GetString() : string(),
 			.scale = (float)document[i]["scale"].GetDouble (),
 			.calculateLODs = document[i]["calculate_LODs"].GetBool (),
 			.mergeInstances = document[i]["merge_instances"].GetBool ()
@@ -699,10 +701,18 @@ void mergeBistro ()
 	saveMaterials ( appendToRoot ( "assets/meshes/bistro_all.materials").c_str(), allMaterials, allTextures );
 
 	printf ( "[Unmerged] scene items: %d\n", (int)scene.hierarchy_.size () );
-	
+	mergeScene ( scene, meshData, "Foliage_Linde_Tree_Large_Orange_Leaves" );
+	printf ( "[Merged orange leaves] scene items: %d\n", (int)scene.hierarchy_.size () );
+	mergeScene ( scene, meshData, "Foliage_Linde_Tree_Large_Green_Leaves" );
+	printf ( "[Merged green leaves] scene items: %d\n", (int)scene.hierarchy_.size () );
+	mergeScene ( scene, meshData, "Foliage_Linde_Tree_Large_Trunk" );
+	printf ( "[Merged trunk] scene items: %d\n", (int)scene.hierarchy_.size () );
 
+	recalculateBoundingBoxes ( meshData );
+
+	saveMeshData ( appendToRoot ( "assets/meshes/bistro_all.meshes").c_str(), meshData );
+	saveScene ( appendToRoot ( "assets/meshes/bistro_all.scene" ).c_str (), scene );
 }
-
 
 int main ()
 {

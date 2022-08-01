@@ -97,6 +97,9 @@ int getNodeLevel ( const Scene& scene, int n )
 	return level;
 }
 
+bool mat4IsIdentity ( const mat4& m );
+void fprintfMat4 ( FILE* F, const mat4& m );
+
 // CPU version of global transforms update []
 void recalculateGlobalTransforms ( Scene& scene )
 {
@@ -231,22 +234,6 @@ void saveScene ( const char* filename, const Scene& scene )
 	fclose ( f );
 }
 
-void dumpTransformations ( const char* filename, const Scene& scene )
-{
-	FILE* f = fopen ( filename, "a+" );
-	for ( size_t i = 0; i < scene.localTransforms_.size (); i++ )
-	{
-		fprintf ( f, "Node[%d].localTransform: ", (int)i );
-		fprintfMat4 ( f, scene.localTransforms_[i] );
-		fprintf ( f, "Node[%d].globalTransform: ", (int)i;
-		fprintfMat4 ( f, scene.globalTransforms_[i] );
-		fprintf(f, "Node[%d].globalDet = %f; localDet = %\n",)
-	}
-}
-
-void printChagedNodes ( const Scene& scene )
-{}
-
 bool mat4IsIdentity ( const mat4& m )
 {
 	return (m[0][0] == 1 && m[0][1] == 0 && m[0][2] == 0 && m[0][3] == 0 &&
@@ -260,8 +247,7 @@ void fprintfMat4 ( FILE* f, const mat4& m )
 	if ( mat4IsIdentity ( m ) )
 	{
 		fprintf ( f, "Identity\n" );
-	}
-	else
+	} else
 	{
 		fprintf ( f, "\n" );
 		for ( int i = 0; i < 4; i++ )
@@ -276,6 +262,42 @@ void fprintfMat4 ( FILE* f, const mat4& m )
 	}
 }
 
+void dumpTransformations ( const char* filename, const Scene& scene )
+{
+	FILE* f = fopen ( filename, "a+" );
+	for ( size_t i = 0; i < scene.localTransforms_.size (); i++ )
+	{
+		fprintf ( f, "Node[%d].localTransform: ", (int)i );
+		fprintfMat4 ( f, scene.localTransforms_[i] );
+		fprintf ( f, "Node[%d].globalTransform: ", (int)i);
+		fprintfMat4 ( f, scene.globalTransforms_[i] );
+		fprintf ( f, "Node[%d].globalDet = %f; localDet = %f\n", (int)i, glm::determinant ( scene.globalTransforms_[i] ), glm::determinant ( scene.localTransforms_[i] ) );
+	}
+	fclose ( f );
+}
+
+void printChagedNodes ( const Scene& scene )
+{
+	for ( int i = 0; i < MAX_NODE_LEVEL && (!scene.changedAtThisFrame_[i].empty ()); i++ )
+	{
+		printf ( "Changed at level(%d):\n", i );
+
+		for ( const int& c : scene.changedAtThisFrame_[i] )
+		{
+			int p = scene.hierarchy_[c].parent_;
+			//scene.globalTransform_[c] = scene.globalTransform_[p] * scene.localTransform_[c];
+			printf ( " Node %d. Parent = %d; LocalTransform: ", c, p );
+			fprintfMat4 ( stdout, scene.localTransforms_[i] );
+			if ( p > -1 )
+			{
+				printf ( " ParentGlobalTransform: " );
+				fprintfMat4 ( stdout, scene.globalTransforms_[p] );
+			}
+		}
+	}
+}
+
+
 void dumpTransforms ( const char* filename, const Scene& scene )
 {
 	FILE* f = fopen ( filename, "a+" );
@@ -289,27 +311,6 @@ void dumpTransforms ( const char* filename, const Scene& scene )
 	}
 
 	fclose ( f );
-}
-
-void printChangedNodes ( const Scene& scene )
-{
-	for ( int i = 0; i < MAX_NODE_LEVEL && (!scene.changedAtThisFrame_[i].empty()); i++)
-	{
-		printf ( "Changed at level (%d):\n", i );
-
-		for ( const int& c : scene.changedAtThisFrame_[i] )
-		{
-			int p = scene.hierarchy_[c].parent_;
-			// scene.globalTransformation_[c] = scene.globalTransformation_[p] * scene.localTransform_[c]
-			printf ( " Node %d. Parent = %d; LocalTransformation: ", c, p );
-			fprintfMat4 ( stdout, scene.localTransforms_[i] );
-			if ( p > -1 )
-			{
-				printf ( " ParentGlobalTransform: " );
-				fprintfMat4 ( stdout, scene.globalTransforms_[p] );
-			}
-		}
-	}
 }
 
 // Shift all hierarchy components in the nodes
@@ -339,16 +340,6 @@ void shiftNodes ( Scene& scene, int startOffset, int nodeCount, int shiftAmount 
 
 using ItemMap = std::unordered_map<uint32_t, uint32_t>;
 
-/**
- * @brief There are different use cases for scene mergin. The simplest one is the direct "gluing" of multiple scenes into one [all the material lists and mesh lists are merged and indices in all scene nodes are shifted appropriately]. The second one is creating a "grid" of objects (or scenes) with the same material and mesh sets. For the second use case we need two flags: 'mergeMeshes' and 'mergeMaterials' to avoid shifting mesh indices
- * @param scene 
- * @param scenes 
- * @param rootTransforms 
- * @param meshCounts 
- * @param mergeMeshes 
- * @param mergeMaterials 
-*/
-
 // Add the items from otherMap shifting indices and values along the way
 void mergeMaps ( ItemMap& m, const ItemMap& otherMap, int indexOffset, int itemOffset )
 {
@@ -357,6 +348,16 @@ void mergeMaps ( ItemMap& m, const ItemMap& otherMap, int indexOffset, int itemO
 		m[i.first + indexOffset] = i.second + itemOffset;
 	}
 }
+
+/**
+ * @brief There are different use cases for scene merging. The simplest one is the direct "gluing" of multiple scenes into one [all the material lists and mesh lists are merged and indices in all scene nodes are shifted appropriately]. The second one is creating a "grid" of objects (or scenes) with the same material and mesh sets. For the second use case we need two flags: 'mergeMeshes' and 'mergeMaterials' to avoid shifting mesh indices
+ * @param scene
+ * @param scenes
+ * @param rootTransforms
+ * @param meshCounts
+ * @param mergeMeshes
+ * @param mergeMaterials
+*/
 
 void mergeScenes ( Scene& scene, const vector<Scene*>& scenes, const vector<mat4>& rootTransforms, const vector<uint32_t>& meshCounts, bool mergeMeshes, bool mergeMaterials )
 {
@@ -412,12 +413,49 @@ void mergeScenes ( Scene& scene, const vector<Scene*>& scenes, const vector<mat4
 		shiftNodes ( scene, offs, nodeCount, offs );
 
 		mergeMaps ( scene.meshes_, s->meshes_, offs, mergeMeshes ? meshOffs : 0 );
-		mergeMaps ( scene.materialForNode_, s->materialForNode_, offs, mergeMaterials : materialOfs: 0 );
+		mergeMaps ( scene.materialForNode_, s->materialForNode_, offs, mergeMaterials ? materialOfs : 0 );
 		mergeMaps ( scene.nameForNode_, s->nameForNode_, offs, nameOffs );
 
 		offs += nodeCount;
+
+		materialOfs += (int)s->materialNames_.size ();
+		nameOffs += (int)s->names_.size ();
+
+		if ( mergeMeshes )
+		{
+			meshOffs += *meshCount;
+			meshCount++;
+		}
 	}
 
+	// fixing 'nextSibling' fields in the old roots (zero-index in all the scenes)
+	offs = 1;
+	int idx = 0;
+	for ( const Scene* s : scenes )
+	{
+		int nodeCount = (int)s->hierarchy_.size ();
+		bool isLast = (idx == scenes.size () - 1);
+		// calculate new next sibling for the old scene roots
+		int next = isLast ? -1 : offs + nodeCount;
+		scene.hierarchy_[offs].nextSibling_ = next;
+		// attach to new root
+		scene.hierarchy_[offs].parent_ = 0;
+
+		// transform old root nodes, if the transforms are given
+		if ( !rootTransforms.empty () )
+		{
+			scene.localTransforms_[offs] = rootTransforms[idx] * scene.localTransforms_[offs];
+		}
+
+		offs += nodeCount;
+		idx++;
+	}
+
+	// now shift levels of all nodes below the root
+	for ( auto i = scene.hierarchy_.begin () + 1; i != scene.hierarchy_.end (); i++ )
+	{
+		i->level_++;
+	}
 }
 
 void dumpSceneToDot ( const char* filename, const Scene& scene, int* visited )
@@ -432,7 +470,7 @@ void dumpSceneToDot ( const char* filename, const Scene& scene, int* visited )
 		{
 			int strID = scene.nameForNode_.at ( i );
 			name = scene.names_[strID];
-		} 
+		}
 		if ( visited )
 		{
 			if ( visited[i] )
@@ -453,3 +491,131 @@ void dumpSceneToDot ( const char* filename, const Scene& scene, int* visited )
 	fprintf ( f, "}\n" );
 	fclose ( f );
 }
+
+/** A rather long algorithm (and the auxiliary routines) to delete a number of scene nodes from the hierarchy */
+
+// Add an index to a sorted index array
+static void addUniqueIdx ( vector<uint32_t>& v, uint32_t index )
+{
+	if ( !std::binary_search ( v.begin (), v.end (), index ) )
+	{
+		v.push_back ( index );
+	}
+}
+
+// Recurse down from a node and collect all nodes which are already marked for deletion
+static void collectNodesToDelete ( const Scene& scene, int node, vector<uint32_t>& nodes )
+{
+	for ( int n = scene.hierarchy_[node].firstChild_; n != -1; n = scene.hierarchy_[n].nextSibling_ )
+	{
+		addUniqueIdx ( nodes, n );
+		collectNodesToDelete ( scene, n, nodes );
+	}
+}
+
+int findLastNonDeletedItem ( const Scene& scene, const vector<int>& newIndices, int node )
+{
+	// we ahve to be more subtle:
+	//	if the (newIndices[firstChild_] == - 1), we should follow the link and extract the last non-removed item
+	// ..
+	if ( node == -1 )
+	{
+		return -1;
+	}
+
+	return (newIndices[node] == -1) ? findLastNonDeletedItem ( scene, newIndices, scene.hierarchy_[node].nextSibling_ ) : newIndices[node];
+}
+
+void shiftMapIndices ( unordered_map<uint32_t, uint32_t>& items, const vector<int>& newIndices )
+{
+	unordered_map<uint32_t, uint32_t> newItems;
+	for ( const auto& m : items )
+	{
+		int newIndex = newIndices[m.first];
+		if ( newIndex != -1 )
+		{
+			newItems[newIndex] = m.second;
+		}
+	}
+
+	items = newItems;
+}
+
+// Approximately an O ( N * Log(N) * Log(M)) algorithm (N = scene.size, M = nodesToDelete.size) to delete a collection of nodes from scene graph
+void deleteSceneNodes ( Scene& scene, const vector<uint32_t>& nodesToDelete )
+{
+	// 0) Add all the nodes down below in the hierarchy
+	auto indicesToDelete = nodesToDelete;
+	for ( auto i : indicesToDelete )
+	{
+		collectNodesToDelete ( scene, i, indicesToDelete );
+	}
+
+	// aux array with node indices to keep track of the moved ones [moved = [](node) { return (node != nodes[node]); ]
+	vector<int> nodes ( scene.hierarchy_.size () );
+	std::iota ( nodes.begin (), nodes.end (), 0 );
+	
+	// 1.a) Move all the indicesToDelete to the end of 'nodes' array (and cut them off, a variation of swap'n'pop for multiple elements)
+	auto oldSize = nodes.size ();
+	eraseSelected ( nodes, indicesToDelete );
+
+	// 1.b) Make a newIndices[oldIndex] mapping table
+	vector<int> newIndices ( oldSize, -1 );
+	for ( int i = 0; i < nodes.size (); i++ )
+	{
+		newIndices[nodes[i]] = i;
+	}
+
+	// 2) Replace all non-null parent/firstChild/nextSibling pointers in all the nodes by new positions
+	auto nodeMover = [&scene, &newIndices]( Hierarchy& h ) {
+		return Hierarchy{
+			.parent_ = (h.parent_ != -1) ? newIndices[h.parent_] : -1,
+			.firstChild_ = findLastNonDeletedItem ( scene, newIndices, h.firstChild_ ),
+			.nextSibling_ = findLastNonDeletedItem ( scene, newIndices, h.nextSibling_ ),
+			.lastSibling_ = findLastNonDeletedItem ( scene, newIndices, h.lastSibling_ )
+		};
+	};
+
+	std::transform ( scene.hierarchy_.begin (), scene.hierarchy_.end (), scene.hierarchy_.begin (), nodeMover );
+
+	// 3) Finally throw away the hierarchy items
+	eraseSelected ( scene.hierarchy_, indicesToDelete );
+
+	// 4) As in mergeScenes() routine we also have to adjust all the "components" (i.e., meshes, materials, names and transformations)
+
+	// 4a) Transformations are stored in arrays, so we just erase the items as we did iwith the scene.hierarchy_
+	eraseSelected ( scene.localTransforms_, indicesToDelete );
+	eraseSelected ( scene.globalTransforms_, indicesToDelete );
+
+	// 4b) All the maps should change the key values with the newIndices[] array
+	shiftMapIndices ( scene.meshes_, newIndices );
+	shiftMapIndices ( scene.materialForNode_, newIndices );
+	shiftMapIndices ( scene.nameForNode_, newIndices );
+
+	// 5) scene node names list is not modified, but in principle it can be (remove all non-used items and adjust the nameForNode_ map)
+	// 6) Material names list is not modified also, but if some materials fell out of use
+}
+
+//
+//void printChangedNodes ( const Scene& scene )
+//{
+//	for ( int i = 0; i < MAX_NODE_LEVEL && (!scene.changedAtThisFrame_[i].empty()); i++)
+//	{
+//		printf ( "Changed at level (%d):\n", i );
+//
+//		for ( const int& c : scene.changedAtThisFrame_[i] )
+//		{
+//			int p = scene.hierarchy_[c].parent_;
+//			// scene.globalTransformation_[c] = scene.globalTransformation_[p] * scene.localTransform_[c]
+//			printf ( " Node %d. Parent = %d; LocalTransformation: ", c, p );
+//			fprintfMat4 ( stdout, scene.localTransforms_[i] );
+//			if ( p > -1 )
+//			{
+//				printf ( " ParentGlobalTransform: " );
+//				fprintfMat4 ( stdout, scene.globalTransforms_[p] );
+//			}
+//		}
+//	}
+//}
+
+
