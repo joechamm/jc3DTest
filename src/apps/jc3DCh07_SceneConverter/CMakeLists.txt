@@ -25,6 +25,7 @@ target_include_directories(jc3DCh07_SceneConverter PRIVATE ${CMAKE_SOURCE_DIR}/l
 target_link_libraries(jc3DCh07_SceneConverter PRIVATE
 	jcGLframework 
 	meshoptimizer
+
 )
 
 if(UNIX)

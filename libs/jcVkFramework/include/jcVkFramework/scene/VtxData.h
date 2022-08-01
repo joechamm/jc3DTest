@@ -5,8 +5,8 @@
 
 #include <glm/glm.hpp>
 
-#include <jcGLframework/Utils.h>
-#include <jcGLframework/UtilsMath.h>
+#include <jcVkFramework/Utils.h>
+#include <jcVkFramework/UtilsMath.h>
 
 
 /**

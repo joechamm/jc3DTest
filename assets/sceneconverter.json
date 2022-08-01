@@ -1,0 +1,38 @@
+[
+{
+	"input_scene": "assets/models/Exterior/exterior.obj",
+	"output_mesh": "assets/meshes/test.meshes",
+	"output_scene": "assets/meshes/test.scene",
+	"output_materials": "assets/meshes/test.materials",
+	"scale": 0.01,
+	"calculate_LODs": false,
+	"merge_instances": true
+},
+{
+	"input_scene": "assets/models/Interior/interior.obj",
+	"output_mesh": "assets/meshes/test2.meshes",
+	"output_scene": "assets/meshes/test2.scene",
+	"output_materials": "assets/meshes/test2.materials",
+	"scale": 0.01,
+	"calculate_LODs": false,
+	"merge_instances": true
+},
+{
+	"input_scene": "assets/models/orrery/scene.gltf",
+	"output_mesh": "assets/meshes/test_graph.meshes",
+	"output_scene": "assets/meshes/test_graph.scene",
+	"output_materials": "assets/meshes/test_graph.materials",
+	"scale": 1.0,
+	"calculate_LODs": false,
+	"merge_instances": false 
+},
+{
+	"input_scene": "assets/models/rubber_duck/scene.gltf",
+	"output_mesh": "assets/meshes/test_duck.meshes",
+	"output_scene": "assets/meshes/test_duck.scene",
+	"output_materials": "assets/meshes/test_duck.materials",
+	"scale": 1.0,
+	"calculate_LODs": false,
+	"merge_instances": false
+}
+]

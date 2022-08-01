@@ -21,10 +21,14 @@
 
 #include <jcGLframework/ResourceString.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
-#include <stb_image.h>
-#include <stb_image_resize.h>
+#include "stb_image_write.h"
+
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+#include "stb_image_resize.h"
 
 #include <meshoptimizer.h>
 
@@ -580,6 +584,7 @@ void convertAndDownscaleAllTextures ( const vector<MaterialDescription>& materia
 	std::transform ( std::execution::par, std::begin ( files ), std::end ( files ), std::begin ( files ), converter );
 }
 
+// TODO: use absolute filepaths
 vector<SceneConfig> readConfigFile ( const char* cfgFilename )
 {
 	std::ifstream ifs ( cfgFilename );
