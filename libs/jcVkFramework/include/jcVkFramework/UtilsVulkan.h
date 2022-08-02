@@ -379,12 +379,33 @@ void insertComputedImageBarrier ( VkCommandBuffer commandBuffer, VkImage image )
 
 VkSampleCountFlagBits getMaxUsableSampleCount ( VkPhysicalDevice physDevice );
 
+inline uint32_t getVulkanBufferAlignment ( VulkanRenderDevice& vkDev )
+{
+	VkPhysicalDeviceProperties devProps;
+	vkGetPhysicalDeviceProperties ( vkDev.physicalDevice, &devProps );
+	return static_cast<uint32_t>(devProps.limits.minStorageBufferOffsetAlignment);
+}
+
+/* Check if texture is used as a depth buffer */
+inline bool isDepthFormat ( VkFormat fmt )
+{
+	return (fmt == VK_FORMAT_D16_UNORM) ||
+		(fmt == VK_FORMAT_X8_D24_UNORM_PACK32) ||
+		(fmt == VK_FORMAT_D32_SFLOAT) ||
+		(fmt == VK_FORMAT_D16_UNORM_S8_UINT) ||
+		(fmt == VK_FORMAT_D24_UNORM_S8_UINT) ||
+		(fmt == VK_FORMAT_D32_SFLOAT_S8_UINT);
+}
+
 bool setVkObjectName ( VulkanRenderDevice& vkDev, void* object, VkObjectType objType, const char* name );
 
 inline bool setVkImageName ( VulkanRenderDevice& vkDev, void* object, const char* name )
 {
 	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_IMAGE, name );
 }
+
+/* This routine updates one texture descriptor in one descriptor set */
+void updateTextureInDescriptorSetArray ( VulkanRenderDevice& vkDev, VkDescriptorSet ds, VulkanTexture t, uint32_t textureIndex, uint32_t bindingIdx );
 
 /* Added for debuggging */
 

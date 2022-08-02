@@ -14,12 +14,14 @@
 #include <limits>
 #include <deque>
 
-//#include "Utils.h"
-//#include "UtilsMath.h"
-//#include "UtilsVulkan.h"
+#include <imgui/imgui.h>
+
+#include <jcVkFramework/Camera.h>
 #include <jcVkFramework/Utils.h>
 #include <jcVkFramework/UtilsMath.h>
 #include <jcVkFramework/UtilsVulkan.h>
+
+#include <jcVkFramework/vkFramework/VulkanResources.h>
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
@@ -36,13 +38,151 @@ struct Resolution
 };
 
 GLFWwindow* initVulkanApp ( int width, int height, Resolution* outResolution = nullptr );
-
-extern "C" bool drawVulkanAppFrame (VulkanRenderDevice & vkDev, const std::function<void (uint32_t)>&updateBuffersFunc, const std::function<void (VkCommandBuffer, uint32_t)>&composeFrameFunc);
 bool drawFrame ( VulkanRenderDevice& vkDev, const std::function<void ( uint32_t )>& updateBuffersFunc, const std::function<void ( VkCommandBuffer, uint32_t )>& composeFrameFunc );
 
-namespace jcvkfw {
-	GLFWwindow* jcInitVulkanApp ( int width, int height, Resolution* outResolution = nullptr );
-	bool jcDrawFrame ( VulkanRenderDevice& vkDev, const std::function<void ( uint32_t )>& updateBuffersFunc, const std::function<void ( VkCommandBuffer, uint32_t )>& composeFrameFunc );
-}
+struct Renderer;
+
+struct RenderItem
+{
+	Renderer& renderer_;
+	bool enabled_ = true;
+	bool useDepth_ = true;
+	explicit RenderItem ( Renderer& r, bool useDepth = true ) : renderer_ ( r ), useDepth_ ( useDepth )
+	{}
+};
+
+struct VulkanRenderContext
+{
+	VulkanInstance vk_;
+	VulkanRenderDevice vkDev_;
+	VulkanContextCreator ctxCreator_;
+	VulkanResources resources_;
+
+	std::vector<RenderItem> onScreenRenderers_;
+	
+	VulkanTexture depthTexture_;
+	
+	RenderPass screenRenderPass_;
+	RenderPass screenRenderPass_NoDepth_;
+	RenderPass clearRenderPass_;
+	RenderPass finalRenderPass_;
+	
+	std::vector<VkFramebuffer> swapchainFramebuffers_;
+	std::vector<VkFramebuffer> swapchainFramebuffers_NoDepth_;
+	
+	VulkanRenderContext(void* window, uint32_t screenWidth, uint32_t screenHeight) 
+		: ctxCreator_(vk_, vkDev_, window, screenWidth, screenHeight)
+		, resources_(vkDev_)
+		, depthTexture_(resources_.addDepthTexture(0, 0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL))
+		, screenRenderPass_(resources_.addFullScreenPass())
+		, screenRenderPass_NoDepth_(resources_.addFullScreenPass(false))
+		, finalRenderPass_(resources_.addFullScreenPass(true, RenderPassCreateInfo { .clearColor_ = false, .clearDepth_ = false, .flags_ = eRenderPassBit_Last }))
+		, clearRenderPass_(resources_.addFullScreenPass(true, RenderPassCreateInfo { .clearColor_ = true, .clearDepth_ = true, .flags_ = eRenderPassBit_First }))
+		, swapchainFramebuffers_(resources_.addFramebuffers(screenRenderPass_.handle_, depthTexture_.image.imageView))
+		, swapchainFramebuffers_NoDepth_(resources_.addFramebuffers(screenRenderPass_NoDepth_.handle_))
+	{
+	}
+
+	void updateBuffers ( uint32_t imageIndex );
+	void beginRenderPass ( VkCommandBuffer cmdBuffer, VkRenderPass pass, size_t currentImage, const VkRect2D area, VkFramebuffer fb = VK_NULL_HANDLE, uint32_t clearValueCount = 0, const VkClearValue* clearValues = nullptr );
+	void composeFrame(VkCommandBuffer commandBuffer, uint32_t currentImage);
+};
+
+struct VulkanApp
+{
+protected:
+	struct MouseState
+	{
+		glm::vec2 pos = glm::vec2 ( 0.0f );
+		bool leftButtonPressed = false;
+	} mouseState_;
+	
+	Resolution resolution_;
+	GLFWwindow* window_ = nullptr;
+	VulkanRenderContext ctx_;
+	std::vector<RenderItem>& onScreenRenderers_;
+	
+public:
+	VulkanApp ( int screenWidth, int screenHeight )
+		: window_ ( initVulkanApp ( screenWidth, screenHeight, &resolution_ ) )
+		, ctx_ ( window_, resolution_.width, resolution_.height )
+		, onScreenRenderers_ ( ctx_.onScreenRenderers_ )
+	{
+		glfwSetWindowUserPointer ( window_, this );
+		assignCallbacks ();
+	}
+
+	~VulkanApp ()
+	{
+		glslang_finalize_process ();
+		glfwTerminate ();
+	}
+
+	virtual void drawUI ()
+	{}
+
+	virtual void draw3D () = 0;
+	virtual void update ( float dt ) = 0;
+
+	void mainLoop ();
+
+	inline bool shouldHandleMouse () const
+	{
+		return !ImGui::GetIO ().WantCaptureMouse;
+	}
+
+	virtual void handleKey ( int key, bool pressed ) = 0;
+	
+	virtual void handleMouseButton ( int button, bool pressed )
+	{
+		if ( button == GLFW_MOUSE_BUTTON_LEFT )
+			mouseState_.leftButtonPressed = pressed;
+	}
+
+	virtual void handleMouseMove ( float x, float y )
+	{
+		mouseState_.pos = glm::vec2 ( x, y );
+	}
+	
+private:
+	void assignCallbacks ();
+	void updateBuffers ( uint32_t imageIndex );	
+ };
+
+struct CameraApp : public VulkanApp
+{
+protected:
+	CameraPositioner_FirstPerson positioner_;
+	Camera camera_;
+
+public:
+	CameraApp ( int screenWidth, int screenHeight)
+		: VulkanApp ( screenWidth, screenHeight )
+		, positioner_ ( vec3(0.0f, 5.0f, 10.0f), vec3(0.0f, 0.0f, - 1.0f), vec3(0.0f, -1.0f, 0.0f))
+		, camera_(positioner_)
+	{
+	}
+		
+	virtual void update ( float dt ) override
+	{
+		positioner_.update ( dt, mouseState_.pos, shouldHandleMouse() && mouseState_.leftButtonPressed );
+	}
+	
+	virtual void handleKey ( int key, bool pressed ) override
+	{
+		if ( key == GLFW_KEY_W ) positioner_.movement_.forward_ = pressed;
+		if ( key == GLFW_KEY_S ) positioner_.movement_.backward_ = pressed;
+		if ( key == GLFW_KEY_A ) positioner_.movement_.left_ = pressed;
+		if ( key == GLFW_KEY_D ) positioner_.movement_.right_ = pressed;
+		if ( key == GLFW_KEY_C ) positioner_.movement_.up_ = pressed;
+		if ( key == GLFW_KEY_E ) positioner_.movement_.down_ = pressed;
+	}
+	
+	glm::mat4 getDefaultProjection() const
+	{
+		const float ratio = ctx_.vkDev_.framebufferWidth / (float)ctx_.vkDev_.framebufferHeight;
+		return glm::perspective ( glm::pi<float> () / 4.0f, ratio, 0.1f, 1000.0f );
+	}
+};
 
 #endif // __VULKAN_APP_H__

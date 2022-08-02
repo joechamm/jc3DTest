@@ -252,6 +252,17 @@ VulkanBuffer VulkanResources::addBuffer ( VkDeviceSize size, VkBufferUsageFlags 
 	return buffer;
 }
 
+
+
+VulkanBuffer VulkanResources::addVertexBuffer ( uint32_t indexBufferSize, const void* indexData, uint32_t vertexBufferSize, const void* vertexData )
+{
+	VulkanBuffer result;
+	result.size = allocateVertexBuffer ( vkDev_, &result.buffer, &result.memory, vertexBufferSize, vertexData, indexBufferSize, indexData );
+	allBuffers_.push_back ( result );
+
+	return result;
+}
+
 VkFramebuffer VulkanResources::addFramebuffer ( RenderPass renderPass, const std::vector<VulkanTexture>& images )
 {
 	VkFramebuffer framebuffer;
@@ -281,6 +292,13 @@ VkFramebuffer VulkanResources::addFramebuffer ( RenderPass renderPass, const std
 
 	allFramebuffers_.push_back ( framebuffer );
 	return framebuffer;
+}
+
+RenderPass VulkanResources::addFullScreenPass ( bool useDepth, const RenderPassCreateInfo& ci )
+{
+	RenderPass result ( vkDev_, useDepth, ci );
+	allRenderpasses_.push_back ( result.handle_ );
+	return result;
 }
 
 RenderPass VulkanResources::addRenderPass ( const std::vector<VulkanTexture>& outputs, const RenderPassCreateInfo& ci, bool useDepth )
@@ -318,7 +336,53 @@ RenderPass VulkanResources::addRenderPass ( const std::vector<VulkanTexture>& ou
 RenderPass VulkanResources::addDepthRenderPass ( const std::vector<VulkanTexture>& outputs, const RenderPassCreateInfo& ci )
 {
 	VkRenderPass renderPass;
-	if(!createDepthOnlyRender )
+	if(!createDepthOnlyRenderPass(vkDev_, &renderPass, ci))
+	{
+		printf("Unable to create depth-only render pass\n");
+		exit(EXIT_FAILURE);
+	}
 
-	return RenderPass ();
+	allRenderpasses_.push_back ( renderPass );
+	RenderPass rp;
+	rp.info_ = ci;
+	rp.handle_ = renderPass;
+	return rp;
+}
+
+VkPipelineLayout VulkanResources::addPipelineLayout ( VkDescriptorSetLayout dsLayout, uint32_t vtxConstSize, uint32_t fragConstSize )
+{
+	VkPipelineLayout pipelineLayout;
+	if ( !createPipelineLayoutWithConstants ( vkDev_.device, dsLayout, &pipelineLayout, vtxConstSize, fragConstSize ) )
+	{
+		printf ( "Cannot create pipeline layout\n" );
+		exit ( EXIT_FAILURE );
+	}
+
+	allPipelineLayouts_.push_back ( pipelineLayout );
+	return pipelineLayout;
+}
+
+VkPipeline VulkanResources::addPipeline ( VkRenderPass renderPass, VkPipelineLayout layout, const std::vector<std::string>& shaderNames, const PipelineInfo& pi )
+{
+	VkPipeline pipeline;
+	if ( !createGraphicsPipeline ( vkDev_, renderPass, layout, shaderNames, &pipeline, pi.topology_, pi.useDepth_, pi.useBlending_, pi.dynamicScissorState_, pi.width_, pi.height_, pi.patchControlPoints_ ) )
+	{
+		printf ( "Cannot create graphics pipeline\n" );
+		exit ( EXIT_FAILURE );
+	}
+
+	allPipelines_.push_back ( pipeline );
+	return pipeline;
+}
+
+std::vector<VkFramebuffer> VulkanResources::addFramebuffers ( VkRenderPass renderPass, VkImageView depthView )
+{
+	std::vector<VkFramebuffer> framebuffers;
+	createColorAndDepthFramebuffers ( vkDev_, renderPass, depthView, framebuffers );
+	for ( auto f : framebuffers )
+	{
+		allFramebuffers_.push_back ( f );
+	}
+
+	return framebuffers;
 }

@@ -38,7 +38,6 @@ private:
 	const CameraPositionerInterface* positioner_;
 };
 
-
 class CameraPositioner_FirstPerson final : public CameraPositionerInterface
 {
 
