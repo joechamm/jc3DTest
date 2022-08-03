@@ -375,6 +375,215 @@ VkPipeline VulkanResources::addPipeline ( VkRenderPass renderPass, VkPipelineLay
 	return pipeline;
 }
 
+VkDescriptorPool VulkanResources::addDescriptorPool ( const DescriptorSetInfo& dsInfo, uint32_t dSetCount )
+{
+	uint32_t uniformBufferCount = 0;
+	uint32_t storageBufferCount = 0;
+	uint32_t samplerCount = static_cast<uint32_t>(dsInfo.textures_.size ());
+
+	for ( const auto& ta : dsInfo.textureArrays_ )
+	{
+		samplerCount += static_cast<uint32_t>(ta.textureArray_.size ());
+	}
+
+	for ( const auto& b : dsInfo.buffers_ )
+	{
+		if ( b.dInfo_.type_ == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER )
+		{
+			uniformBufferCount++;
+		}
+		if ( b.dInfo_.type_ == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER )
+		{
+			storageBufferCount++;
+		}
+	}
+
+	std::vector<VkDescriptorPoolSize> poolSizes;
+
+	/* printf("Allocating pool[%d | %d | %d]\n", (int)uniformBufferCount, (int)storageBufferCount, (int)samplerCount); */
+	
+	if ( uniformBufferCount )
+	{
+		poolSizes.push_back ( VkDescriptorPoolSize {
+			.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			.descriptorCount = dSetCount * uniformBufferCount
+		} );
+	}
+
+	if ( storageBufferCount )
+	{
+		poolSizes.push_back ( VkDescriptorPoolSize{
+			.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			.descriptorCount = dSetCount * storageBufferCount
+		} );
+	}
+
+	if ( samplerCount )
+	{
+		poolSizes.push_back ( VkDescriptorPoolSize{
+			.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.descriptorCount = dSetCount * samplerCount
+		} );
+	}
+	
+	const VkDescriptorPoolCreateInfo poolInfo = {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.maxSets = static_cast<uint32_t>(dSetCount),
+		.poolSizeCount = static_cast<uint32_t>(poolSizes.size ()),
+		.pPoolSizes = poolSizes.empty () ? nullptr : poolSizes.data ()
+	};
+
+	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+
+	if( vkCreateDescriptorPool ( vkDev_.device, &poolInfo, nullptr, &descriptorPool ) != VK_SUCCESS )
+	{
+		printf ( "Cannot create descriptor pool\n" );
+		exit ( EXIT_FAILURE );
+	}
+
+	allDPools_.push_back ( descriptorPool );
+	return descriptorPool;
+}
+
+VkDescriptorSetLayout VulkanResources::addDescriptorSetLayout ( const DescriptorSetInfo& dsInfo )
+{
+	VkDescriptorSetLayout descriptorSetLayout;
+
+	uint32_t bindingIdx = 0;
+
+	std::vector<VkDescriptorSetLayoutBinding> bindings;
+
+	for ( const auto& b : dsInfo.buffers_ )
+	{
+		bindings.push_back ( descriptorSetLayoutBinding ( bindingIdx++, b.dInfo_.type_, b.dInfo_.shaderStageFlags_ ) );
+	}
+
+	for ( const auto& i : dsInfo.textures_ )
+	{
+		bindings.push_back ( descriptorSetLayoutBinding ( bindingIdx++, i.dInfo_.type_ /*VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER*/, i.dInfo_.shaderStageFlags_ ) );
+	}
+
+	for ( const auto& t : dsInfo.textureArrays_ )
+	{
+		bindings.push_back ( descriptorSetLayoutBinding ( bindingIdx++, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, t.dInfo_.shaderStageFlags_, static_cast<uint32_t>(t.textureArray_.size ()) ) );
+	}
+
+	const VkDescriptorSetLayoutCreateInfo layoutInfo = {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.bindingCount = static_cast<uint32_t>(bindings.size ()),
+		.pBindings = bindings.size () > 0 ? bindings.data () : nullptr
+	};
+
+	if ( vkCreateDescriptorSetLayout ( vkDev_.device, &layoutInfo, nullptr, &descriptorSetLayout ) != VK_SUCCESS )
+	{
+		printf ( "Cannot create descriptor set layout\n" );
+		exit ( EXIT_FAILURE );
+	}
+	
+	allDSLayouts_.push_back ( descriptorSetLayout );
+	return descriptorSetLayout;	
+}
+
+VkDescriptorSet VulkanResources::addDescriptorSet ( VkDescriptorPool descriptorPool, VkDescriptorSetLayout dsLayout )
+{
+	VkDescriptorSet descriptorSet;
+
+	const VkDescriptorSetAllocateInfo allocInfo = {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+		.pNext = nullptr,
+		.descriptorPool = descriptorPool,
+		.descriptorSetCount = 1,
+		.pSetLayouts = &dsLayout
+	};
+
+	if ( vkAllocateDescriptorSets ( vkDev_.device, &allocInfo, &descriptorSet ) != VK_SUCCESS )
+	{
+		printf ( "Cannot allocate descriptor set\n" );
+		exit ( EXIT_FAILURE );
+	}
+
+	return descriptorSet;
+}
+/* This routine counts all textures in all texture arrays (if any of them are present), creates a list of DescriptorWrite opertations, with required buffer/image info structures and calls the vkUpdateDescriptorSets() */
+void VulkanResources::updateDescriptorSet ( VkDescriptorSet ds, const DescriptorSetInfo& dsInfo )
+{
+	uint32_t bindingIdx = 0;
+	std::vector<VkWriteDescriptorSet> descriptorWrites;
+
+	std::vector<VkDescriptorBufferInfo> bufferDescriptors ( dsInfo.buffers_.size () );
+	std::vector<VkDescriptorImageInfo> imageDescriptors ( dsInfo.textures_.size () );
+	std::vector<VkDescriptorImageInfo> imageArrayDescriptors;
+
+	for ( size_t i = 0; i < dsInfo.buffers_.size (); i++ )
+	{
+		BufferAttachment b = dsInfo.buffers_[i];
+
+		bufferDescriptors[i] = VkDescriptorBufferInfo{
+			.buffer = b.buffer_.buffer,
+			.offset = b.offset_,
+			.range = (b.size_ > 0) ? b.size_ : VK_WHOLE_SIZE
+		};
+
+		descriptorWrites.push_back ( bufferWriteDescriptorSet ( ds, &bufferDescriptors[i], bindingIdx++, b.dInfo_.type_ ) );
+	}
+
+	for ( size_t i = 0; i < dsInfo.textures_.size (); i++ )
+	{
+		VulkanTexture t = dsInfo.textures_[i].texture_;
+
+		imageDescriptors[i] = VkDescriptorImageInfo{
+			.sampler = t.sampler,
+			.imageView = t.image.imageView,
+			.imageLayout = /* t.texture.layout */ VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		};
+
+		descriptorWrites.push_back ( imageWriteDescriptorSet ( ds, &imageDescriptors[i], bindingIdx++ ) );
+	}
+
+	uint32_t taOffset = 0;
+	std::vector<uint32_t> taOffsets ( dsInfo.textureArrays_.size () );
+	for ( size_t ta = 0; ta < dsInfo.textureArrays_.size (); ta++ )
+	{
+		taOffsets[ta] = taOffset;
+
+		for ( size_t j = 0; j < dsInfo.textureArrays_[ta].textureArray_.size (); j++ )
+		{
+			VulkanTexture t = dsInfo.textureArrays_[ta].textureArray_[j];
+
+			VkDescriptorImageInfo imageInfo = {
+				.sampler = t.sampler,
+				.imageView = t.image.imageView,
+				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			};
+
+			imageArrayDescriptors.push_back ( imageInfo ); // item 'taOffsets[ta] + j'
+		}
+
+		taOffset += static_cast<uint32_t>(dsInfo.textureArrays_[ta].textureArray_.size ());
+	}
+
+	for ( size_t ta = 0; ta < dsInfo.textureArrays_.size (); ta++ )
+	{
+		VkWriteDescriptorSet writeSet = {
+			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			.dstSet = ds,
+			.dstBinding = bindingIdx++,
+			.dstArrayElement = 0,
+			.descriptorCount = static_cast<uint32_t>(dsInfo.textureArrays_[ta].textureArray_.size ()),
+			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+			.pImageInfo = imageArrayDescriptors.data () + taOffsets[ta]
+		};
+
+		descriptorWrites.push_back ( writeSet );
+	}
+
+	vkUpdateDescriptorSets ( vkDev_.device, static_cast<uint32_t>(descriptorWrites.size ()), descriptorWrites.data (), 0, nullptr );
+}
+
 std::vector<VkFramebuffer> VulkanResources::addFramebuffers ( VkRenderPass renderPass, VkImageView depthView )
 {
 	std::vector<VkFramebuffer> framebuffers;
