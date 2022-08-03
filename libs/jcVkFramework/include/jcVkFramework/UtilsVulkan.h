@@ -336,6 +336,8 @@ bool createDepthOnlyFramebuffer ( VulkanRenderDevice& vkDev, uint32_t width, uin
 void copyBufferToImage ( VulkanRenderDevice& vkDev, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount = 1 );
 void copyImageToBuffer ( VulkanRenderDevice& vkDev, VkImage image, VkBuffer buffer, uint32_t width, uint32_t height, uint32_t layerCount = 1 );
 
+void copyBufferToVolume ( VulkanRenderDevice& vkDev, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t depth );
+
 void copyMIPBufferToImage ( VulkanRenderDevice& vkDev, VkBuffer buffer, VkImage image, uint32_t mipLevels, uint32_t width, uint32_t height, uint32_t bytesPP, uint32_t layerCount = 1 );
 
 void destroyVulkanImage ( VkDevice device, VulkanImage& image );

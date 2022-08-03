@@ -35,7 +35,7 @@ QuadRenderer::QuadRenderer ( VulkanRenderContext& ctx, const std::vector<VulkanT
 	initPipeline ( getShaderFilenamesWithRoot ( "assets/shaders/VK07_QuadRenderer.vert", "assets/shaders/VK07_QuadRenderer.frag" ), pInfo );
 }
 
-void QuadRenderer::fillCommandBuffer ( VkCommandBuffer cmdBuffer, size_t currentImage, VkFramebuffer fb = VK_NULL_HANDLE, VkRenderPass rp = VK_NULL_HANDLE )
+void QuadRenderer::fillCommandBuffer ( VkCommandBuffer cmdBuffer, size_t currentImage, VkFramebuffer fb, VkRenderPass rp )
 {
 	if ( quads_.empty () ) return;
 

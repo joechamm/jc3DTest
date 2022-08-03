@@ -170,6 +170,9 @@ public:
 
 	VulkanTexture addColorTexture ( int texWidth = 0, int texHeight = 0, VkFormat colorFormat = VK_FORMAT_B8G8R8A8_UNORM, VkFilter minFilter = VK_FILTER_LINEAR, VkFilter maxFilter = VK_FILTER_LINEAR, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT );
 	VulkanTexture addDepthTexture ( int texWidth = 0, int texHeight = 0, VkImageLayout layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL );
+	VulkanTexture addSolidRGBATexture ( uint32_t color = 0xFFFFFFFF );
+	VulkanTexture addRGBATexture ( int texWidth, int texHeight, void* data );
+	
 
 	VulkanBuffer addBuffer ( VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, bool createMapping = false );
 
@@ -214,8 +217,39 @@ public:
 	VkDescriptorSet addDescriptorSet ( VkDescriptorPool descriptorPool, VkDescriptorSetLayout dsLayout );
 	void updateDescriptorSet ( VkDescriptorSet ds, const DescriptorSetInfo& dsInfo );
 
+	const std::vector<VulkanTexture>& getTextures () const
+	{
+		return allTextures_; 
+	}
+
+	/** Helper functions for small chapter 8/9 demos */
+	std::pair<BufferAttachment, BufferAttachment> makeMeshBuffers ( const std::vector<float>& vertices, const std::vector<unsigned int>& indices );
+	std::pair<BufferAttachment, BufferAttachment> loadMeshToBuffer ( const std::string& meshFilename, bool useTextureCoordinates, bool useNormals, std::vector<float>& vertices, std::vector<unsigned int>& indices );
+
+	std::pair<BufferAttachment, BufferAttachment> createPlaneBuffer_XZ ( float sx, float sz );
+	std::pair<BufferAttachment, BufferAttachment> createPlaneBuffer_XY ( float sx, float sy );
+
 	std::vector<VkFramebuffer> addFramebuffers ( VkRenderPass renderPass, VkImageView depthView = VK_NULL_HANDLE );
+
+private:
+	bool createGraphicsPipeline ( VulkanRenderDevice& vkdev, VkRenderPass renderPass, VkPipelineLayout pipelineLayout, const std::vector<std::string>& shaderFiles, VkPipeline* pipeline, VkPrimitiveTopology toplogy, bool useDepth, bool useBlending, bool dynamicScissorState, int32_t customWidth, int32_t cutstomHeight, uint32_t numPatchControlPoints );
 };
+
+/* A helper function for inplace allocation of VulkanBuffers, Helpful to avoid multiline buffer initialization constructors */
+inline VulkanBuffer bufferAllocator ( VulkanResources& resources, VulkanBuffer& buffer, VkDeviceSize size, bool createMapping = false )
+{
+	return (buffer = resources.addUniformBuffer ( size, createMapping ));
+}
+
+/* Create a uniform buffer mapped to a CPU location and initialize the buffer with default values */
+template <class BufferT>
+inline BufferAttachment mappedUniformBufferAttachment ( VulkanResources& resources, BufferT** ptr, VkShaderStageFlags shaderStageFlags )
+{
+	VulkanBuffer buffer = resources.addUniformBuffer ( sizeof ( BufferT ), true );
+	*ptr = (BufferT*)buffer.ptr;
+	*(*ptr) = BufferT ();
+	return uniformBufferAttachment ( buffer, 0, 0, shaderStageFlags );
+}
 
 
 #endif // !__VULKAN_RESOURCES_H__
