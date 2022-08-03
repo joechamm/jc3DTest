@@ -1,0 +1,24 @@
+#ifndef __GUI_RENDERER_H__
+#define __GUI_RENDERER_H__
+
+#include <jcVkFramework/vkFramework/Renderer.h>
+
+struct Scene;
+
+struct GuiRenderer : public Renderer
+{
+private:
+	std::vector<VulkanTexture> allTextures_;
+	// storage buffer with index and vertex data
+	std::vector<VulkanBuffer> storages_;
+public:
+	GuiRenderer ( VulkanRenderContext& ctx, const std::vector<VulkanTexture>& textures = std::vector<VulkanTexture>{}, RenderPass renderPass = RenderPass () );
+	virtual ~GuiRenderer ();
+
+	void fillCommandBuffer(VkCommandBuffer commandBuffer, size_t currentImage, VkFramebuffer fb = VK_NULL_HANDLE, VkRenderPass rp = VK_NULL_HANDLE) override;
+	void updateBuffers ( size_t currentImage ) override;
+};
+
+void imguiTextureWindow ( const char* Title, uint32_t texId );
+int renderSceneTree ( const Scene& scene, int node );
+#endif // !__GUI_RENDERER_H__

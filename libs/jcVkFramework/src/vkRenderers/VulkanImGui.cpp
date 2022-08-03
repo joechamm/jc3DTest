@@ -6,6 +6,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
+#include "GuiRenderer.h"
 using glm::mat4;
 using glm::vec2;
 using glm::vec3;
@@ -24,6 +25,11 @@ void imguiTextureWindow ( const char* title, uint32_t texId )
 
 	ImGui::Image ( (void*)(intptr_t)texId, ImVec2 ( vMax.x - vMin.x, vMax.y - vMin.y ) );
 	ImGui::End ();
+}
+
+int renderSceneTree ( const Scene& scene, int node )
+{
+	return 0;
 }
 
 bool createFontTexture ( ImGuiIO& io, const char* fontFile, VulkanRenderDevice& vkDev, VkImage& textureImage, VkDeviceMemory& textureImageMemory )
