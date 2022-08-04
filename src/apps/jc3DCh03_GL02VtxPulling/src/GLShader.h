@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glad/glad.h>
+#include <glad/gl.h>
 
 /// The GLShader, GLProgram, and GLBuffer classes use the RAII idiom
 class GLShader 

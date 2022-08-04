@@ -300,10 +300,7 @@ Mesh convertAIMesh ( const aiMesh* m, const SceneConfig& cfg )
 
 	for ( size_t i = 0; i != m->mNumFaces; i++ )
 	{
-		if ( m->mFaces[i].mNumIndices != 3 )
-		{
-			continue;
-		}
+		if ( m->mFaces[i].mNumIndices != 3 ) continue;		
 		for ( unsigned j = 0; j != m->mFaces[i].mNumIndices; j++ )
 		{
 			srcIndices.push_back ( m->mFaces[i].mIndices[j] );
@@ -319,8 +316,10 @@ Mesh convertAIMesh ( const aiMesh* m, const SceneConfig& cfg )
 		processLods ( srcIndices, srcVertices, outLods );
 	}
 
+#ifdef _DEBUG
 	printf ( "\nCalculated LOD count: %u\n", (unsigned)outLods.size () );
-
+#endif // _DEBUG
+	
 	uint32_t numIndices = 0;
 
 	for ( size_t l = 0; l < outLods.size (); l++ )
@@ -397,6 +396,9 @@ void traverse ( const aiScene* sourceScene, Scene& scene, aiNode* node, int pare
 	int newNodeID = addNode ( scene, parent, atLevel );
 	if ( node->mName.C_Str () )
 	{
+		makePrefix ( atLevel );
+		printf ( "Node[%d].name = %s\n", newNodeID, node->mName.C_Str () );
+		
 		uint32_t stringID = (uint32_t)scene.names_.size ();
 		scene.names_.push_back ( string ( node->mName.C_Str () ) );
 		scene.nameForNode_[newNodeID] = stringID;
@@ -413,12 +415,27 @@ void traverse ( const aiScene* sourceScene, Scene& scene, aiNode* node, int pare
 		scene.meshes_[newSubNodeID] = mesh;
 		scene.materialForNode_[newSubNodeID] = sourceScene->mMeshes[mesh]->mMaterialIndex;
 
+		makePrefix ( atLevel );
+		printf ( "Node[%d].SubNode[%d].mesh  =  %d\n", newNodeID, newSubNodeID, (int)mesh );
+		makePrefix ( atLevel );
+		printf ( "Node[%d].SubNode[%d].material = %d\n", newNodeID, newSubNodeID, sourceScene->mMeshes[mesh]->mMaterialIndex );
+
 		scene.globalTransforms_[newSubNodeID] = mat4 ( 1.0f );
 		scene.localTransforms_[newSubNodeID] = mat4 ( 1.0f );		
 	}
 
 	scene.globalTransforms_[newNodeID] = mat4 ( 1.0f );
 	scene.localTransforms_[newNodeID] = toMat4 ( node->mTransformation );
+
+	if ( node->mParent != nullptr )
+	{
+		makePrefix ( atLevel );
+		printf ( "\tNode[%d].parent       = %s\n", newNodeID, node->mParent->mName.C_Str () );
+		makePrefix ( atLevel );
+		printf ( "\tNode[%d].localTransform = ", newNodeID );
+		printMat4 ( node->mTransformation );
+		printf ( "\n" );
+	}
 
 	for ( unsigned int n = 0; n < node->mNumChildren; n++ )
 	{
@@ -619,6 +636,49 @@ vector<SceneConfig> readConfigFile ( const char* cfgFilename )
 	return configList;
 }
 
+vector<SceneConfig> readConfigFileAppendToRoot ( const char* cfgFilename )
+{
+	std::ifstream ifs ( cfgFilename );
+	if ( !ifs.is_open () )
+	{
+		printf( "Failed to load configuration file.\n" );
+		exit ( EXIT_FAILURE );
+	}
+
+	rapidjson::IStreamWrapper isw ( ifs );
+	rapidjson::Document document;
+	const rapidjson::ParseResult parseResult = document.ParseStream ( isw );
+	assert ( !parseResult.IsError () );
+	assert ( document.IsArray () );
+
+	vector<SceneConfig> configList;
+
+	for ( rapidjson::SizeType i = 0; i < document.Size (); i++ )
+	{
+		string inSceneFilename = appendToRoot ( document[i]["input_scene"].GetString () );
+		string outMeshFilename = appendToRoot ( document[i]["output_mesh"].GetString () );
+		string outSceneFilename = appendToRoot ( document[i]["output_scene"].GetString () );
+		string outMaterialsFilename = appendToRoot ( document[i]["output_materials"].GetString () );
+		string outBoxesFilename = document[i].HasMember("output_boxes") ? appendToRoot(document[i]["output_boxes"].GetString()) : string();
+		float scale = (float)document[i]["scale"].GetDouble ();
+		bool calculateLODs = document[i]["calculate_LODs"].GetBool ();
+		bool mergeInstances = document[i]["merge_instances"].GetBool ();
+		configList.push_back ( SceneConfig{
+			.filename = inSceneFilename,
+			.outputMesh = outMeshFilename,
+			.outputScene = outSceneFilename,
+			.outputMaterials = outMaterialsFilename,
+			.outputBoxes = outBoxesFilename,
+			.scale = scale,
+			.calculateLODs = calculateLODs,
+			.mergeInstances = mergeInstances
+			} 
+		);
+	}
+
+	return configList;
+}
+
 void processScene ( const SceneConfig& cfg )
 {
 	// clear mesh data from previous scene
@@ -665,6 +725,98 @@ void processScene ( const SceneConfig& cfg )
 		printf ( "\nConverting meshes %u/%u...", i + 1, scene->mNumMeshes );
 		Mesh mesh = convertAIMesh ( scene->mMeshes[i], cfg );
 	}
+}
+
+void processSceneAndSave ( const SceneConfig& cfg )
+{
+	// clear mesh data from previous scene
+	g_MeshData.meshes_.clear ();
+	g_MeshData.boxes_.clear ();
+	g_MeshData.indexData_.clear ();
+	g_MeshData.vertexData_.clear ();
+
+	g_indexOffset = 0;
+	g_vertexOffset = 0;
+
+	// extract base model path
+	const std::size_t pathSeparator = cfg.filename.find_last_of ( "/\\" );
+	const string basePath = (pathSeparator != std::string::npos) ? cfg.filename.substr ( 0, pathSeparator + 1 ) : std::string ();
+
+	const unsigned int flags = 0 |
+		aiProcess_JoinIdenticalVertices |
+		aiProcess_Triangulate |
+		aiProcess_GenSmoothNormals |
+		aiProcess_LimitBoneWeights |
+		aiProcess_SplitLargeMeshes |
+		aiProcess_ImproveCacheLocality |
+		aiProcess_RemoveRedundantMaterials |
+		aiProcess_FindDegenerates |
+		aiProcess_FindInvalidData |
+		aiProcess_GenUVCoords;
+
+	printf ( "Loading scene from '%s'...\n", cfg.filename.c_str () );
+
+	const aiScene* scene = aiImportFile ( cfg.filename.c_str (), flags );
+
+	if ( !scene || !scene->HasMeshes () )
+	{
+		printf ( "Unable to load '%s'\n", cfg.filename.c_str () );
+		exit ( EXIT_FAILURE );
+	}
+
+	// 1. Mesh conversion as in Chapter 5
+	g_MeshData.meshes_.reserve ( scene->mNumMeshes );
+	g_MeshData.boxes_.reserve ( scene->mNumMeshes );
+
+	for ( unsigned int i = 0; i != scene->mNumMeshes; i++ )
+	{
+#ifdef _DEBUG
+		printf ( "\nConverting meshes %u/%u...", i + 1, scene->mNumMeshes );
+#endif
+		Mesh mesh = convertAIMesh ( scene->mMeshes[i], cfg );
+		g_MeshData.meshes_.push_back ( mesh );
+	}
+
+	recalculateBoundingBoxes ( g_MeshData );
+	
+	// 2. Save meshes to file 
+	saveMeshData ( cfg.outputMesh.c_str (), g_MeshData );
+
+	Scene outScene;
+
+	// 3. Material conversion 
+	std::vector<MaterialDescription> materials;
+	std::vector<std::string>& materialNames = outScene.materialNames_;
+
+	std::vector<std::string> files;
+	std::vector<std::string> opacityMaps;
+
+	for ( unsigned int m = 0; m < scene->mNumMaterials; m++ )
+	{
+		aiMaterial* mMat = scene->mMaterials[m];
+		
+		printf ( "Material [%s] %u\n", mMat->GetName ().C_Str (), m );
+		materialNames.push_back ( std::string ( mMat->GetName ().C_Str () ) );
+		
+		MaterialDescription mMatDesc = convertAIMaterialToDescription ( mMat, files, opacityMaps );
+		materials.push_back ( mMatDesc );
+#ifdef _DEBUG
+		dumpMaterial ( files, mMatDesc );
+#endif // _DEBUG
+	}
+
+	// 4. Texture processing, rescaling and packing
+	convertAndDownscaleAllTextures ( materials, basePath, files, opacityMaps );
+
+	// 5. Save materials to file
+	saveMaterials ( cfg.outputMaterials.c_str (), materials, files );
+
+	// 6. Scene hierarchy conversion 
+	traverse ( scene, outScene, scene->mRootNode, -1, 0 );
+
+	// 7. Save scene to file
+	saveScene ( cfg.outputScene.c_str (), outScene );
+	
 }
 
 /* Chapter 9: Merge meshes (interior/exterior) */
@@ -722,10 +874,16 @@ void mergeBistro ()
 int main ()
 {
 	fs::create_directory ( appendToRoot ( "assets/out_textures" ).c_str());
-	const auto configs = readConfigFile ( appendToRoot ( "assets/sceneconverter.json" ).c_str());
+//	const auto configs = readConfigFile ( appendToRoot ( "assets/sceneconverter.json" ).c_str());
+	const auto configs = readConfigFileAppendToRoot ( appendToRoot ( "assets/sceneconverter.json" ).c_str () );
 	for ( const auto& cfg : configs )
 	{
-		processScene ( cfg );
+#ifdef _DEBUG
+		printf ( "Converting '%s'\n", cfg.filename.c_str () );
+		printf ( "OutputScene: %s\nOutputMesh: %s\nOutputMaterials: %s\n", cfg.outputScene.c_str (), cfg.outputMesh.c_str (), cfg.outputMaterials.c_str () );
+#endif
+		
+		processSceneAndSave ( cfg );
 	}
 
 	// Final step: optimize bistro scene

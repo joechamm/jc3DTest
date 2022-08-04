@@ -308,7 +308,8 @@ int main ()
 //		drawFrame ( vkDev, []( uint32_t ) {}, composeFrame );
 //		drawFrameFromMain ( vkDev, []( uint32_t ) {}, composeFrame );
 //		drawVulkanAppFrame ( vkDev, []( uint32_t ) {}, composeFrame );
-		jcvkfw::jcDrawFrame ( vkDev, []( uint32_t ) {}, composeFrame );
+//		jcvkfw::jcDrawFrame ( vkDev, []( uint32_t ) {}, composeFrame );
+		drawFrame(vkDev, []( uint32_t ) {}, composeFrame );
 		glfwPollEvents ();
 	}
 

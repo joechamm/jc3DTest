@@ -9,15 +9,15 @@
 #include <limits>
 #include <string>
 
-#include "Utils.h"
-#include "UtilsMath.h"
-#include "UtilsFPS.h"
-#include "UtilsVulkan.h"
-#include "vkRenderers/VulkanClear.h"
-#include "vkRenderers/VulkanFinish.h"
-#include "vkRenderers/VulkanMultiMeshRenderer.h"
-#include "EasyProfilerWrapper.h"
-#include "Camera.h"
+#include <jcVkFramework/Utils.h>
+#include <jcVkFramework/UtilsMath.h>
+#include <jcVkFramework/UtilsFPS.h>
+#include <jcVkFramework/UtilsVulkan.h>
+#include <jcVkFramework/vkRenderers/VulkanClear.h>
+#include <jcVkFramework/vkRenderers/VulkanFinish.h>
+#include <jcVkFramework/vkRenderers/VulkanMultiMeshRenderer.h>
+#include <jcVkFramework/EasyProfilerWrapper.h>
+#include <jcVkFramework/Camera.h>
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
@@ -26,7 +26,7 @@
 #include <string>
 
 #include <helpers/RootDir.h>
-#include "ResourceString.h"
+#include <jcVkFramework/ResourceString.h>
 
 using glm::mat4;
 using glm::vec3;

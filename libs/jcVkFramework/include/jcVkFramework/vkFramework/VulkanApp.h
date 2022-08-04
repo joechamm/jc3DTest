@@ -20,6 +20,7 @@
 #include <jcVkFramework/Utils.h>
 #include <jcVkFramework/UtilsMath.h>
 #include <jcVkFramework/UtilsVulkan.h>
+#include <jcVkFramework/UtilsFPS.h>
 
 #include <jcVkFramework/vkFramework/VulkanResources.h>
 
@@ -101,6 +102,7 @@ protected:
 	GLFWwindow* window_ = nullptr;
 	VulkanRenderContext ctx_;
 	std::vector<RenderItem>& onScreenRenderers_;
+	FramesPerSecondCounter fpsCounter_;
 	
 public:
 	VulkanApp ( int screenWidth, int screenHeight )
@@ -143,6 +145,8 @@ public:
 	{
 		mouseState_.pos = glm::vec2 ( x, y );
 	}
+
+	inline float getFPS() const { return fpsCounter_.getFPS(); }
 	
 private:
 	void assignCallbacks ();

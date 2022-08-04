@@ -1,8 +1,6 @@
 // 
 #version 460 
 
-#extension GL_KHR_vulkan_glsl : enable 
-
 layout (location = 0) out vec2 uv;
 layout (location = 1) out vec4 color;
 

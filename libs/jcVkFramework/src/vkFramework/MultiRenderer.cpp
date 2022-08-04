@@ -2,7 +2,32 @@
 #include <jcVkFramework/ResourceString.h>
 #include <stb/stb_image.h>
 
-uint8_t* genDefaultCheckerboardImage ( int* width, int* height );
+/// Draw a checkerboard on a pre-allocated square RGB image.
+uint8_t* genDefaultCheckerboardImage ( int* width, int* height )
+{
+	const int w = 128;
+	const int h = 128;
+
+	uint8_t* imgData = (uint8_t*)malloc ( w * h * 3 ); // stbi_load() uses malloc, so this is safe
+
+	assert ( imgData && w > 0 && h > 0 );
+	assert ( w == h );
+	
+	if ( !imgData || w <= 0 || h <= 0 ) return nullptr;
+	if(w != h) return nullptr;
+
+	for ( int i = 0; i < w * h; i++ )
+	{
+		const int row = i / w;
+		const int col = i % w;
+		imgData[i * 3 + 0] = imgData[i * 3 + 1] = imgData[i * 3 + 2] = 0xFF * ((row + col) % 2);
+	}
+
+	if ( width ) *width = w;
+	if ( height ) *height = h;
+
+	return imgData;
+}
 
 VKSceneData::VKSceneData ( VulkanRenderContext& ctx, const std::string& meshFile, const std::string& sceneFile, const std::string& materialFile, VulkanTexture envMap, VulkanTexture irradianceMap, bool asyncLoad )
 	: ctx_(ctx)
@@ -228,7 +253,9 @@ MultiRenderer::MultiRenderer (
 		ctx.resources_.updateDescriptorSet ( descriptorSets_[i], dsInfo );
 	}
 
-	initPipeline ( getShaderFilenamesWithRoot ( "assets/shaders/VK07.vert", "assets/shaders/VK07.frag" ), pInfo );
+	initPipeline ( { vtxShaderFile, fragShaderFile }, pInfo );
+
+//	initPipeline ( getShaderFilenamesWithRoot ( "assets/shaders/VK07_MultiRenderer.vert", "assets/shaders/VK07_MultiRenderer.frag" ), pInfo );
 }
 
 void MultiRenderer::fillCommandBuffer ( VkCommandBuffer cmdBuffer, size_t currentImage, VkFramebuffer fb, VkRenderPass rp )
