@@ -17,6 +17,10 @@ using std::string;
 constexpr uint32_t ImGuiVtxBufferSize = 512 * 1024 * sizeof ( ImDrawVert );
 constexpr uint32_t ImGuiIdxBufferSize = 512 * 1024 * sizeof ( uint32_t );
 
+extern void imguiTextureWindow ( const char* title, uint32_t texId );
+extern int renderSceneTree ( const Scene& scene, int node );
+
+/*
 void imguiTextureWindow ( const char* title, uint32_t texId )
 {
 	ImGui::Begin ( title, nullptr );
@@ -26,11 +30,14 @@ void imguiTextureWindow ( const char* title, uint32_t texId )
 	ImGui::Image ( (void*)(intptr_t)texId, ImVec2 ( vMax.x - vMin.x, vMax.y - vMin.y ) );
 	ImGui::End ();
 }
+*/
 
+/*
 int renderSceneTree ( const Scene& scene, int node )
 {
 	return 0;
 }
+*/
 
 bool createFontTexture ( ImGuiIO& io, const char* fontFile, VulkanRenderDevice& vkDev, VkImage& textureImage, VkDeviceMemory& textureImageMemory )
 {

@@ -12,6 +12,9 @@
 
 #include "glslang_c_interface.h"
 
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
+
 #define VK_CHECK(value) CHECK(value == VK_SUCCESS, __FILE__, __LINE__);
 #define VK_CHECK_RET(value) if (value != VK_SUCCESS) { CHECK(false, __FILE__,__LINE__); return value; }
 #define BL_CHECK(value) CHECK(value, __FILE__,__LINE__);
@@ -34,6 +37,7 @@ struct VulkanInstance final
 	VkInstance instance;
 	VkSurfaceKHR surface;
 	VkDebugUtilsMessengerEXT messenger;
+	VkDebugReportCallbackEXT reportCallback;
 };
 
 struct VulkanRenderDevice final
@@ -130,6 +134,9 @@ struct VulkanTexture final
 void CHECK ( bool check, const char* filename, int linenumber );
 
 bool setupDebugCallbacks ( VkInstance instance, VkDebugUtilsMessengerEXT* messenger );
+bool setupDebugMessengerAndReportCallbacks ( VkInstance instance, VkDebugUtilsMessengerEXT* messenger, VkDebugReportCallbackEXT* reportCallback );
+bool setupAlternateDebugMessengerCallbacks ( VkInstance instance, VkDebugUtilsMessengerEXT* messenger );
+bool setupAlternateDebugMessengerAndReportCallbacks ( VkInstance instance, VkDebugUtilsMessengerEXT* messenger, VkDebugReportCallbackEXT* reportCallback );
 
 VkResult createShaderModule ( VkDevice device, ShaderModule* shader, const char* fileName );
 
@@ -197,6 +204,7 @@ inline VkWriteDescriptorSet imageWriteDescriptorSet ( VkDescriptorSet ds, const 
 
 void createInstance ( VkInstance* instance );
 void createInstanceWithDebugging ( VkInstance* instance, const char* appName = "jc3DTest Vulkan Application" );
+void createInstanceWithReportDebugging ( VkInstance* instance, const char* appName = "jc3DTest Vulkan Application" );
 
 VkResult createDevice ( VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures deviceFeatures, uint32_t graphicsFamily, VkDevice* device );
 VkResult createDevice2 ( VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2 deviceFeatures2, uint32_t graphicsFamily, VkDevice* device );
@@ -210,7 +218,6 @@ VkResult createSemaphore ( VkDevice device, VkSemaphore* outSemaphore );
 
 bool createTextureSampler ( VkDevice device, VkSampler* sampler, VkFilter minFilter = VK_FILTER_LINEAR, VkFilter maxFilter = VK_FILTER_LINEAR, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT );
 
-//bool createDescriptorPool ( VkDevice device, uint32_t imageCount, uint32_t uniformBufferCount, uint32_t storageBufferCount, uint32_t samplerCount, VkDescriptorPool* descPool );
 bool createDescriptorPool ( VulkanRenderDevice& vkDev, uint32_t uniformBufferCount, uint32_t storageBufferCount, uint32_t samplerCount, VkDescriptorPool* descriptorPool );
 
 bool isDeviceSuitable ( VkPhysicalDevice device );
@@ -269,12 +276,11 @@ VkResult createComputePipeline ( VkDevice device, VkShaderModule computeShader, 
 
 bool createBuffer ( VkDevice device, VkPhysicalDevice physicalDevice, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory );
 bool createSharedBuffer ( VulkanRenderDevice& vkDev, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory );
-//bool createImage ( VkDevice device, VkPhysicalDevice physicalDevice, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory );
 bool createImage ( VkDevice device, VkPhysicalDevice physicalDevice, uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory, VkImageCreateFlags flags = 0, uint32_t mipLevels = 1 );
 bool createVolume ( VkDevice device, VkPhysicalDevice physicalDevice, uint32_t width, uint32_t height, uint32_t depth, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory, VkImageCreateFlags flags );
 
 bool createOffscreenImage ( VulkanRenderDevice& vkDev, VkImage& textureImage, VkDeviceMemory& textureImageMemory, uint32_t texWidth, uint32_t texHeight, VkFormat texFormat, uint32_t layerCount, VkImageCreateFlags flags );
-//bool createOffscreenImageFromData ( VulkanRenderDevice& vkDev, VkImage& textureImage, VkDeviceMemory& textureImageMemory, void* imageData, uint32_t texWidth, uint32_t texHeight, VkFormat texFormat, uint32_t layerCount, VkImageCreateFlags flags );
+bool createOffscreenImageFromData ( VulkanRenderDevice& vkDev, VkImage& textureImage, VkDeviceMemory& textureImageMemory, void* imageData, uint32_t texWidth, uint32_t texHeight, VkFormat texFormat, uint32_t layerCount, VkImageCreateFlags flags );
 bool createDepthSampler ( VkDevice device, VkSampler* sampler );
 
 bool createUniformBuffer ( VulkanRenderDevice& vkDev, VkBuffer& buffer, VkDeviceMemory& bufferMemory, VkDeviceSize bufferSize );
@@ -323,11 +329,12 @@ void transitionImageLayoutCmd ( VkCommandBuffer commandBuffer, VkImage image, Vk
 bool initVulkanRenderDevice ( VulkanInstance& vk, VulkanRenderDevice& vkDev, uint32_t width, uint32_t height, std::function<bool ( VkPhysicalDevice )> selector, VkPhysicalDeviceFeatures deviceFeatures );
 bool initVulkanRenderDevice2 ( VulkanInstance& vk, VulkanRenderDevice& vkDev, uint32_t width, uint32_t height, std::function<bool ( VkPhysicalDevice )> selector, VkPhysicalDeviceFeatures2 deviceFeatures2 );
 bool initVulkanRenderDevice3 ( VulkanInstance& vk, VulkanRenderDevice& vkDev, uint32_t width, uint32_t height, const VulkanContextFeatures& ctxFeatures = VulkanContextFeatures () );
-bool initVulkanRenderDeviceWithCompute ( VulkanInstance& vk, VulkanRenderDevice& vkDev, uint32_t width, uint32_t height, VkPhysicalDeviceFeatures deviceFeatures );
-bool initVulkanRenderDevice2WithCompute ( VulkanInstance& vk, VulkanRenderDevice& vkDev, uint32_t width, uint32_t height, std::function<bool ( VkPhysicalDevice )> selector, VkPhysicalDeviceFeatures2 deviceFeatures2, bool supportsScreenShots = false );
+
 void destroyVulkanRenderDevice ( VulkanRenderDevice& vkDev );
 void destroyVulkanInstance ( VulkanInstance& vk );
 
+bool initVulkanRenderDeviceWithCompute ( VulkanInstance& vk, VulkanRenderDevice& vkDev, uint32_t width, uint32_t height, VkPhysicalDeviceFeatures deviceFeatures );
+bool initVulkanRenderDevice2WithCompute ( VulkanInstance& vk, VulkanRenderDevice& vkDev, uint32_t width, uint32_t height, std::function<bool ( VkPhysicalDevice )> selector, VkPhysicalDeviceFeatures2 deviceFeatures2, bool supportsScreenShots = false );
 
 bool createColorAndDepthFramebuffer ( VulkanRenderDevice& vkDev, uint32_t width, uint32_t height, VkRenderPass renderPass, VkImageView colorImageView, VkImageView depthImageView, VkFramebuffer* framebuffer );
 bool createColorAndDepthFramebuffers ( VulkanRenderDevice& vkDev, VkRenderPass renderPass, VkImageView depthImageView, std::vector<VkFramebuffer>& swapchainFramebuffers );
@@ -359,10 +366,9 @@ bool createPipelineLayoutWithConstants ( VkDevice device, VkDescriptorSetLayout 
 
 bool createTextureImageFromData ( VulkanRenderDevice& vkDev, VkImage& textureImage, VkDeviceMemory& textureImageMemory, void* imageData, uint32_t texWidth, uint32_t texHeight, VkFormat texFormat, uint32_t layerCount = 1, VkImageCreateFlags flags = 0 );
 bool createMIPTextureImageFromData ( VulkanRenderDevice& vkDev, VkImage& textureImage, VkDeviceMemory& textureImageMemory, void* mipData, uint32_t mipLevels, uint32_t texWidth, uint32_t texHeight, VkFormat texFormat, uint32_t layerCount = 1, VkImageCreateFlags flags = 0 );
-
 bool createTextureVolumeFromData ( VulkanRenderDevice& vkDev, VkImage& textureVolume, VkDeviceMemory& textureVolumeMemory, void* volumeData, uint32_t texWidth, uint32_t texHeight, uint32_t texDepth, VkFormat texFormat, VkImageCreateFlags flags = 0 );
 
-bool createTextureImage ( VulkanRenderDevice& vkDev, const char* filename, VkImage& textureImage, VkDeviceMemory& textureImageMemory );
+bool createTextureImage ( VulkanRenderDevice& vkDev, const char* filename, VkImage& textureImage, VkDeviceMemory& textureImageMemory, uint32_t* outTexWidth = nullptr, uint32_t* outTexHeight = nullptr );
 bool createMIPTextureImage ( VulkanRenderDevice& vkDev, const char* filename, uint32_t mipLevels, VkImage& textureImage, VkDeviceMemory& textureImageMemory, uint32_t* width = nullptr, uint32_t* height = nullptr );
 
 bool createCubeTextureImage ( VulkanRenderDevice& vkDev, const char* filename, VkImage& textureImage, VkDeviceMemory& textureImageMemory, uint32_t* width = nullptr, uint32_t* height = nullptr );
@@ -371,6 +377,7 @@ bool createMIPCubeTextureImage ( VulkanRenderDevice& vkDev, const char* filename
 size_t allocateVertexBuffer ( VulkanRenderDevice& vkDev, VkBuffer* storageBuffer, VkDeviceMemory* storageBufferMemory, size_t vertexDataSize, const void* vertexData, size_t indexDataSize, const void* indexData );
 
 bool createTexturedVertexBuffer ( VulkanRenderDevice& vkDev, const char* filename, VkBuffer* storageBuffer, VkDeviceMemory* storageBufferMemory, size_t* vertexBufferSize, size_t* indexBufferSize );
+bool createPBRVertexBuffer ( VulkanRenderDevice& vkDev, const char* filename, VkBuffer* storageBuffer, VkDeviceMemory* storageBufferMemory, size_t* vertexBufferSize, size_t* indexBufferSize );
 
 bool executeComputeShader ( VulkanRenderDevice& vkDev, VkPipeline computePipeline, VkPipelineLayout pl, VkDescriptorSet ds, uint32_t xsize, uint32_t ysize, uint32_t zsize );
 
@@ -399,12 +406,113 @@ inline bool isDepthFormat ( VkFormat fmt )
 		(fmt == VK_FORMAT_D32_SFLOAT_S8_UINT);
 }
 
-bool setVkObjectName ( VulkanRenderDevice& vkDev, void* object, VkObjectType objType, const char* name );
+//bool setVkObjectName ( VulkanRenderDevice& vkDev, void* object, VkObjectType objType, const char* name );
+//bool setVkObjectTag ( VulkanRenderDevice& vkDev, void* object, VkObjectType objType, uint64_t name, size_t tagSize, const void* tag );
+
+bool setVkObjectName ( VkDevice dev, uint64_t objHandle, VkObjectType objType, const char* name );
+bool setVkObjectTag ( VkDevice dev, uint64_t objHandle, VkObjectType objType, uint64_t tagName, size_t tagSize, const void* tag );
+
+void beginVkQueueDebugRegion ( VkQueue queue, const char* label, const glm::vec4& color );
+void insertVkQueueDebugLabel ( VkQueue queue, const char* label, const glm::vec4& color );
+void endVkQueueDebugRegion ( VkQueue queue );
+
+void beginVkCommandBufferDebugRegion ( VkCommandBuffer cmdBuffer, const char* label, const glm::vec4& color );
+void insertVkCommandBufferDebugLabel ( VkCommandBuffer cmdBuffer, const char* label, const glm::vec4& color );
+void endVkCommandBufferDebugRegion ( VkCommandBuffer cmdBuffer );
+
+/*
+ 
+inline bool setVkCommandBufferName ( VkDevice dev, VkCommandBuffer cmdBuffer, const char* name )
+{
+	return setVkObjectName ( dev, cmdBuffer, VK_OBJECT_TYPE_COMMAND_BUFFER );
+}
 
 inline bool setVkImageName ( VulkanRenderDevice& vkDev, void* object, const char* name )
 {
 	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_IMAGE, name );
 }
+ 
+inline bool setVkCommandBufferName ( VulkanRenderDevice& vkDev, void* object, const char* name )
+{
+	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_COMMAND_BUFFER, name );
+}
+
+inline bool setVkQueueName ( VulkanRenderDevice& vkDev, void* object, const char* name )
+{
+	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_QUEUE, name );
+}
+
+inline bool setVkSamplerName ( VulkanRenderDevice& vkDev, void* object, const char* name )
+{
+	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_SAMPLER, name );
+}
+
+inline bool setVkBufferName ( VulkanRenderDevice& vkDev, void* object, const char* name )
+{
+	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_BUFFER, name );
+}
+
+inline bool setVkDeviceMemoryName ( VulkanRenderDevice& vkDev, void* object, const char* name )
+{
+	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_DEVICE_MEMORY, name );
+}
+
+inline bool setVkShaderModuleName ( VulkanRenderDevice& vkDev, void* object, const char* name )
+{
+	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_SHADER_MODULE, name );
+}
+
+inline bool setVkPipelineName( VulkanRenderDevice& vkDev, void* object, const char* name )
+{
+	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_PIPELINE, name );
+}
+
+inline bool setVkPipelineLayoutName ( VulkanRenderDevice& vkDev, void* object, const char* name )
+{
+	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_PIPELINE_LAYOUT, name );
+}
+
+inline bool setVkRenderPassName( VulkanRenderDevice& vkDev, void* object, const char* name )
+{
+	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_RENDER_PASS, name );
+}
+
+inline bool setVkFramebufferName ( VulkanRenderDevice& vkDev, void* object, const char* name )
+{
+	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_FRAMEBUFFER, name );
+}
+
+inline bool setVkDescriptorSetLayoutName ( VulkanRenderDevice& vkDev, void* object, const char* name )
+{
+	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, name );
+}
+
+inline bool setVkDescriptorSetName ( VulkanRenderDevice& vkDev, void* object, const char* name )
+{
+	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_DESCRIPTOR_SET, name );
+}
+
+inline bool setVkDescriptorPoolName ( VulkanRenderDevice& vkDev, void* object, const char* name )
+{
+	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_DESCRIPTOR_POOL, name );
+}
+
+inline bool setVkSemaphoreName ( VulkanRenderDevice& vkDev, void* object, const char* name )
+{
+	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_SEMAPHORE, name );
+}
+
+inline bool setVkFenceName ( VulkanRenderDevice& vkDev, void* object, const char* name )
+{
+	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_FENCE, name );
+}
+
+inline bool setVkEventName ( VulkanRenderDevice& vkDev, void* object, const char* name )
+{
+	return setVkObjectName ( vkDev, object, VK_OBJECT_TYPE_EVENT, name );
+}
+*/
+
 
 /* This routine updates one texture descriptor in one descriptor set */
 void updateTextureInDescriptorSetArray ( VulkanRenderDevice& vkDev, VkDescriptorSet ds, VulkanTexture t, uint32_t textureIndex, uint32_t bindingIdx );
@@ -412,6 +520,7 @@ void updateTextureInDescriptorSetArray ( VulkanRenderDevice& vkDev, VkDescriptor
 /* Added for debuggging */
 
 std::string vulkanResultToString ( VkResult result );
+std::string vulkanObjectTypeToString ( VkObjectType type );
 
 std::vector<VkLayerProperties> getAvailableLayers ( void );
 std::vector<VkExtensionProperties> getAvailableExtensionsByLayer ( const char* layer );

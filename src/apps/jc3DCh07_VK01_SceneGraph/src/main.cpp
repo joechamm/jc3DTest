@@ -48,6 +48,28 @@ public:
 		onScreenRenderers_.emplace_back ( imgui_, false );
 
 		sceneData_.scene_.localTransforms_[0] = glm::rotate ( mat4 ( 1.0f ), (float)(M_PI / 2.0f), vec3 ( 1.0f, 0.0f, 0.0f ) );
+
+#ifdef _DEBUG
+		printf ( "Setting Vulkan Object Names...\n" );
+		//setVkBufferName ( ctx_.vkDev_, &sceneData_.vertexBuffer_.buffer_.buffer, "MyApp::sceneData::vertexBuffer" );
+		//setVkImageName ( ctx_.vkDev_, &envMap_.image.image, "MyApp::envMap" );
+		//setVkImageName ( ctx_.vkDev_, &irrMap_.image.image, "MyApp::irrMap" );
+		//setVkRenderPassName ( ctx_.vkDev_, &ctx_.clearRenderPass_.handle_, "Clear RenderPass" );
+		//setVkRenderPassName ( ctx_.vkDev_, &ctx_.finalRenderPass_.handle_, "Final RenderPass" );
+		//setVkRenderPassName ( ctx_.vkDev_, &ctx_.screenRenderPass_.handle_, "Screen RenderPass" );
+		//setVkFramebufferName ( ctx_.vkDev_, &multiRenderer_.framebuffer_, "MyApp::multiRenderer::framebuffer" );
+		//setVkFramebufferName ( ctx_.vkDev_, &plane_.framebuffer_, "MyApp::plane::framebuffer" );
+		//setVkFramebufferName ( ctx_.vkDev_, &imgui_.framebuffer_, "MyApp::imgui::framebuffer" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)sceneData_.vertexBuffer_.buffer_.buffer, VK_OBJECT_TYPE_BUFFER, "MyApp::sceneData::vertetxBuffer" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)envMap_.image.image, VK_OBJECT_TYPE_IMAGE, "MyApp::sceneData::" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)irrMap_.image.image, VK_OBJECT_TYPE_IMAGE, "MyApp::irrMap" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.clearRenderPass_.handle_,VK_OBJECT_TYPE_RENDER_PASS, "Clear Render Pass" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.finalRenderPass_.handle_, VK_OBJECT_TYPE_RENDER_PASS, "Final Render Pass" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.screenRenderPass_.handle_, VK_OBJECT_TYPE_RENDER_PASS, "Screen Render Pass" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)multiRenderer_.framebuffer_, VK_OBJECT_TYPE_FRAMEBUFFER, "Multirenderer::framebuffer" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)plane_.framebuffer_, VK_OBJECT_TYPE_FRAMEBUFFER, "Multirenderer::framebuffer" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)imgui_.framebuffer_, VK_OBJECT_TYPE_FRAMEBUFFER, "ImGuiRenderer::framebuffer" );
+#endif
 	}
 
 	void drawUI () override

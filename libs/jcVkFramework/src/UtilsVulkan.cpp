@@ -48,6 +48,99 @@ void CHECK ( bool check, const char* filename, int linenumber )
 	}
 }
 
+static VKAPI_ATTR VkBool32 VKAPI_CALL debug_messenger_callback (
+	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+	VkDebugUtilsMessageTypeFlagsEXT messageType,
+	const VkDebugUtilsMessengerCallbackDataEXT* callbackData,
+	void* userData)
+{
+	char prefix[64];
+	char* message = (char*)malloc ( strlen ( callbackData->pMessage ) + 500 );
+	assert ( message );
+
+	if ( messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT )
+	{
+		strcpy ( prefix, "VERBOSE : " );
+	} else if ( messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT )
+	{
+		strcpy ( prefix, "INFO : " );
+	} else if ( messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT )
+	{
+		strcpy ( prefix, "WARNING : " );
+	} else if ( messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT )
+	{
+		strcpy ( prefix, "ERROR : " );
+	}
+
+	if ( messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT )
+	{
+		strcat ( prefix, "GENERAL" );
+	} else
+	{
+		if ( messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT )
+		{
+			strcat ( prefix, "VAL" );
+			if ( messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT )
+			{
+				strcat ( prefix, "PERF" );
+			}
+		}		
+	}
+
+	sprintf ( message,
+		"%s - Message ID Number %d, Message ID String :\n%s", 
+		prefix, 
+		callbackData->messageIdNumber, 
+		callbackData->pMessageIdName, 
+		callbackData->pMessage );
+
+	if ( callbackData->objectCount > 0 )
+	{
+		char tmp_message[500];
+		sprintf ( tmp_message, "\n  Objects - %d\n", callbackData->objectCount );
+		strcat ( message, tmp_message );
+		for ( uint32_t object = 0; object < callbackData->objectCount; ++object )
+		{
+			sprintf ( tmp_message,
+				"    Object[%d] - Type %s, Value %p, Name \"%s\"\n",
+				object,
+				vulkanObjectTypeToString ( callbackData->pObjects[object].objectType ).c_str (),
+				(void*)(callbackData->pObjects[object].objectHandle),
+				callbackData->pObjects[object].pObjectName );
+			strcat ( message, tmp_message );
+		}
+	}
+
+	if ( callbackData->cmdBufLabelCount > 0 )
+	{
+		char tmp_message[500];
+		sprintf ( tmp_message,
+			"\n  Command Buffer Labels - %d\n",
+			callbackData->cmdBufLabelCount );
+
+		strcat ( message, tmp_message );
+		for ( uint32_t label = 0; label < callbackData->cmdBufLabelCount; ++label )
+		{
+			sprintf ( tmp_message,
+				"    Label[%d] - %s { %f, %f, %f, %f}\n",
+				label,
+				callbackData->pCmdBufLabels[label].pLabelName,
+				callbackData->pCmdBufLabels[label].color[0],
+				callbackData->pCmdBufLabels[label].color[1],
+				callbackData->pCmdBufLabels[label].color[2],
+				callbackData->pCmdBufLabels[label].color[3] );
+			strcat ( message, tmp_message );
+		}
+	}
+
+	printf ( "%s\n", message );
+	fflush ( stdout );
+	free ( message );
+
+	// Don't bail out, but keep going
+	return false;
+}
+
 static VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugCallback ( 
 	VkDebugUtilsMessageSeverityFlagBitsEXT Severity, 
 	VkDebugUtilsMessageTypeFlagsEXT Type,
@@ -55,6 +148,26 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugCallback (
 	void* UserData )
 {
 	printf ( "Validation layer: %s\n", CallbackData->pMessage );
+	return VK_FALSE;
+}
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugReportCallback (
+	VkDebugReportFlagsEXT flags,
+	VkDebugReportObjectTypeEXT objectType,
+	uint64_t object,
+	size_t location,
+	int32_t messageCode,
+	const char* pLayerPrefix,
+	const char* pMessage,
+	void* userData
+)
+{
+	// https://github.com/zeux/niagara/blob/master/src/device.cpp   [ignoring performance warnings]
+	// This silences warnings like "For optimal performance image layout should be VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL instead of GENERAL."
+	if ( flags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT )
+		return VK_FALSE;
+
+	printf ( "Debug callback (%s): %s\n", pLayerPrefix, pMessage );
 	return VK_FALSE;
 }
 
@@ -77,6 +190,105 @@ bool setupDebugCallbacks (
 
 	VK_CHECK ( vkCreateDebugUtilsMessengerEXT ( instance, &ci, nullptr, messenger ) );
 	
+	return true;
+}
+
+bool setupDebugMessengerAndReportCallbacks ( VkInstance instance, VkDebugUtilsMessengerEXT* messenger, VkDebugReportCallbackEXT* reportCallback )
+{
+	{
+		const VkDebugUtilsMessengerCreateInfoEXT ci = {
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+			.messageSeverity =
+				VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+				VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+			.messageType =
+				VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+				VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+				VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+			.pfnUserCallback = &VulkanDebugCallback,
+			.pUserData = nullptr
+		};
+
+		VK_CHECK ( vkCreateDebugUtilsMessengerEXT ( instance, &ci, nullptr, messenger ) );
+	}
+	{
+		const VkDebugReportCallbackCreateInfoEXT ci = {
+			.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT,
+			.pNext = nullptr,
+			.flags =
+				VK_DEBUG_REPORT_WARNING_BIT_EXT |
+				VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
+				VK_DEBUG_REPORT_ERROR_BIT_EXT |
+				VK_DEBUG_REPORT_DEBUG_BIT_EXT,
+			.pfnCallback = &VulkanDebugReportCallback,
+			.pUserData = nullptr
+		};
+
+		VK_CHECK ( vkCreateDebugReportCallbackEXT ( instance, &ci, nullptr, reportCallback ) );
+	}
+
+	return true;
+}
+
+bool setupAlternateDebugMessengerCallbacks (
+	VkInstance instance,
+	VkDebugUtilsMessengerEXT* messenger )
+{
+	const VkDebugUtilsMessengerCreateInfoEXT ci = {
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+			.messageSeverity =
+				VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+				VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+			.messageType =
+				VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+				VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+				VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+			.pfnUserCallback = &debug_messenger_callback,
+			.pUserData = nullptr
+	};
+
+	VK_CHECK ( vkCreateDebugUtilsMessengerEXT ( instance, &ci, nullptr, messenger ) );
+
+	return true;
+}
+
+bool setupAlternateDebugMessengerAndReportCallbacks (
+	VkInstance instance,
+	VkDebugUtilsMessengerEXT* messenger,
+	VkDebugReportCallbackEXT* reportCallback )
+{
+	{
+		const VkDebugUtilsMessengerCreateInfoEXT ci = {
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+			.messageSeverity =
+				VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+				VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+			.messageType =
+				VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+				VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+				VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+			.pfnUserCallback = &debug_messenger_callback,
+			.pUserData = nullptr
+		};
+
+		VK_CHECK ( vkCreateDebugUtilsMessengerEXT ( instance, &ci, nullptr, messenger ) );
+	}
+	{
+		const VkDebugReportCallbackCreateInfoEXT ci = {
+			.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT,
+			.pNext = nullptr,
+			.flags =
+				VK_DEBUG_REPORT_WARNING_BIT_EXT |
+				VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
+				VK_DEBUG_REPORT_ERROR_BIT_EXT |
+				VK_DEBUG_REPORT_DEBUG_BIT_EXT,
+			.pfnCallback = &VulkanDebugReportCallback,
+			.pUserData = nullptr
+		};
+
+		VK_CHECK ( vkCreateDebugReportCallbackEXT ( instance, &ci, nullptr, reportCallback ) );
+	}
+
 	return true;
 }
 
@@ -353,6 +565,86 @@ void createInstanceWithDebugging ( VkInstance* instance, const char* appName )
 	}
 
 //	VK_CHECK ( vkCreateInstance ( &createInfo, nullptr, instance )  );
+
+	volkLoadInstance ( *instance );
+}
+
+void createInstanceWithReportDebugging ( VkInstance* instance, const char* appName )
+{
+	std::vector<const char*> validationLayers;
+
+#ifdef _DEBUG
+	validationLayers.push_back ( "VK_LAYER_KHRONOS_validation" );
+#endif
+
+	std::vector<const char*> requiredExtensions = getGLFWRequiredExtensions ();
+
+#ifdef _DEBUG
+	requiredExtensions.push_back ( VK_EXT_DEBUG_UTILS_EXTENSION_NAME );
+	requiredExtensions.push_back ( VK_EXT_DEBUG_REPORT_EXTENSION_NAME );
+#endif
+
+	requiredExtensions.push_back ( VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME );
+
+	if ( !checkValidationLayerSupport ( validationLayers ) )
+	{
+		cout << "Validation Layer Support Not Available" << endl;
+		exit ( EXIT_FAILURE );
+	}
+
+	if ( !checkExtensionSupport ( requiredExtensions ) )
+	{
+		cout << "Extension Support Not Available" << endl;
+		exit ( EXIT_FAILURE );
+	}
+
+	VkApplicationInfo appInfo = {};
+	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+	appInfo.pApplicationName = appName;
+	appInfo.applicationVersion = VK_MAKE_VERSION ( 1, 0, 0 );
+	appInfo.pEngineName = "No Engine";
+	appInfo.engineVersion = VK_MAKE_VERSION ( 1, 0, 0 );
+	appInfo.apiVersion = VK_API_VERSION_1_1;
+
+	VkInstanceCreateInfo createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+	createInfo.pApplicationInfo = &appInfo;
+
+	createInfo.enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size ());
+	createInfo.ppEnabledExtensionNames = requiredExtensions.data ();
+
+	if ( validationLayers.empty () )
+	{
+		createInfo.enabledLayerCount = 0;
+		createInfo.ppEnabledLayerNames = nullptr;
+	} else
+	{
+		createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size ());
+		createInfo.ppEnabledLayerNames = validationLayers.data ();
+	}
+
+	
+	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {};
+	debugCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+#ifdef _DEBUG
+	debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
+	debugCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+#else 
+	debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+	debugCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT;
+#endif
+	debugCreateInfo.pfnUserCallback = VulkanDebugCallback;
+	createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+	
+//	VkResult createInstanceResult = vkCreateInstance ( &createInfo, nullptr, instance );
+
+	//if ( createInstanceResult != VK_SUCCESS )
+	//{
+	//	printf ( "Failed to create Vulkan Instance with result %s\n", vulkanResultToString ( createInstanceResult ).c_str () );
+	//	exit ( EXIT_FAILURE );
+	//}
+
+	VK_CHECK ( vkCreateInstance ( &createInfo, nullptr, instance )  );
 
 	volkLoadInstance ( *instance );
 }
@@ -949,6 +1241,7 @@ void destroyVulkanInstance ( VulkanInstance& vk )
 {
 	vkDestroySurfaceKHR ( vk.instance, vk.surface, nullptr );
 	vkDestroyDebugUtilsMessengerEXT ( vk.instance, vk.messenger, nullptr );
+	vkDestroyDebugReportCallbackEXT ( vk.instance, vk.reportCallback, nullptr );
 	vkDestroyInstance ( vk.instance, nullptr );
 }
 
@@ -1649,6 +1942,17 @@ bool createOffscreenImage ( VulkanRenderDevice& vkDev, VkImage& textureImage, Vk
 	return createImage ( vkDev.device, vkDev.physicalDevice, texWidth, texHeight, texFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT /* necessary only for screenshot */ | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory, flags );
 }
 
+bool createOffscreenImageFromData ( VulkanRenderDevice& vkDev, VkImage& textureImage, VkDeviceMemory& textureImageMemory, void* imageData, uint32_t texWidth, uint32_t texHeight, VkFormat texFormat, uint32_t layerCount, VkImageCreateFlags flags )
+{
+	if ( !createImage ( vkDev.device, vkDev.physicalDevice, texWidth, texHeight, texFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory, flags ) )
+	{
+		printf ( "Failed to create offscreen image from data\n" );
+		return false;
+	}
+
+	return updateTextureImage ( vkDev, textureImage, textureImageMemory, texWidth, texHeight, texFormat, layerCount, imageData );
+}
+
 bool createDepthSampler ( VkDevice device, VkSampler* sampler )
 {
 	VkSamplerCreateInfo si = {
@@ -1712,12 +2016,18 @@ VkSampleCountFlagBits getMaxUsableSampleCount ( VkPhysicalDevice physDevice )
 VulkanContextCreator::VulkanContextCreator ( VulkanInstance& vk, VulkanRenderDevice& dev, void* window, int screenWidth, int screenHeight, const VulkanContextFeatures& ctxFeatures ) : instance_(vk), vkDev_(dev)
 {
 //	createInstance ( &vk.instance );
-	createInstanceWithDebugging ( &vk.instance );
+//	createInstanceWithDebugging ( &vk.instance );
+	createInstanceWithReportDebugging ( &vk.instance );
 
-	if ( !setupDebugCallbacks ( vk.instance, &vk.messenger ) )
+	if ( !setupAlternateDebugMessengerAndReportCallbacks ( vk.instance, &vk.messenger, &vk.reportCallback ) )
 	{
 		exit ( 0 );
 	}
+
+	//if ( !setupDebugCallbacks ( vk.instance, &vk.messenger ) )
+	//{
+	//	exit ( 0 );
+	//}
 
 	if ( glfwCreateWindowSurface ( vk.instance, (GLFWwindow*)window, nullptr, &vk.surface ) )
 	{
@@ -2301,11 +2611,39 @@ bool createTextureSampler ( VkDevice device, VkSampler* sampler, VkFilter minFil
 	return true;
 }
 
+bool createTextureImage ( VulkanRenderDevice& vkDev, const char* filename, VkImage& textureImage, VkDeviceMemory& textureImageMemory, uint32_t* outTexWidth, uint32_t* outTexHeight )
+{
+	int texWidth, texHeight, texChannels;
+	stbi_uc* pixels = stbi_load ( filename, &texWidth, &texHeight, &texChannels, STBI_rgb_alpha );
+
+	if ( !pixels )
+	{
+		printf ( "Failed to load [%s] texture\n", filename ); 
+		fflush ( stdout );
+		return false;
+	}
+
+	bool result = createTextureImageFromData ( vkDev, textureImage, textureImageMemory, pixels, texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM );
+
+	stbi_image_free ( pixels );
+
+	if ( outTexWidth && outTexHeight )
+	{
+		*outTexWidth = (uint32_t)texWidth;
+		*outTexHeight = (uint32_t)texHeight;
+	}
+
+	return result;
+}
+
+/*
 bool createTextureImage (
 	VulkanRenderDevice& vkDev,
 	const char* filename,
 	VkImage& textureImage,
-	VkDeviceMemory& textureImageMemory )
+	VkDeviceMemory& textureImageMemory,
+	uint32_t* outTexWidth,
+	uint32_t* outTexHeight)
 {
 	int texWidth, texHeight, texChannels;
 
@@ -2338,6 +2676,7 @@ bool createTextureImage (
 	stbi_image_free ( pixels );
 	return true;
 }
+*/
 
 size_t allocateVertexBuffer ( VulkanRenderDevice& vkDev, VkBuffer* storageBuffer, VkDeviceMemory* storageBufferMemory, size_t vertexDataSize, const void* vertexData, size_t indexDataSize, const void* indexData )
 {
@@ -2747,20 +3086,172 @@ bool createTexturedVertexBuffer (
 	return true;
 }
 
-bool setVkObjectName ( 
-	VulkanRenderDevice& vkDev, 
-	void* object, 
-	VkObjectType objType, 
-	const char* name )
+bool createPBRVertexBuffer ( VulkanRenderDevice& vkDev, const char* filename, VkBuffer* storageBuffer, VkDeviceMemory* storageBufferMemory, size_t* vertexBufferSize, size_t* indexBufferSize )
 {
+	const aiScene* scene = aiImportFile ( filename, aiProcess_Triangulate );
+
+	if ( !scene || !scene->HasMeshes () )
+	{
+		printf ( "Unable to load %s\n", filename );
+		exit ( 255 );
+	}
+
+	const aiMesh* mesh = scene->mMeshes[0];
+	struct VertexData
+	{
+		vec4 pos;
+		vec4 n;
+		vec4 tc;
+	};
+
+	std::vector<VertexData> vertices;
+	for ( unsigned i = 0; i != mesh->mNumVertices; i++ )
+	{
+		const aiVector3D v = mesh->mVertices[i];
+		const aiVector3D t = mesh->mTextureCoords[0][i];
+		const aiVector3D n = mesh->mNormals[i];
+
+		vertices.push_back (
+			{
+				.pos = vec4 ( v.x, v.y, v.z, 1.0f ),
+				.n = vec4 ( n.x, n.y, n.z, 0.0f ),
+				.tc = vec4 ( t.x, 1.0f - t.y, 0.0f, 0.0f )
+			}
+		);
+	}
+
+	std::vector<unsigned int> indices;
+	for ( unsigned i = 0; i != mesh->mNumFaces; i++ )
+	{
+		for ( unsigned j = 0; j != 3; j++ )
+		{
+			indices.push_back ( mesh->mFaces[i].mIndices[j] );
+		}
+	}
+
+	aiReleaseImport ( scene );
+
+	*vertexBufferSize = sizeof ( VertexData ) * vertices.size ();
+	*indexBufferSize = sizeof ( unsigned int ) * indices.size ();
+
+	allocateVertexBuffer ( vkDev, storageBuffer, storageBufferMemory, *vertexBufferSize, vertices.data (), *indexBufferSize, indices.data () );
+	return true;
+}
+
+bool setVkObjectName ( VkDevice dev, uint64_t objHandle, VkObjectType objType, const char* objName )
+{
+	if ( objType == VK_OBJECT_TYPE_UNKNOWN ) return false;
+	if ( objHandle == (uint64_t)VK_NULL_HANDLE ) return false;
+
 	VkDebugUtilsObjectNameInfoEXT nameInfo = {
 		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
 		.pNext = nullptr,
 		.objectType = objType,
-		.objectHandle = (uint64_t)object,
-		.pObjectName = name
+		.objectHandle = objHandle,
+		.pObjectName = objName
 	};
-	return (vkSetDebugUtilsObjectNameEXT ( vkDev.device, &nameInfo ) == VK_SUCCESS);
+
+	return (vkSetDebugUtilsObjectNameEXT ( dev, &nameInfo ) == VK_SUCCESS);
+}
+
+bool setVkObjectTag ( VkDevice dev, uint64_t objHandle, VkObjectType objType, uint64_t tagName, size_t tagSize, const void* tag )
+{
+	if ( objType == VK_OBJECT_TYPE_UNKNOWN ) return false;
+	if ( objHandle == (uint64_t)VK_NULL_HANDLE ) return false;
+
+	VkDebugUtilsObjectTagInfoEXT tagInfo = {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_TAG_INFO_EXT,
+		.pNext = nullptr,
+		.objectType = objType,
+		.objectHandle = objHandle,
+		.tagName = tagName,
+		.tagSize = tagSize,
+		.pTag = tag
+	};
+
+	return (vkSetDebugUtilsObjectTagEXT ( dev, &tagInfo ) == VK_SUCCESS);
+}
+
+//
+//bool setVkObjectName ( 
+//	VulkanRenderDevice& vkDev, 
+//	void* object, 
+//	VkObjectType objType, 
+//	const char* name )
+//{
+//	VkDebugUtilsObjectNameInfoEXT nameInfo = {
+//		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+//		.pNext = nullptr,
+//		.objectType = objType,
+//		.objectHandle = (uint64_t)object,
+//		.pObjectName = name
+//	};
+//	return (vkSetDebugUtilsObjectNameEXT ( vkDev.device, &nameInfo ) == VK_SUCCESS);
+//}
+//
+//bool setVkObjectTag ( VulkanRenderDevice& vkDev, void* object, VkObjectType objType, uint64_t name, size_t tagSize, const void* tag )
+//{
+//	VkDebugUtilsObjectTagInfoEXT tagInfo = {
+//		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_TAG_INFO_EXT,
+//		.pNext = nullptr,
+//		.objectType = objType,
+//		.objectHandle = (uint64_t)object,
+//		.tagName = name,
+//		.tagSize = tagSize,
+//		.pTag = tag
+//	};
+//
+//	return (vkSetDebugUtilsObjectTagEXT ( vkDev.device, &tagInfo ) == VK_SUCCESS);
+//}
+
+void beginVkQueueDebugRegion ( VkQueue queue, const char* label, const glm::vec4& color )
+{
+	VkDebugUtilsLabelEXT debugLabel = {};
+	debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+	debugLabel.pNext = nullptr;
+	memcpy ( debugLabel.color, glm::value_ptr ( color ), sizeof ( glm::vec4 ) );
+	debugLabel.pLabelName = label;
+	vkQueueBeginDebugUtilsLabelEXT ( queue, &debugLabel );
+}
+
+void insertVkQueueDebugLabel ( VkQueue queue, const char* label, const glm::vec4& color )
+{
+	VkDebugUtilsLabelEXT debugLabel = {};
+	debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+	debugLabel.pNext = nullptr;
+	memcpy ( debugLabel.color, glm::value_ptr ( color ), sizeof ( glm::vec4 ) );
+	debugLabel.pLabelName = label;
+	vkQueueInsertDebugUtilsLabelEXT ( queue, &debugLabel );
+}
+
+void endVkQueueDebugRegion ( VkQueue queue )
+{
+	vkQueueEndDebugUtilsLabelEXT ( queue );
+}
+
+void beginVkCommandBufferDebugRegion ( VkCommandBuffer cmdBuffer, const char* label, const glm::vec4& color )
+{
+	VkDebugUtilsLabelEXT debugLabel = {};
+	debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+	debugLabel.pNext = nullptr;
+	memcpy ( debugLabel.color, glm::value_ptr ( color ), sizeof ( glm::vec4 ) );
+	debugLabel.pLabelName = label;
+	vkCmdBeginDebugUtilsLabelEXT ( cmdBuffer, &debugLabel );
+}
+
+void insertVkCommandBufferDebugLabel ( VkCommandBuffer cmdBuffer, const char* label, const glm::vec4& color )
+{
+	VkDebugUtilsLabelEXT debugLabel = {};
+	debugLabel.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+	debugLabel.pNext = nullptr;
+	memcpy ( debugLabel.color, glm::value_ptr ( color ), sizeof ( glm::vec4 ) );
+	debugLabel.pLabelName = label;
+	vkCmdInsertDebugUtilsLabelEXT ( cmdBuffer, &debugLabel );
+}
+
+void endVkCommandBufferDebugRegion ( VkCommandBuffer cmdBuffer )
+{
+	vkCmdEndDebugUtilsLabelEXT ( cmdBuffer );
 }
 
 std::string vulkanResultToString ( VkResult result )
@@ -2814,6 +3305,55 @@ std::string vulkanResultToString ( VkResult result )
 	};
 
 	return resultStrings.find ( result )->second.c_str ();
+}
+
+std::string vulkanObjectTypeToString(VkObjectType type) 
+{
+	const std::map<VkObjectType, std::string> typeStrings = {
+		{VK_OBJECT_TYPE_UNKNOWN,"UNKNOWN_TYPE"},
+		{VK_OBJECT_TYPE_INSTANCE,"INSTANCE"},
+		{VK_OBJECT_TYPE_PHYSICAL_DEVICE , "PHYSICAL_DEVICE"},
+		{VK_OBJECT_TYPE_DEVICE ,"DEVICE"},
+		{VK_OBJECT_TYPE_QUEUE ,"QUEUE"},
+		{VK_OBJECT_TYPE_SEMAPHORE ,"SEMAPHORE"},
+		{VK_OBJECT_TYPE_COMMAND_BUFFER ,"COMMAND_BUFFER"},
+		{VK_OBJECT_TYPE_FENCE,"FENCE"},
+		{VK_OBJECT_TYPE_DEVICE_MEMORY ,"DEVICE_MEMORY"},
+		{VK_OBJECT_TYPE_BUFFER ,"BUFFER"},
+		{VK_OBJECT_TYPE_IMAGE ,"IMAGE"},
+		{VK_OBJECT_TYPE_EVENT ,"EVENT"},
+		{VK_OBJECT_TYPE_QUERY_POOL ,"QUERY_POOL"},
+		{VK_OBJECT_TYPE_BUFFER_VIEW ,"BUFFER_VIEW"},
+		{VK_OBJECT_TYPE_IMAGE_VIEW ,"IMAGE_VIEW"},
+		{VK_OBJECT_TYPE_SHADER_MODULE ,"SHADER_MODULE"},
+		{VK_OBJECT_TYPE_PIPELINE_CACHE,"PIPELINE_CACHE"},
+		{VK_OBJECT_TYPE_PIPELINE_LAYOUT,"PIPELINE_LAYOUT"},
+		{VK_OBJECT_TYPE_RENDER_PASS,"RENDER_PASS"},
+		{VK_OBJECT_TYPE_PIPELINE,"PIPELINE"},
+		{VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT,"DESCRIPTOR_SET_LAYOUT"},
+		{VK_OBJECT_TYPE_SAMPLER ,"SAMPLER"},
+		{VK_OBJECT_TYPE_DESCRIPTOR_POOL,"DESCRIPTOR_POOL"},
+		{VK_OBJECT_TYPE_DESCRIPTOR_SET,"DESCRIPTOR_SET"},
+		{VK_OBJECT_TYPE_FRAMEBUFFER,"FRAMEBUFFER"},
+		{VK_OBJECT_TYPE_COMMAND_POOL ,"COMMAND_POOL"},
+		{VK_OBJECT_TYPE_SAMPLER_YCBCR_CONVERSION ,"SAMPLER_YCBCR_CONVERSION"},
+		{VK_OBJECT_TYPE_DESCRIPTOR_UPDATE_TEMPLATE,"DESCRIPTOR_UPDATE_TEMPLATE"},
+		{VK_OBJECT_TYPE_SURFACE_KHR ,"SURFACE_KHR"},
+		{VK_OBJECT_TYPE_SWAPCHAIN_KHR,"SWAPCHAIN_KHR"},
+		{VK_OBJECT_TYPE_DISPLAY_KHR ,"DISPLAY_KHR"},
+		{VK_OBJECT_TYPE_DISPLAY_MODE_KHR,"DISPLAY_MODE_KHR"},
+		{VK_OBJECT_TYPE_DEBUG_REPORT_CALLBACK_EXT,"DEBUG_REPORT_CALLBACK_EXT"},
+		{VK_OBJECT_TYPE_CU_MODULE_NVX ,  "CU_MODULE_NVX"},
+		{VK_OBJECT_TYPE_DEBUG_UTILS_MESSENGER_EXT ,"DEBUG_UTILS_MESSENGER_EXT"},
+		{VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR ,"ACCELERATION_STRUCTURE_KHR"},
+		{VK_OBJECT_TYPE_VALIDATION_CACHE_EXT ,  "VALIDATION_CACHE_EXT"},
+		{VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_NV , "ACCELERATION_STRUCTURE_NV"},
+		{VK_OBJECT_TYPE_PERFORMANCE_CONFIGURATION_INTEL ,"PERFORMANCE_CONFIGURATION_INTEL"},
+		{VK_OBJECT_TYPE_DEFERRED_OPERATION_KHR ,"DEFERRED_OPERATION_KHR"},
+		{VK_OBJECT_TYPE_INDIRECT_COMMANDS_LAYOUT_NV ,"INDIRECT_COMMANDS_LAYOUT_NV"}
+	};
+
+	return typeStrings.find ( type )->second.c_str ();
 }
 
 void destroyVulkanImage ( VkDevice device, VulkanImage& image )

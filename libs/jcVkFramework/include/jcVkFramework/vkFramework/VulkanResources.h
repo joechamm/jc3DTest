@@ -143,7 +143,8 @@ struct PipelineInfo
 */
 struct VulkanResources
 {
-private:
+//private: // TODO: this should be private
+public:
 	VulkanRenderDevice& vkDev_;
 	std::vector<VulkanTexture> allTextures_;
 	std::vector<VulkanBuffer> allBuffers_;

@@ -192,6 +192,8 @@ MultiRenderer::MultiRenderer (
 	: Renderer(ctx)
 	, sceneData_(sceneData)
 {
+	printf ( "MultiRenderer: initRenderPass\n" );
+
 	const PipelineInfo pInfo = initRenderPass ( PipelineInfo{}, outputs, screenRenderPass, ctx.screenRenderPass_ );
 
 	const uint32_t indirectDataSize = static_cast<uint32_t>(sceneData_.shapes_.size () * sizeof ( VkDrawIndirectCommand ));
@@ -234,26 +236,70 @@ MultiRenderer::MultiRenderer (
 		dsInfo.buffers_.push_back ( b );
 	}
 
+	printf ( "MultiRenderer: descriptor sets\n" );
 	descriptorSetLayout_ = ctx.resources_.addDescriptorSetLayout ( dsInfo );
+//	setVkDescriptorSetLayoutName ( ctx.vkDev_, &descriptorSetLayout_, "MultiRenderer::descriptorSetLayout" );
+	setVkObjectName ( ctx.vkDev_.device, (uint64_t)descriptorSetLayout_, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, "MultiRenderer::descriptorSetLayout" );
 	descriptorPool_ = ctx.resources_.addDescriptorPool ( dsInfo, (uint32_t)imgCount );
+//	setVkDescriptorPoolName ( ctx.vkDev_, &descriptorPool_, "MultiRenderer::descriptorPool" );
+	setVkObjectName ( ctx.vkDev_.device, (uint64_t)descriptorPool_, VK_OBJECT_TYPE_DESCRIPTOR_POOL, "MultiRenderer::descriptorPool" );
 
 	for ( size_t i = 0; i != imgCount; i++ )
 	{
+		char uniformBufferName[64];
+		char indirectBufferName[64];
+		char storageBufferName[64];
+		char descriptorSetName[64];
+
+		sprintf ( uniformBufferName, "MultiRenderer::uniformBuffer %d", (int)i );
+		sprintf ( indirectBufferName, "MultiRenderer::indirectBuffer %d", (int)i );
+		sprintf ( storageBufferName, "MultiRenderer::storageBuffer %d", (int)i );
+		sprintf ( descriptorSetName, "MultiRenderer::descriptorSet %d", (int)i );
+
 		uniforms_[i] = ctx.resources_.addUniformBuffer ( uniformBufferSize );
+
+	//	setVkBufferName ( ctx.vkDev_, &uniforms_[i].buffer, uniformBufferName );
+		setVkObjectName ( ctx.vkDev_.device, (uint64_t)uniforms_[i].buffer, VK_OBJECT_TYPE_BUFFER, uniformBufferName );
+
 		indirect_[i] = ctx.resources_.addIndirectBuffer ( indirectDataSize );
+
+	//	setVkBufferName ( ctx.vkDev_, &indirect_[i].buffer, indirectBufferName );
+		setVkObjectName ( ctx.vkDev_.device, (uint64_t)indirect_[i].buffer, VK_OBJECT_TYPE_BUFFER, indirectBufferName );
+		
 		updateIndirectBuffers (i);
 
 		shape_[i] = ctx.resources_.addStorageBuffer ( shapeSize );
+
+	//	setVkBufferName ( ctx.vkDev_, &shape_[i].buffer, storageBufferName );
+		setVkObjectName ( ctx.vkDev_.device, (uint64_t)shape_[i].buffer, VK_OBJECT_TYPE_BUFFER, storageBufferName );
+
 		uploadBufferData ( ctx.vkDev_, shape_[i].memory, 0, sceneData_.shapes_.data (), shapeSize );
 
 		dsInfo.buffers_[0].buffer_ = uniforms_[i];
 		dsInfo.buffers_[3].buffer_ = shape_[i];
 
 		descriptorSets_[i] = ctx.resources_.addDescriptorSet ( descriptorPool_, descriptorSetLayout_ );
+
+		setVkObjectName ( ctx.vkDev_.device, (uint64_t)descriptorSets_[i], VK_OBJECT_TYPE_DESCRIPTOR_SET, descriptorSetName );
+	//	setVkDescriptorSetName ( ctx.vkDev_, &descriptorSets_[i], descriptorSetName );
+
 		ctx.resources_.updateDescriptorSet ( descriptorSets_[i], dsInfo );
 	}
 
+	printf ( "MultiRenderer: initPipeline\n" );
+
 	initPipeline ( { vtxShaderFile, fragShaderFile }, pInfo );
+
+//	setVkPipelineName ( ctx.vkDev_, &graphicsPipeline_, "MultiRenderer::graphicsPipeline" );
+	setVkObjectName ( ctx.vkDev_.device, (uint64_t)graphicsPipeline_, VK_OBJECT_TYPE_PIPELINE, "MultiRenderer::graphicsPipeline" );
+
+	printf ( "MultiRenderer: init done!\n" );
+
+//#ifdef _DEBUG // add names and tags here
+//	setVkPipelineName ( ctx.vkDev_, &graphicsPipeline_, "MultiRenderer::graphicsPipeline_" );
+//	setVkPipelineLayoutName ( ctx.vkDev_, &pipelineLayout_, "MultiRenderer::pipelineLayout_" );
+//	setVkDescriptorSetLayoutName ( ctx.vkDev_, &descriptorSetLayout_, "MultiRenderer::descriptorSetLayout_" );	
+//#endif
 
 //	initPipeline ( getShaderFilenamesWithRoot ( "assets/shaders/VK07_MultiRenderer.vert", "assets/shaders/VK07_MultiRenderer.frag" ), pInfo );
 }
