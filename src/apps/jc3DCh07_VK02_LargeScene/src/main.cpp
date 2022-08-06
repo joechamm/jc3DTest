@@ -1,77 +1,57 @@
 #include <jcVkFramework/vkFramework/VulkanApp.h>
-#include <jcVkFramework/vkRenderers/VulkanComputeBase.h>
+#include <jcVkFramework/vkFramework/GuiRenderer.h>
+#include <jcVkFramework/vkFramework/MultiRenderer.h>
 
-#include <gli/gli.hpp>
-#include <gli/texture2d.hpp>
-#include <gli/load_ktx.hpp>
+#include <jcCommonFramework/ResourceString.h>
 
-#include <jcVkFramework/ResourceString.h>
-
-constexpr int brdfW = 256;
-constexpr int brdfH = 256;
-
-const uint32_t bufferSize = 2 * sizeof ( float ) * brdfW * brdfH;
-
-float lutData[bufferSize];
-
-VulkanInstance vk;
-VulkanRenderDevice vkDev;
-
-void calculateLUT ( float* output )
+struct MyApp : public CameraApp
 {
-	ComputeBase cb ( vkDev, appendToRoot ( "assets/shaders/VK06_BRDF_LUT.comp" ).c_str (), sizeof ( float ), bufferSize );
-	if ( !cb.execute ( brdfW, brdfH, 1 ) )
-		exit ( EXIT_FAILURE );
+private:
+	VulkanTexture envMap_;
+	VulkanTexture irrMap_;
 
-	cb.downloadOutput ( 0, (uint8_t*)lutData, bufferSize );
-}
+	VKSceneData sceneData_;
+	VKSceneData sceneData2_;
 
-gli::texture convertLUTtoTexture ( const float* data )
-{
-	gli::texture lutTexture = gli::texture2d ( gli::FORMAT_RG16_SFLOAT_PACK16, gli::extent2d ( brdfW, brdfH ), 1 );
+	MultiRenderer multiRenderer_;
+	MultiRenderer multiRenderer2_;
 
-	for ( int y = 0; y < brdfH; y++ )
+	GuiRenderer imgui_;
+
+public:
+	MyApp () :
+		CameraApp ( 1280, 720 )
+		, envMap_ ( ctx_.resources_.loadCubeMap ( appendToRoot ( "assets/images/piazza_bologni_1k.hdr" ).c_str () ) )
+		, irrMap_ ( ctx_.resources_.loadCubeMap ( appendToRoot ( "assets/images/piazza_bologni_1k_irradiance.hdr" ).c_str () ) )
+		, sceneData_ ( ctx_, appendToRoot ( "assets/meshes/test.meshes" ), appendToRoot ( "assets/meshes/test.scene" ), appendToRoot ( "assets/meshes/test.materials" ), envMap_, irrMap_ )
+		, sceneData2_ ( ctx_, appendToRoot ( "assets/meshes/test2.meshes" ), appendToRoot ( "assets/meshes/test2.scene" ), appendToRoot ( "assets/meshes/test2.materials" ), envMap_, irrMap_ )
+		, multiRenderer_ ( ctx_, sceneData_ )
+		, multiRenderer2_ ( ctx_, sceneData2_ )
+		, imgui_ ( ctx_ )
 	{
-		for ( int x = 0; x < brdfW; x++ )
-		{
-			const int ofs = y * brdfW + x;
-			const gli::vec2 value ( data[ofs * 2 + 0], data[ofs * 2 + 1] );
-			const gli::texture::extent_type uv = { x, y, 0 };
-			lutTexture.store<glm::uint32> ( uv, 0, 0, 0, gli::packHalf2x16 ( value ) );
-		}
+		positioner_ = CameraPositioner_FirstPerson ( vec3 ( -10.0f, -3.0f, 3.0f ), vec3 ( 0.0f, 0.0f, -1.0f ), vec3 ( 0.0f, 1.0f, 0.0f ) );
+
+		onScreenRenderers_.emplace_back ( multiRenderer_ );
+		onScreenRenderers_.emplace_back ( multiRenderer2_ );
+		onScreenRenderers_.emplace_back ( imgui_, false );
 	}
 
-	return lutTexture;
-}
+	void draw3D () override
+	{
+		const mat4 p = getDefaultProjection ();
+		const mat4 view = camera_.getViewMatrix ();
+
+		multiRenderer_.setMatrices ( p, view );
+		multiRenderer2_.setMatrices ( p, view );
+
+		multiRenderer_.setCameraPosition ( positioner_.getPosition () );
+		multiRenderer2_.setCameraPosition ( positioner_.getPosition () );
+	}
+};
 
 int main ()
 {
-	GLFWwindow* window = initVulkanApp ( brdfW, brdfH );
-
-	// createInstance(&vk.instance);
-	createInstanceWithDebugging ( &vk.instance, "jc3DTest Chapter 06 BRDF LUT Exercise" );
-
-	if ( !setupDebugCallbacks ( vk.instance, &vk.messenger ) ||
-		glfwCreateWindowSurface ( vk.instance, window, nullptr, &vk.surface ) ||
-		!initVulkanRenderDeviceWithCompute ( vk, vkDev, brdfW, brdfH, VkPhysicalDeviceFeatures{} ) )
-	{
-		exit ( EXIT_FAILURE );
-	}
-
-	printf ( "Calculating LUT texture...\n" );
-	calculateLUT ( lutData );
-
-	printf ( "Saving LUT texture...\n" );
-	gli::texture lutTexture = convertLUTtoTexture ( lutData );
-
-	// use Pico Pixel to view https://pixelandpolygon.com/
-	gli::save_ktx ( lutTexture, appendToRoot ( "assets/images/brdfLUT.ktx" ).c_str() );
-
-	destroyVulkanRenderDevice ( vkDev );
-	destroyVulkanInstance ( vk );
-
-	glfwTerminate ();
-	glslang_finalize_process ();
-
+	MyApp app;
+	app.mainLoop ();
 	return 0;
 }

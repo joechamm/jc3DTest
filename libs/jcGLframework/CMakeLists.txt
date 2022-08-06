@@ -48,20 +48,15 @@ target_compile_features(jcGLframework PUBLIC cxx_std_20)
 target_include_directories(jcGLframework 
   PRIVATE 
   ${CMAKE_CURRENT_SOURCE_DIR}/src 
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/glFramework
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/scene
   ${CMAKE_CURRENT_SOURCE_DIR}/include/jcGLframework
-  ${CMAKE_CURRENT_SOURCE_DIR}/include/jcGLframework/glFramework
-  ${CMAKE_CURRENT_SOURCE_DIR}/include/jcGLframework/scene
   PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
-#	${CMAKE_CURRENT_SOURCE_DIR}/include/jcGLframework
-#	${CMAKE_CURRENT_SOURCE_DIR}/include/jcGLframework/scene
-#	${CMAKE_CURRENT_SOURCE_DIR}/include/jcGLframework/glFramework	
-	)
+  ${CMAKE_SOURCE_DIR}/libs/jcCommonFramework/include	
+)
 
 target_link_libraries(jcGLframework 
-  PUBLIC 
+  PUBLIC
+  jcCommonFramework
   glad
   glfw 
   assimp

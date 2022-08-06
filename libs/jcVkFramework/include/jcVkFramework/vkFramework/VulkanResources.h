@@ -17,35 +17,35 @@
 /// Common information for all bindings (buffer/sampler type and shader stage(s) where this item is used)
 struct DescriptorInfo
 {
-	VkDescriptorType type_;
-	VkShaderStageFlags shaderStageFlags_;
+	VkDescriptorType			type_;
+	VkShaderStageFlags			shaderStageFlags_;
 };
 
 struct BufferAttachment
 {
-	DescriptorInfo dInfo_;
+	DescriptorInfo				dInfo_;
 
-	VulkanBuffer buffer_;
-	uint32_t offset_;
-	uint32_t size_;
+	VulkanBuffer				buffer_;
+	uint32_t					offset_;
+	uint32_t					size_;
 };
 
 struct TextureAttachment
 {
-	DescriptorInfo dInfo_;
-	VulkanTexture texture_;
+	DescriptorInfo				dInfo_;
+	VulkanTexture				texture_;
 };
 
 struct TextureArrayAttachment
 {
-	DescriptorInfo dInfo_;
-	std::vector<VulkanTexture> textureArray_;
+	DescriptorInfo				dInfo_;
+	std::vector<VulkanTexture>	textures_;
 };
 
 struct TextureCreationParams
 {
-	VkFilter minFilter_;
-	VkFilter maxFilter_;
+	VkFilter					minFilter_;
+	VkFilter					maxFilter_;
 
 /// VkAccessModeFlags accessMode_;
 };
@@ -73,7 +73,7 @@ inline TextureArrayAttachment fsTextureArrayAttachment ( const std::vector<Vulka
 			.type_ = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			.shaderStageFlags_ = VK_SHADER_STAGE_FRAGMENT_BIT,
 		},		
-		.textureArray_ = textures
+		.textures_ = textures
 	};
 }
 
@@ -108,24 +108,24 @@ inline BufferAttachment storageBufferAttachment(VulkanBuffer buffer, uint32_t of
 /* Aggregate structure with all the data for descriptor set (or descriptor set layout) allocation) */
 struct DescriptorSetInfo
 {
-	std::vector<BufferAttachment> buffers_;
-	std::vector<TextureAttachment> textures_;
-	std::vector<TextureArrayAttachment> textureArrays_;
+	std::vector<BufferAttachment>				buffers_;
+	std::vector<TextureAttachment>				textures_;
+	std::vector<TextureArrayAttachment>			textureArrays_;
 };
 
 /* A structure with pipeline parameters */
 struct PipelineInfo
 {
-	uint32_t width_ = 0;
-	uint32_t height_ = 0;
+	uint32_t									width_ = 0;
+	uint32_t									height_ = 0;
 	
-	VkPrimitiveTopology topology_ = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	VkPrimitiveTopology							topology_ = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	
-	bool useDepth_ = true;	
-	bool useBlending_ = true;	
-	bool dynamicScissorState_ = false;
+	bool										useDepth_ = true;	
+	bool										useBlending_ = true;	
+	bool										dynamicScissorState_ = false;
 
-	uint32_t patchControlPoints_ = 0;
+	uint32_t									patchControlPoints_ = 0;
 };
 
 /**
@@ -144,59 +144,64 @@ struct PipelineInfo
 struct VulkanResources
 {
 //private: // TODO: this should be private
+//public:
+//	VulkanRenderDevice&					vkDev_;
+//	std::vector<VulkanTexture>			allTextures_;
+//	std::vector<VulkanBuffer>			allBuffers_;
+//	std::vector<VkFramebuffer>			allFramebuffers_;
+//	std::vector<VkRenderPass>			allRenderpasses_;
+//	std::vector<VkPipelineLayout>		allPipelineLayouts_;
+//	std::vector<VkPipeline>				allPipelines_;
+//	std::vector<VkDescriptorSetLayout>	allDSLayouts_;
+//	std::vector<VkDescriptorPool>		allDPools_;
+//
+//	std::vector<ShaderModule>			shaderModules_;
+//	std::map<std::string, int>			shaderMap_;
+
 public:
-	VulkanRenderDevice& vkDev_;
-	std::vector<VulkanTexture> allTextures_;
-	std::vector<VulkanBuffer> allBuffers_;
-	std::vector<VkFramebuffer> allFramebuffers_;
-	std::vector<VkRenderPass> allRenderpasses_;
-	std::vector<VkPipelineLayout> allPipelineLayouts_;
-	std::vector<VkPipeline> allPipelines_;
-	std::vector<VkDescriptorSetLayout> allDSLayouts_;
-	std::vector<VkDescriptorPool> allDPools_;
-
-	std::vector<ShaderModule> shaderModules_;
-	std::map<std::string, int> shaderMap_;
-
-public:
-	explicit VulkanResources ( VulkanRenderDevice& vkDev ) : vkDev_ ( vkDev )
-	{}
-
+	VulkanResources ( VulkanRenderDevice& vkDev ) : vkDev_ ( vkDev ) {}
 	~VulkanResources ();
 	
 	VulkanTexture loadTexture2D ( const char* filename );
+
 	VulkanTexture loadCubeMap ( const char* filename, uint32_t mipLevels = 1);
+	
 	VulkanTexture loadKTX ( const char* filename );
+	
 	VulkanTexture createFontTexture ( const char* fontfile );
 
 	VulkanTexture addColorTexture ( int texWidth = 0, int texHeight = 0, VkFormat colorFormat = VK_FORMAT_B8G8R8A8_UNORM, VkFilter minFilter = VK_FILTER_LINEAR, VkFilter maxFilter = VK_FILTER_LINEAR, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT );
+
 	VulkanTexture addDepthTexture ( int texWidth = 0, int texHeight = 0, VkImageLayout layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL );
+	
 	VulkanTexture addSolidRGBATexture ( uint32_t color = 0xFFFFFFFF );
+	
 	VulkanTexture addRGBATexture ( int texWidth, int texHeight, void* data );
 	
-
 	VulkanBuffer addBuffer ( VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, bool createMapping = false );
 
 	inline VulkanBuffer addUniformBuffer ( VkDeviceSize bufferSize, bool createMapping = false )
 	{
-		return addBuffer ( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, createMapping );
-	}
-
-	inline VulkanBuffer addStorageBuffer ( VkDeviceSize bufferSize, bool createMapping = false )
-	{
-		return addBuffer ( bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | /* for debugging make it host-visible */ VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, createMapping);
+		return addBuffer ( bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, createMapping );
 	}
 
 	inline VulkanBuffer addIndirectBuffer ( VkDeviceSize bufferSize, bool createMapping = false )
 	{
 		return addBuffer ( bufferSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, // VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | /* for debugging make it host-visible */ VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, createMapping );
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, createMapping );
+	}
+
+	inline VulkanBuffer addStorageBuffer ( VkDeviceSize bufferSize, bool createMapping = false )
+	{
+		return addBuffer ( bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, createMapping);
 	}
 
 	inline VulkanBuffer addComputedIndirectBuffer ( VkDeviceSize bufferSize, bool createMapping = false )
 	{
 		return addBuffer ( bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | /* for debugging make it host-visible */ VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, createMapping );
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, createMapping );
 	}
 
 	/* Allocate and upload vertex & index buffer pair */
@@ -206,34 +211,79 @@ public:
 
 	RenderPass addFullScreenPass ( bool useDepth = true, const RenderPassCreateInfo& ci = RenderPassCreateInfo () );
 
-	RenderPass addRenderPass ( const std::vector<VulkanTexture>& outputs, const RenderPassCreateInfo& ci = { .clearColor_ = false, .clearDepth_ = true, .flags_ = eRenderPassBit_Offscreen | eRenderPassBit_First }, bool useDepth = true );
-	RenderPass addDepthRenderPass ( const std::vector<VulkanTexture>& outputs, const RenderPassCreateInfo& ci = { .clearColor_ = false, .clearDepth_ = true, .flags_ = eRenderPassBit_Offscreen | eRenderPassBit_First } );
+	RenderPass addRenderPass ( const std::vector<VulkanTexture>& outputs, const RenderPassCreateInfo& ci = { 
+		.clearColor_ = true, .clearDepth_ = true, 
+		.flags_ = eRenderPassBit_Offscreen | eRenderPassBit_First }, bool useDepth = true );
+
+	RenderPass addDepthRenderPass ( const std::vector<VulkanTexture>& outputs, const RenderPassCreateInfo& ci = { 
+		.clearColor_ = false, .clearDepth_ = true, 
+		.flags_ = eRenderPassBit_Offscreen | eRenderPassBit_First } );
 
 	VkPipelineLayout addPipelineLayout (VkDescriptorSetLayout dsLayout, uint32_t vtxConstSize = 0, uint32_t fragConstSize = 0 );
-	VkPipeline addPipeline (VkRenderPass renderPass, VkPipelineLayout layout, const std::vector<std::string>& shaderNames, const PipelineInfo& pi = PipelineInfo {.width_ = 0, .height_ = 0, .topology_ = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, .useDepth_ = true, .useBlending_ = false, .dynamicScissorState_ = false, .patchControlPoints_ = 0 });
+
+	VkPipeline addPipeline (VkRenderPass renderPass, VkPipelineLayout layout, 
+		const std::vector<std::string>& shaderNames, 
+		const PipelineInfo& pi = PipelineInfo {.width_ = 0, .height_ = 0, .topology_ = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, .useDepth_ = true, .useBlending_ = false, .dynamicScissorState_ = false });
+
+	VkPipeline addComputePipeline ( const char* shaderFile, VkPipelineLayout pipelineLayout );
 
 	/* Calculate the descriptor pool size from the list of buffers and textures */
 	VkDescriptorPool addDescriptorPool ( const DescriptorSetInfo& dsInfo, uint32_t dSetCount = 1 );
+
 	VkDescriptorSetLayout addDescriptorSetLayout ( const DescriptorSetInfo& dsInfo );	
+	
 	VkDescriptorSet addDescriptorSet ( VkDescriptorPool descriptorPool, VkDescriptorSetLayout dsLayout );
+	
 	void updateDescriptorSet ( VkDescriptorSet ds, const DescriptorSetInfo& dsInfo );
 
 	const std::vector<VulkanTexture>& getTextures () const
 	{
 		return allTextures_; 
 	}
+	std::vector<VkFramebuffer> addFramebuffers ( VkRenderPass renderPass, VkImageView depthView = VK_NULL_HANDLE );
 
 	/** Helper functions for small chapter 8/9 demos */
 	std::pair<BufferAttachment, BufferAttachment> makeMeshBuffers ( const std::vector<float>& vertices, const std::vector<unsigned int>& indices );
-	std::pair<BufferAttachment, BufferAttachment> loadMeshToBuffer ( const std::string& meshFilename, bool useTextureCoordinates, bool useNormals, std::vector<float>& vertices, std::vector<unsigned int>& indices );
+
+	std::pair<BufferAttachment, BufferAttachment> loadMeshToBuffer ( const std::string& meshFilename, bool useTextureCoordinates, bool useNormals, 
+		std::vector<float>& vertices, 
+		std::vector<unsigned int>& indices );
 
 	std::pair<BufferAttachment, BufferAttachment> createPlaneBuffer_XZ ( float sx, float sz );
 	std::pair<BufferAttachment, BufferAttachment> createPlaneBuffer_XY ( float sx, float sy );
 
-	std::vector<VkFramebuffer> addFramebuffers ( VkRenderPass renderPass, VkImageView depthView = VK_NULL_HANDLE );
+//private:
+public:
+	VulkanRenderDevice&					vkDev_;
+
+	std::vector<VulkanTexture>			allTextures_;
+	std::vector<VulkanBuffer>			allBuffers_;
+
+	std::vector<VkFramebuffer>			allFramebuffers_;
+	std::vector<VkRenderPass>			allRenderpasses_;
+
+	std::vector<VkPipelineLayout>		allPipelineLayouts_;
+	std::vector<VkPipeline>				allPipelines_;
+
+	std::vector<VkDescriptorSetLayout>	allDSLayouts_;
+	std::vector<VkDescriptorPool>		allDPools_;
+
+	std::vector<ShaderModule>			shaderModules_;
+	std::map<std::string, int>			shaderMap_;
 
 private:
-	bool createGraphicsPipeline ( VulkanRenderDevice& vkdev, VkRenderPass renderPass, VkPipelineLayout pipelineLayout, const std::vector<std::string>& shaderFiles, VkPipeline* pipeline, VkPrimitiveTopology toplogy, bool useDepth, bool useBlending, bool dynamicScissorState, int32_t customWidth, int32_t cutstomHeight, uint32_t numPatchControlPoints );
+	bool createGraphicsPipeline ( 
+		VulkanRenderDevice& vkdev, 
+		VkRenderPass renderPass, VkPipelineLayout pipelineLayout, 
+		const std::vector<std::string>& shaderFiles, 
+		VkPipeline* pipeline, 
+		VkPrimitiveTopology toplogy, 
+		bool useDepth, 
+		bool useBlending, 
+		bool dynamicScissorState, 
+		int32_t customWidth, 
+		int32_t cutstomHeight, 
+		uint32_t numPatchControlPoints );
 };
 
 /* A helper function for inplace allocation of VulkanBuffers, Helpful to avoid multiline buffer initialization constructors */

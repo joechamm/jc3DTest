@@ -47,23 +47,21 @@ target_sources(jcVkFramework PRIVATE ${SRC_FILES} ${HEADER_FILES})
 target_compile_features(jcVkFramework PUBLIC cxx_std_20)
 
 target_include_directories(jcVkFramework 
-  PRIVATE 
-  ${CMAKE_CURRENT_SOURCE_DIR}/src 
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/vkRenderers 
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/vkFramework
-  ${CMAKE_CURRENT_SOURCE_DIR}/include/jcVkFramework
-  ${CMAKE_CURRENT_SOURCE_DIR}/include/jcVkFramework/vkRenderers
-  ${CMAKE_CURRENT_SOURCE_DIR}/include/jcVkFramework/vkFramework
+	PRIVATE 
+	${CMAKE_CURRENT_SOURCE_DIR}/src 
+	${CMAKE_CURRENT_SOURCE_DIR}/src/vkRenderers 
+	${CMAKE_CURRENT_SOURCE_DIR}/src/vkFramework
+	${CMAKE_CURRENT_SOURCE_DIR}/include/jcVkFramework
+	${CMAKE_CURRENT_SOURCE_DIR}/include/jcVkFramework/vkRenderers
+	${CMAKE_CURRENT_SOURCE_DIR}/include/jcVkFramework/vkFramework
 	PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/include
-#	${CMAKE_CURRENT_SOURCE_DIR}/include/jcVkFramework
-#	${CMAKE_CURRENT_SOURCE_DIR}/include/jcVkFramework/vkRenderers
-#	${CMAKE_CURRENT_SOURCE_DIR}/include/jcVkFramework/vkFramework	
-	)
+	${CMAKE_SOURCE_DIR}/libs/jcCommonFramework/include
+)
 
 target_link_libraries(jcVkFramework 
   PUBLIC 
-  glad
+  jcCommonFramework
   glfw
   volk
   glslang
@@ -98,5 +96,9 @@ if(MSVC_IDE)
 	
 	# Run Macro
 	GroupSources(src)
+	GroupSources(src/vkRenderers)
+	GroupSources(src/vkFramework)
 	GroupSources(include/jcVkFramework)
+	GroupSources(include/jcVkFramework/vkRenderers)
+	GroupSources(include/jcVkFramework/vkFramework)
 endif()

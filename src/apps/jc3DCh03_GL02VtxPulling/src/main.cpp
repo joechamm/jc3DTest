@@ -64,7 +64,7 @@ int main ( void )
 
 
 	glfwMakeContextCurrent ( window );
-	gladLoadGL ();
+	gladLoadGL (glfwGetProcAddress);
 	glfwSwapInterval ( 1 );
 
 	// setup debugging

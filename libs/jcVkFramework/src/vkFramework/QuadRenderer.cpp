@@ -1,5 +1,5 @@
 #include <jcVkFramework/vkFramework/QuadRenderer.h>
-#include <jcVkFramework/ResourceString.h>
+#include <jcCommonFramework/ResourceString.h>
 
 static constexpr int MAX_QUADS = 256;
 

@@ -1,7 +1,7 @@
 #ifndef __VULKAN_COMPUTED_ITEM_H__
 #define __VULKAN_COMPUTED_ITEM_H__
 
-#include <jcVkFramework/Utils.h>
+#include <jcCommonFramework/Utils.h>
 #include <jcVkFramework/UtilsVulkan.h>
 
 struct ComputedItem

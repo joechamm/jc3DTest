@@ -1,7 +1,7 @@
 #ifndef __VULKAN_COMPUTE_BASE_H__
 #define __VULKAN_COMPUTE_BASE_H__
 
-#include <jcVkFramework/Utils.h>
+#include <jcCommonFramework/Utils.h>
 #include <jcVkFramework/UtilsVulkan.h>
 
 /* 

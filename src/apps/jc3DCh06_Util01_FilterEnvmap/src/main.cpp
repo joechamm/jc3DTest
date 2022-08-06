@@ -8,7 +8,7 @@
 // Image_Resize's implementation is included in UtilsVulkan.cpp
 #include "stb_image_resize.h"
 
-#include <jcVkFramework/ResourceString.h>
+#include <jcCommonframework/ResourceString.h>
 
 int numPoints = 1024;
 

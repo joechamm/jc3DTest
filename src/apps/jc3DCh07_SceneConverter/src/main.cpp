@@ -14,12 +14,12 @@
 #include <rapidjson/include/rapidjson/document.h>
 #include <rapidjson/include/rapidjson/rapidjson.h>
 
-#include <jcGLframework/scene/VtxData.h>
-#include <jcGLframework/scene/Material.h>
-#include <jcGLframework/scene/Scene.h>
-#include <jcGLframework/scene/MergeUtil.h>
+#include <jcCommonframework/scene/VtxData.h>
+#include <jcCommonframework/scene/Material.h>
+#include <jcCommonframework/scene/Scene.h>
+#include <jcCommonframework/scene/MergeUtil.h>
 
-#include <jcGLframework/ResourceString.h>
+#include <jcCommonframework/ResourceString.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"

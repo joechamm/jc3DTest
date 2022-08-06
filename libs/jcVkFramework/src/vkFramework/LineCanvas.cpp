@@ -1,5 +1,5 @@
 #include <jcVkFramework/vkFramework/LineCanvas.h>
-#include <jcVkFramework/ResourceString.h>
+#include <jcCommonFramework/ResourceString.h>
 
 LineCanvas::LineCanvas ( VulkanRenderContext& ctx,
 	bool useDepth,

@@ -1,6 +1,6 @@
 #include <jcVkFramework/vkRenderers/VulkanSingleQuad.h>
-#include <jcVkFramework/EasyProfilerWrapper.h>
-#include <jcVkFramework/ResourceString.h>
+#include <jcCommonFramework/EasyProfilerWrapper.h>
+#include <jcCommonFramework/ResourceString.h>
 
 bool VulkanSingleQuadRenderer::createDescriptorSet ( VulkanRenderDevice& vkDev, VkImageLayout desiredLayout )
 {

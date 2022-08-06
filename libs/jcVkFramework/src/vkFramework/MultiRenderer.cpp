@@ -1,6 +1,19 @@
 #include <jcVkFramework/vkFramework/MultiRenderer.h>
-#include <jcVkFramework/ResourceString.h>
+#include <jcCommonFramework/ResourceString.h>
 #include <stb/stb_image.h>
+
+// helper function for setting object names
+static std::string getBasePath ( const std::string& fname )
+{
+	const std::size_t pathSeparator = fname.find_last_of ( "/\\" );
+	return (pathSeparator != std::string::npos) ? fname.substr ( 0, pathSeparator + 1 ) : std::string ();
+}
+
+static std::string getShortName ( const std::string& fname )
+{
+	const std::size_t pathSeparator = fname.find_last_of ( "/\\" );
+	return (pathSeparator != std::string::npos) ? fname.substr ( pathSeparator + 1 ) : fname;
+}
 
 /// Draw a checkerboard on a pre-allocated square RGB image.
 uint8_t* genDefaultCheckerboardImage ( int* width, int* height )
@@ -29,12 +42,26 @@ uint8_t* genDefaultCheckerboardImage ( int* width, int* height )
 	return imgData;
 }
 
-VKSceneData::VKSceneData ( VulkanRenderContext& ctx, const std::string& meshFile, const std::string& sceneFile, const std::string& materialFile, VulkanTexture envMap, VulkanTexture irradianceMap, bool asyncLoad )
+VKSceneData::VKSceneData ( VulkanRenderContext& ctx, 
+	const std::string& meshFile, 
+	const std::string& sceneFile, 
+	const std::string& materialFile, 
+	VulkanTexture envMap, 
+	VulkanTexture irradianceMap, 
+	bool asyncLoad )
 	: ctx_(ctx)
 	, envMapIrradiance_(irradianceMap)
 	, envMap_(envMap)
 {
+	std::string sceneName = getShortName ( sceneFile );
+	std::string meshName = getShortName ( meshFile );
+	std::string materialName = getShortName ( materialFile );
+
 	brdfLUT_ = ctx.resources_.loadKTX ( appendToRoot ( "assets/images/brdfLUT.ktx" ).c_str () );
+
+	setVkObjectName ( ctx.vkDev_.device, (uint64_t)brdfLUT_.image.image, VK_OBJECT_TYPE_IMAGE, "brdfLUT" );
+	setVkObjectName ( ctx.vkDev_.device, (uint64_t)envMap_.image.image, VK_OBJECT_TYPE_IMAGE, "envMap" );
+	setVkObjectName ( ctx.vkDev_.device, (uint64_t)envMapIrradiance_.image.image, VK_OBJECT_TYPE_IMAGE, "envIrrMap" );
 
 	loadMaterials ( materialFile.c_str (), materials_, textureFiles_ );
 
@@ -42,6 +69,9 @@ VKSceneData::VKSceneData ( VulkanRenderContext& ctx, const std::string& meshFile
 	for ( const auto& f : textureFiles_ )
 	{
 		auto t = asyncLoad ? ctx.resources_.addSolidRGBATexture () : ctx.resources_.loadTexture2D ( f.c_str () );
+		textures.push_back ( t );
+
+		setVkObjectName ( ctx.vkDev_.device, (uint64_t)t.image.image, VK_OBJECT_TYPE_IMAGE, f.c_str () );
 #if 0
 		if ( t.image.image != nullptr )
 		{
@@ -75,10 +105,20 @@ VKSceneData::VKSceneData ( VulkanRenderContext& ctx, const std::string& meshFile
 
 	const uint32_t materialSize = static_cast<uint32_t>(sizeof ( MaterialDescription ) * materials_.size ());
 	material_ = ctx.resources_.addStorageBuffer ( materialSize );
+
+	setVkObjectName ( ctx.vkDev_.device, (uint64_t)material_.buffer, VK_OBJECT_TYPE_BUFFER, materialName.c_str () );
+
 	uploadBufferData ( ctx.vkDev_, material_.memory, 0, materials_.data (), materialSize );
 
 	loadMeshes ( meshFile );
+
+	std::string buffName = meshName + ":storage";
+	setVkObjectName ( ctx.vkDev_.device, (uint64_t)vertexBuffer_.buffer_.buffer, VK_OBJECT_TYPE_BUFFER, buffName.c_str () );	
+
 	loadScene ( sceneFile );	
+
+	std::string transformsName = sceneName + ":transforms";
+	setVkObjectName ( ctx.vkDev_.device, (uint64_t)transforms_.buffer, VK_OBJECT_TYPE_BUFFER, transformsName.c_str () );
 }
 
 void VKSceneData::loadScene ( const std::string& sceneFile )
@@ -185,7 +225,8 @@ void VKSceneData::updateMaterial ( int matIdx )
 MultiRenderer::MultiRenderer ( 
 	VulkanRenderContext& ctx,
 	VKSceneData& sceneData, 
-	const std::string& vtxShaderFile, const std::string& fragShaderFile, 
+	const char* vtxShaderFile, 
+	const char* fragShaderFile, 
 	const std::vector<VulkanTexture>& outputs, 
 	RenderPass screenRenderPass, 
 	const std::vector<BufferAttachment>& auxBuffers, const std::vector<TextureAttachment>& auxTextures ) 
@@ -220,12 +261,12 @@ MultiRenderer::MultiRenderer (
 
 	DescriptorSetInfo dsInfo = {
 		.buffers_ = {
-			uniformBufferAttachment ( VulkanBuffer {}, 0, uniformBufferSize, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT ),
+			uniformBufferAttachment ( VulkanBuffer {},			0,		uniformBufferSize,						VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT ),
 			sceneData_.vertexBuffer_,
 			sceneData_.indexBuffer_,
-			storageBufferAttachment ( VulkanBuffer {}, 0, shapeSize, VK_SHADER_STAGE_VERTEX_BIT ),
-			storageBufferAttachment ( sceneData_.material_, 0, static_cast<uint32_t>(sceneData_.material_.size), VK_SHADER_STAGE_FRAGMENT_BIT ),
-			storageBufferAttachment ( sceneData_.transforms_, 0, static_cast<uint32_t>(sceneData_.transforms_.size), VK_SHADER_STAGE_VERTEX_BIT )
+			storageBufferAttachment ( VulkanBuffer {},			0,		shapeSize,								VK_SHADER_STAGE_VERTEX_BIT ),
+			storageBufferAttachment ( sceneData_.material_,		0,		(uint32_t)sceneData_.material_.size,	VK_SHADER_STAGE_FRAGMENT_BIT ),
+			storageBufferAttachment ( sceneData_.transforms_,	0,		(uint32_t)sceneData_.transforms_.size,	VK_SHADER_STAGE_VERTEX_BIT )
 		},
 		.textures_ = textureAttachments,
 		.textureArrays_ = { sceneData_.allMaterialTextures_ }
@@ -259,19 +300,22 @@ MultiRenderer::MultiRenderer (
 		uniforms_[i] = ctx.resources_.addUniformBuffer ( uniformBufferSize );
 
 	//	setVkBufferName ( ctx.vkDev_, &uniforms_[i].buffer, uniformBufferName );
-		setVkObjectName ( ctx.vkDev_.device, (uint64_t)uniforms_[i].buffer, VK_OBJECT_TYPE_BUFFER, uniformBufferName );
+	//	setVkObjectName ( ctx.vkDev_.device, (uint64_t)uniforms_[i].buffer, VK_OBJECT_TYPE_BUFFER, uniformBufferName );
+		setVkObjectTag ( ctx.vkDev_.device, (uint64_t)uniforms_[i].buffer, VK_OBJECT_TYPE_BUFFER, (uint64_t)(1 + i * imgCount), sizeof ( uniformBufferName ) + 1, uniformBufferName );
 
 		indirect_[i] = ctx.resources_.addIndirectBuffer ( indirectDataSize );
 
 	//	setVkBufferName ( ctx.vkDev_, &indirect_[i].buffer, indirectBufferName );
-		setVkObjectName ( ctx.vkDev_.device, (uint64_t)indirect_[i].buffer, VK_OBJECT_TYPE_BUFFER, indirectBufferName );
+	//	setVkObjectName ( ctx.vkDev_.device, (uint64_t)indirect_[i].buffer, VK_OBJECT_TYPE_BUFFER, indirectBufferName );
+		setVkObjectTag ( ctx.vkDev_.device, (uint64_t)indirect_[i].buffer, VK_OBJECT_TYPE_BUFFER, (uint64_t)(2 + i * imgCount), sizeof ( indirectBufferName ) + 1, indirectBufferName );
 		
 		updateIndirectBuffers (i);
 
 		shape_[i] = ctx.resources_.addStorageBuffer ( shapeSize );
 
 	//	setVkBufferName ( ctx.vkDev_, &shape_[i].buffer, storageBufferName );
-		setVkObjectName ( ctx.vkDev_.device, (uint64_t)shape_[i].buffer, VK_OBJECT_TYPE_BUFFER, storageBufferName );
+	//	setVkObjectName ( ctx.vkDev_.device, (uint64_t)shape_[i].buffer, VK_OBJECT_TYPE_BUFFER, storageBufferName );
+		setVkObjectTag ( ctx.vkDev_.device, (uint64_t)shape_[i].buffer, VK_OBJECT_TYPE_BUFFER, (uint64_t)(3 + i * imgCount), sizeof ( storageBufferName ) + 1, storageBufferName );
 
 		uploadBufferData ( ctx.vkDev_, shape_[i].memory, 0, sceneData_.shapes_.data (), shapeSize );
 
@@ -280,8 +324,9 @@ MultiRenderer::MultiRenderer (
 
 		descriptorSets_[i] = ctx.resources_.addDescriptorSet ( descriptorPool_, descriptorSetLayout_ );
 
-		setVkObjectName ( ctx.vkDev_.device, (uint64_t)descriptorSets_[i], VK_OBJECT_TYPE_DESCRIPTOR_SET, descriptorSetName );
+	//	setVkObjectName ( ctx.vkDev_.device, (uint64_t)descriptorSets_[i], VK_OBJECT_TYPE_DESCRIPTOR_SET, descriptorSetName );
 	//	setVkDescriptorSetName ( ctx.vkDev_, &descriptorSets_[i], descriptorSetName );
+		setVkObjectTag ( ctx.vkDev_.device, (uint64_t)descriptorSets_[i], VK_OBJECT_TYPE_DESCRIPTOR_SET, (uint64_t)(4 + i * imgCount), sizeof ( descriptorSetName ) + 1, descriptorSetName );
 
 		ctx.resources_.updateDescriptorSet ( descriptorSets_[i], dsInfo );
 	}

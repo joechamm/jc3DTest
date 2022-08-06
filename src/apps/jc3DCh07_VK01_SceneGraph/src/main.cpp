@@ -1,10 +1,58 @@
+//#include <jcVkFramework/vkFramework/VulkanApp.h>
+//#include <jcVkFramework/vkFramework/GuiRenderer.h>
+//#include <jcVkFramework/vkFramework/QuadRenderer.h>
+//#include <jcVkFramework/vkFramework/MultiRenderer.h>
+//#include <jcVkFramework/vkFramework/InfinitePlaneRenderer.h>
+//
+//#include <jcCommonFramework/ResourceString.h>
+//
+//#include "ImGuizmo.h"
+//
+//#include <math.h>
+//
+//using glm::mat4;
+//using glm::mat3;
+//using glm::vec4;
+//using glm::vec3;
+//using glm::vec2;
+//
+//struct MyApp : public CameraApp
+//{
+//private:
+//	InfinitePlaneRenderer plane_;
+//	GuiRenderer imgui_;
+////	QuadRenderer quad_;
+//
+//	int selectedNode = -1;
+//
+//public:
+//	MyApp() : CameraApp(1280, 720)
+//		, plane_ ( ctx_ )
+//		, imgui_(ctx_)
+//	{
+//		onScreenRenderers_.emplace_back ( plane_, false );
+//		onScreenRenderers_.emplace_back ( imgui_, false );
+//	}
+//
+//	void drawUI () override
+//	{
+//		ImGui::Begin ( "Information", nullptr );
+//		ImGui::Text ( "FPS: %.2f", getFPS () );
+//		ImGui::End ();
+//
+//		ImGui::Begin ( "Scene graph", nullptr );
+//		
+//	}
+//};
+
 #include <jcVkFramework/vkFramework/VulkanApp.h>
 #include <jcVkFramework/vkFramework/GuiRenderer.h>
 #include <jcVkFramework/vkFramework/MultiRenderer.h>
 #include <jcVkFramework/vkFramework/QuadRenderer.h>
 #include <jcVkFramework/vkFramework/InfinitePlaneRenderer.h>
 
-#include <jcVkFramework/ResourceString.h>
+//#include <jcVkFramework/ResourceString.h>
+#include <jcCommonFramework/ResourceString.h>
 
 #include <jcVkFramework/vkFramework/VulkanResources.h>
 
@@ -40,7 +88,8 @@ public:
 		, irrMap_ ( ctx_.resources_.loadCubeMap ( appendToRoot ( "assets/images/piazza_bologni_1k_irradiance.hdr" ).c_str () ) )
 		, sceneData_ ( ctx_, appendToRoot ( "assets/meshes/test_graph.meshes" ).c_str (), appendToRoot ( "assets/meshes/test_graph.scene" ).c_str (), appendToRoot ( "assets/meshes/test_graph.materials" ).c_str (), envMap_, irrMap_ )
 		, plane_ ( ctx_ )
-		, multiRenderer_ ( ctx_, sceneData_, appendToRoot("assets/shaders/VK07_MultiRenderer.vert"), appendToRoot("assets/shaders/VK07_MultiRenderer.frag"))
+		, multiRenderer_(ctx_, sceneData_)
+//		, multiRenderer_ ( ctx_, sceneData_, appendToRoot("assets/shaders/VK07_MultiRenderer.vert"), appendToRoot("assets/shaders/VK07_MultiRenderer.frag"))
 		, imgui_ ( ctx_ )
 	{
 		onScreenRenderers_.emplace_back ( plane_, false );
@@ -69,6 +118,51 @@ public:
 		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)multiRenderer_.framebuffer_, VK_OBJECT_TYPE_FRAMEBUFFER, "Multirenderer::framebuffer" );
 		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)plane_.framebuffer_, VK_OBJECT_TYPE_FRAMEBUFFER, "Multirenderer::framebuffer" );
 		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)imgui_.framebuffer_, VK_OBJECT_TYPE_FRAMEBUFFER, "ImGuiRenderer::framebuffer" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.vkDev_.device, VK_OBJECT_TYPE_DEVICE, "Vulkan Logical Device" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.vkDev_.physicalDevice, VK_OBJECT_TYPE_PHYSICAL_DEVICE, "Vulkan Physical Device" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.vkDev_.swapchain, VK_OBJECT_TYPE_SWAPCHAIN_KHR, "Vulkan Swapchain" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.vkDev_.commandPool, VK_OBJECT_TYPE_COMMAND_POOL, "Vulkan Command Pool" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.vkDev_.semaphore, VK_OBJECT_TYPE_SEMAPHORE, "Vulkan Semaphore" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.vkDev_.renderSemaphore, VK_OBJECT_TYPE_SEMAPHORE, "Vulkan Render Semaphore" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.vkDev_.graphicsQueue, VK_OBJECT_TYPE_QUEUE, "Vulkan Graphics Queue" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.vkDev_.computeQueue, VK_OBJECT_TYPE_QUEUE, "Vulkan Compute Queue" );
+		setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.vkDev_.computeCommandBuffer, VK_OBJECT_TYPE_COMMAND_BUFFER, "Vulkan Compute Command Buffer" );
+
+		for ( size_t i = 0; i < ctx_.vkDev_.commandBuffers.size (); i++ )
+		{
+			std::string cmdBufferName = "Vulkan Command Bufffer[" + std::to_string ( i ) + "]";
+			setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.vkDev_.commandBuffers[i], VK_OBJECT_TYPE_COMMAND_BUFFER, cmdBufferName.c_str () );
+		}
+
+		for ( size_t i = 0; i < ctx_.vkDev_.swapchainImages.size (); i++ )
+		{
+			std::string swapChainName = "Vulkan Swapchain[" + std::to_string ( i ) + "]";
+			setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.vkDev_.swapchainImages[i], VK_OBJECT_TYPE_IMAGE, swapChainName.c_str () );
+		}
+
+		for ( size_t i = 0; i < ctx_.resources_.allDSLayouts_.size (); i++ )
+		{
+			std::string dsLayoutName = "DescriptorSetLayout[" + std::to_string ( i ) + "]";
+			setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.resources_.allDSLayouts_[i], VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, dsLayoutName.c_str () );
+		}
+
+		for ( size_t i = 0; i < ctx_.resources_.allDPools_.size(); i++ )
+		{
+			std::string dsPoolName = "DescriptorSetPool[" + std::to_string ( i ) + "]";
+			setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.resources_.allDPools_[i], VK_OBJECT_TYPE_DESCRIPTOR_POOL, dsPoolName.c_str () );
+		}
+
+		for ( size_t i = 0; i < ctx_.resources_.allPipelineLayouts_.size(); i++ )
+		{
+			std::string pipelineLayoutName = "PipelineLayout[" + std::to_string ( i ) + "]";
+			setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.resources_.allPipelineLayouts_[i], VK_OBJECT_TYPE_PIPELINE_LAYOUT, pipelineLayoutName.c_str () );
+		}
+		
+		for ( size_t i = 0; i < ctx_.resources_.allPipelines_.size (); i++ )
+		{
+			std::string pipelineName = "Pipeline[" + std::to_string ( i ) + "]";
+			setVkObjectName ( ctx_.vkDev_.device, (uint64_t)ctx_.resources_.allPipelines_[i], VK_OBJECT_TYPE_PIPELINE, pipelineName.c_str () );
+		}
 #endif
 	}
 

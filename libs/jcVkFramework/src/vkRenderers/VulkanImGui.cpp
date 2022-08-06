@@ -1,12 +1,14 @@
 #include <imgui/imgui.h>
 
 #include <jcVkFramework/vkRenderers/VulkanImGui.h>
-#include <jcVkFramework/ResourceString.h>
-#include <jcVkFramework/EasyProfilerWrapper.h>
+#include <jcCommonFramework/ResourceString.h>
+#include <jcCommonFramework/EasyProfilerWrapper.h>
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
+
 #include "GuiRenderer.h"
+
 using glm::mat4;
 using glm::vec2;
 using glm::vec3;

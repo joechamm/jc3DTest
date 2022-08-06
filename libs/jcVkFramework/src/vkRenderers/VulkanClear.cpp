@@ -1,5 +1,5 @@
 #include <jcVkFramework/vkRenderers/VulkanClear.h>
-#include <jcVkFramework/EasyProfilerWrapper.h>
+#include <jcCommonFramework/EasyProfilerWrapper.h>
 
 VulkanClear::VulkanClear ( VulkanRenderDevice& vkDev, VulkanImage depthTexture )
 	: RendererBase ( vkDev, depthTexture )

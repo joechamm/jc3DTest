@@ -2,16 +2,16 @@
 #include <stdlib.h>
 #include <vector>
 
-#include <jcGLframework/Bitmap.h>
-#include <jcGLframework/glFramework/GLFWApp.h>
-#include <jcGLframework/glFramework/GLShader.h>
-#include <jcGLframework/glFramework/GLTexture.h>
-#include <jcGLframework/UtilsMath.h>
-#include <jcGLframework/Camera.h>
-#include <jcGLframework/scene/VtxData.h>
-#include <jcGLframework/UtilsCubemap.h>
+#include <jcCommonframework/Bitmap.h>
+#include <jcGLframework/GLFWApp.h>
+#include <jcGLframework/GLShader.h>
+#include <jcGLframework/GLTexture.h>
+#include <jcCommonframework/UtilsMath.h>
+#include <jcCommonframework/Camera.h>
+#include <jcCommonframework/scene/VtxData.h>
+#include <jcCommonframework/UtilsCubemap.h>
 
-#include <jcGLframework/ResourceString.h>
+#include <jcCommonframework/ResourceString.h>
 
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>

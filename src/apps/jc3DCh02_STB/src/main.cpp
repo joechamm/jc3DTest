@@ -95,8 +95,8 @@ int main(void)
 	);
 
 	glfwMakeContextCurrent(window);
-//	gladLoadGL(glfwGetProcAddress);
-	gladLoadGL();
+	gladLoadGL(glfwGetProcAddress);
+//	gladLoadGL();
 	glfwSwapInterval(1);
 
 	int success;

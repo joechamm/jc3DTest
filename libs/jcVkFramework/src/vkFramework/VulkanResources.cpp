@@ -19,11 +19,17 @@ VulkanResources::~VulkanResources ()
 {
 	for ( auto& t : allTextures_ )
 	{
-		destroyVulkanTexture ( vkDev_.device, t );
+		destroyVulkanImage ( vkDev_.device, t.image );
+		vkDestroySampler ( vkDev_.device, t.sampler, nullptr );
 	}
 
 	for ( auto& b : allBuffers_ )
 	{
+		if ( b.ptr != nullptr )
+		{
+			vkUnmapMemory ( vkDev_.device, b.memory );
+		}
+
 		vkDestroyBuffer ( vkDev_.device, b.buffer, nullptr );
 		vkFreeMemory ( vkDev_.device, b.memory, nullptr );
 	}
@@ -57,29 +63,11 @@ VulkanResources::~VulkanResources ()
 	{
 		vkDestroyDescriptorPool ( vkDev_.device, dpool, nullptr );
 	}
-}
 
-VulkanTexture VulkanResources::loadTexture2D ( const char* filename )
-{
-	VulkanTexture tex;
-	if ( !createTextureImage ( vkDev_, filename, tex.image.image, tex.image.imageMemory ) )
+	for ( auto m : shaderModules_ )
 	{
-		printf ( "Cannot load %s 2D texture file\n", filename );
-		exit ( EXIT_FAILURE );
+		vkDestroyShaderModule ( vkDev_.device, m.shaderModule, nullptr );
 	}
-
-	VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
-	transitionImageLayout ( vkDev_, tex.image.image, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
-
-	if ( !createImageView ( vkDev_.device, tex.image.image, format, VK_IMAGE_ASPECT_COLOR_BIT, &tex.image.imageView ) )
-	{
-		printf ( "Cannot create image view for 2d texture (%s)\n", filename );
-		exit ( EXIT_FAILURE );
-	}
-
-	createTextureSampler ( vkDev_.device, &tex.sampler );
-	allTextures_.push_back ( tex );
-	return tex;
 }
 
 VulkanTexture VulkanResources::loadCubeMap ( const char* filename, uint32_t mipLevels )
@@ -91,12 +79,11 @@ VulkanTexture VulkanResources::loadCubeMap ( const char* filename, uint32_t mipL
 	if ( mipLevels > 1 )
 	{
 		createMIPCubeTextureImage ( vkDev_, filename, mipLevels, cubemap.image.image, cubemap.image.imageMemory, &w, &h );
-	} 
-	else
+	} else
 	{
 		createCubeTextureImage ( vkDev_, filename, cubemap.image.image, cubemap.image.imageMemory, &w, &h );
 	}
-	
+
 	createImageView ( vkDev_.device, cubemap.image.image, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, &cubemap.image.imageView, VK_IMAGE_VIEW_TYPE_CUBE, 6, mipLevels );
 
 	createTextureSampler ( vkDev_.device, &cubemap.sampler );
@@ -136,41 +123,81 @@ VulkanTexture VulkanResources::loadKTX ( const char* filename )
 	return ktx;
 }
 
-VulkanTexture VulkanResources::createFontTexture ( const char* fontfile )
+VulkanTexture VulkanResources::loadTexture2D ( const char* filename )
 {
-	ImGuiIO& io = ImGui::GetIO ();
-	VulkanTexture res = { .image = {.image = VK_NULL_HANDLE } };
-
-	// Build texture atlas
-	ImFontConfig cfg = ImFontConfig ();
-	cfg.FontDataOwnedByAtlas = false;
-	cfg.RasterizerMultiply = 1.5f;
-	cfg.SizePixels = 768.0f / 32.0f;
-	cfg.PixelSnapH = true;
-	cfg.OversampleH = 4;
-	cfg.OversampleV = 4;
-	ImFont* Font = io.Fonts->AddFontFromFileTTF ( fontfile, cfg.SizePixels, &cfg );
-
-	unsigned char* pixels = nullptr;
-	int texWidth = 1, texHeight = 1;
-	io.Fonts->GetTexDataAsRGBA32 ( &pixels, &texWidth, &texHeight );
-
-	if ( !pixels || !createTextureImageFromData ( vkDev_, res.image.image, res.image.imageMemory, pixels, texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM ) )
+	VulkanTexture tex;
+	if ( !createTextureImage ( vkDev_, filename, tex.image.image, tex.image.imageMemory, &tex.width, &tex.height ) )
 	{
-		printf ( "Failed to load texture\n" );
-		return res;
+		printf ( "Cannot load %s 2D texture file\n", filename );
+		exit ( EXIT_FAILURE );
 	}
 
-	createImageView ( vkDev_.device, res.image.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, &res.image.imageView );
-	createTextureSampler ( vkDev_.device, &res.sampler );
+	VkFormat format = VK_FORMAT_R8G8B8A8_UNORM;
+	transitionImageLayout ( vkDev_, tex.image.image, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 
-	/* This is not strictly necesary, a font can be any texture */
-	io.Fonts->TexID = (ImTextureID)0;
-	io.FontDefault = Font;
-	io.DisplayFramebufferScale = ImVec2 ( 1, 1 );
+	if ( !createImageView ( vkDev_.device, tex.image.image, format, VK_IMAGE_ASPECT_COLOR_BIT, &tex.image.imageView ) )
+	{
+		printf ( "Cannot create image view for 2d texture (%s)\n", filename );
+		exit ( EXIT_FAILURE );
+	}
 
-	allTextures_.push_back ( res );
-	return res;
+	createTextureSampler ( vkDev_.device, &tex.sampler );
+	allTextures_.push_back ( tex );
+	return tex;
+}
+
+VulkanTexture VulkanResources::addRGBATexture ( int texWidth, int texHeight, void* data )
+{
+	VulkanTexture tex;
+	tex.width = texWidth;
+	tex.height = texHeight;
+	tex.depth = 1;
+	tex.format = VK_FORMAT_R8G8B8A8_UNORM;
+	if ( !createTextureImageFromData ( vkDev_, tex.image.image, tex.image.imageMemory, data, texWidth, texHeight, tex.format ) )
+	{
+		printf ( "Cannot create RGBA texture\n" );
+		exit ( EXIT_FAILURE );
+	}
+
+	transitionImageLayout ( vkDev_, tex.image.image, tex.format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
+
+	if ( !createImageView ( vkDev_.device, tex.image.image, tex.format, VK_IMAGE_ASPECT_COLOR_BIT, &tex.image.imageView ) )
+	{
+		printf ( "Cannot create image view for RGBA texture\n" );
+		exit ( EXIT_FAILURE );
+	}
+
+	createTextureSampler ( vkDev_.device, &tex.sampler );
+	allTextures_.push_back ( tex );
+
+	return tex;
+}
+
+VulkanTexture VulkanResources::addSolidRGBATexture ( uint32_t color )
+{
+	VulkanTexture tex;
+	tex.width = 1;
+	tex.height = 1;
+	tex.depth = 1;
+	tex.format = VK_FORMAT_R8G8B8A8_UNORM;
+	if ( !createTextureImageFromData ( vkDev_, tex.image.image, tex.image.imageMemory, &color, 1, 1, tex.format ) )
+	{
+		printf ( "Cannot create solid texture\n" );
+		exit ( EXIT_FAILURE );
+	}
+
+	transitionImageLayout ( vkDev_, tex.image.image, tex.format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
+
+	if ( !createImageView ( vkDev_.device, tex.image.image, tex.format, VK_IMAGE_ASPECT_COLOR_BIT, &tex.image.imageView ) )
+	{
+		printf ( "Cannot create image view for solid texture\n" );
+		exit ( EXIT_FAILURE );
+	}
+
+	createTextureSampler ( vkDev_.device, &tex.sampler );
+	allTextures_.push_back ( tex );
+
+	return tex;
 }
 
 VulkanTexture VulkanResources::addColorTexture ( int texWidth, int texHeight, VkFormat colorFormat, VkFilter minFilter, VkFilter maxFilter, VkSamplerAddressMode addressMode )
@@ -233,60 +260,6 @@ VulkanTexture VulkanResources::addDepthTexture ( int texWidth, int texHeight, Vk
 	return depth;
 }
 
-VulkanTexture VulkanResources::addSolidRGBATexture ( uint32_t color )
-{
-	VulkanTexture tex;
-	tex.width = 1;
-	tex.height = 1;
-	tex.depth = 1;
-	tex.format = VK_FORMAT_R8G8B8A8_UNORM;
-	if ( !createTextureImageFromData ( vkDev_, tex.image.image, tex.image.imageMemory, &color, 1, 1, tex.format ) )
-	{
-		printf ( "Cannot create solid texture\n" );
-		exit ( EXIT_FAILURE );
-	}
-
-	transitionImageLayout ( vkDev_, tex.image.image, tex.format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
-	
-	if ( !createImageView ( vkDev_.device, tex.image.image, tex.format, VK_IMAGE_ASPECT_COLOR_BIT, &tex.image.imageView ) )
-	{
-		printf ( "Cannot create image view for solid texture\n" );
-		exit ( EXIT_FAILURE );
-	}
-
-	createTextureSampler ( vkDev_.device, &tex.sampler );
-	allTextures_.push_back ( tex );
-
-	return tex;	
-}
-
-VulkanTexture VulkanResources::addRGBATexture ( int texWidth, int texHeight, void* data )
-{
-	VulkanTexture tex;
-	tex.width = texWidth;
-	tex.height = texHeight;
-	tex.depth = 1;
-	tex.format = VK_FORMAT_R8G8B8A8_UNORM;
-	if ( !createTextureImageFromData ( vkDev_, tex.image.image, tex.image.imageMemory, data, texWidth, texHeight, tex.format ) )
-	{
-		printf ( "Cannot create RGBA texture\n" );
-		exit ( EXIT_FAILURE );
-	}
-
-	transitionImageLayout ( vkDev_, tex.image.image, tex.format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
-
-	if ( !createImageView ( vkDev_.device, tex.image.image, tex.format, VK_IMAGE_ASPECT_COLOR_BIT, &tex.image.imageView ) )
-	{
-		printf ( "Cannot create image view for RGBA texture\n" );
-		exit ( EXIT_FAILURE );
-	}
-
-	createTextureSampler ( vkDev_.device, &tex.sampler );
-	allTextures_.push_back ( tex );
-
-	return tex;
-}
-
 VulkanBuffer VulkanResources::addBuffer ( VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, bool createMapping )
 {
 	VulkanBuffer buffer = { .buffer = VK_NULL_HANDLE, .size = 0, .memory = VK_NULL_HANDLE, .ptr = nullptr };
@@ -308,8 +281,6 @@ VulkanBuffer VulkanResources::addBuffer ( VkDeviceSize size, VkBufferUsageFlags 
 	return buffer;
 }
 
-
-
 VulkanBuffer VulkanResources::addVertexBuffer ( uint32_t indexBufferSize, const void* indexData, uint32_t vertexBufferSize, const void* vertexData )
 {
 	VulkanBuffer result;
@@ -317,118 +288,6 @@ VulkanBuffer VulkanResources::addVertexBuffer ( uint32_t indexBufferSize, const 
 	allBuffers_.push_back ( result );
 
 	return result;
-}
-
-VkFramebuffer VulkanResources::addFramebuffer ( RenderPass renderPass, const std::vector<VulkanTexture>& images )
-{
-	VkFramebuffer framebuffer;
-	std::vector<VkImageView> attachments;
-	for ( const auto& i : images )
-	{
-		attachments.push_back ( i.image.imageView );
-	}
-
-	VkFramebufferCreateInfo fbInfo = {
-		.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-		.pNext = nullptr,
-		.flags = 0,
-		.renderPass = renderPass.handle_,
-		.attachmentCount = static_cast<uint32_t>(attachments.size ()),
-		.pAttachments = attachments.data (),
-		.width = images[0].width,
-		.height = images[0].height,
-		.layers = 1
-	};
-
-	if ( vkCreateFramebuffer ( vkDev_.device, &fbInfo, nullptr, &framebuffer ) != VK_SUCCESS )
-	{
-		printf ( "Unable to create offscreen framebuffer\n" );
-		exit ( EXIT_FAILURE );
-	}
-
-	allFramebuffers_.push_back ( framebuffer );
-	return framebuffer;
-}
-
-RenderPass VulkanResources::addFullScreenPass ( bool useDepth, const RenderPassCreateInfo& ci )
-{
-	RenderPass result ( vkDev_, useDepth, ci );
-	allRenderpasses_.push_back ( result.handle_ );
-	return result;
-}
-
-RenderPass VulkanResources::addRenderPass ( const std::vector<VulkanTexture>& outputs, const RenderPassCreateInfo& ci, bool useDepth )
-{
-	VkRenderPass renderPass;
-	if ( outputs.empty () )
-	{
-		printf ( "Empty list of output attachments for RenderPass\n" );
-		exit ( EXIT_FAILURE );
-	}
-
-	if ( outputs.size () == 1 )
-	{
-		if ( !createColorOnlyRenderPass ( vkDev_, &renderPass, ci, outputs[0].format ) )
-		{
-			printf ( "Unable to create offscreen color-only pass\n" );
-			exit ( EXIT_FAILURE );
-		}
-	} else
-	{
-		if ( !createColorAndDepthRenderPass ( vkDev_, useDepth && (outputs.size () > 1), &renderPass, ci, outputs[0].format ) )
-		{
-			printf ( "Unable to create offscreen render pass\n" );
-			exit ( EXIT_FAILURE );
-		}
-	}
-
-	allRenderpasses_.push_back ( renderPass );
-	RenderPass rp;
-	rp.info_ = ci;
-	rp.handle_ = renderPass;
-	return rp;
-}
-
-RenderPass VulkanResources::addDepthRenderPass ( const std::vector<VulkanTexture>& outputs, const RenderPassCreateInfo& ci )
-{
-	VkRenderPass renderPass;
-	if(!createDepthOnlyRenderPass(vkDev_, &renderPass, ci))
-	{
-		printf("Unable to create depth-only render pass\n");
-		exit(EXIT_FAILURE);
-	}
-
-	allRenderpasses_.push_back ( renderPass );
-	RenderPass rp;
-	rp.info_ = ci;
-	rp.handle_ = renderPass;
-	return rp;
-}
-
-VkPipelineLayout VulkanResources::addPipelineLayout ( VkDescriptorSetLayout dsLayout, uint32_t vtxConstSize, uint32_t fragConstSize )
-{
-	VkPipelineLayout pipelineLayout;
-	if ( !createPipelineLayoutWithConstants ( vkDev_.device, dsLayout, &pipelineLayout, vtxConstSize, fragConstSize ) )
-	{
-		printf ( "Cannot create pipeline layout\n" );
-		exit ( EXIT_FAILURE );
-	}
-
-	allPipelineLayouts_.push_back ( pipelineLayout );
-	return pipelineLayout;
-}
-
-VkPipeline VulkanResources::addPipeline ( VkRenderPass renderPass, VkPipelineLayout layout, const std::vector<std::string>& shaderNames, const PipelineInfo& pi )
-{
-	VkPipeline pipeline;
-	if ( !createGraphicsPipeline ( vkDev_, renderPass, layout, shaderNames, &pipeline, pi.topology_, pi.useDepth_, pi.useBlending_, pi.dynamicScissorState_, pi.width_, pi.height_, pi.patchControlPoints_ ) )
-	{
-		printf ( "Cannot create graphics pipeline\n" );
-		exit ( EXIT_FAILURE );
-	}
-
-	allPipelines_.push_back ( pipeline );
-	return pipeline;
 }
 
 VkDescriptorPool VulkanResources::addDescriptorPool ( const DescriptorSetInfo& dsInfo, uint32_t dSetCount )
@@ -439,7 +298,7 @@ VkDescriptorPool VulkanResources::addDescriptorPool ( const DescriptorSetInfo& d
 
 	for ( const auto& ta : dsInfo.textureArrays_ )
 	{
-		samplerCount += static_cast<uint32_t>(ta.textureArray_.size ());
+		samplerCount += static_cast<uint32_t>(ta.textures_.size ());
 	}
 
 	for ( const auto& b : dsInfo.buffers_ )
@@ -454,16 +313,17 @@ VkDescriptorPool VulkanResources::addDescriptorPool ( const DescriptorSetInfo& d
 		}
 	}
 
+	// The poolSizes array contains three (or less, if a buffer type is absent) items for each type of buffer
 	std::vector<VkDescriptorPoolSize> poolSizes;
 
 	/* printf("Allocating pool[%d | %d | %d]\n", (int)uniformBufferCount, (int)storageBufferCount, (int)samplerCount); */
-	
+
 	if ( uniformBufferCount )
 	{
-		poolSizes.push_back ( VkDescriptorPoolSize {
+		poolSizes.push_back ( VkDescriptorPoolSize{
 			.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 			.descriptorCount = dSetCount * uniformBufferCount
-		} );
+			} );
 	}
 
 	if ( storageBufferCount )
@@ -471,7 +331,7 @@ VkDescriptorPool VulkanResources::addDescriptorPool ( const DescriptorSetInfo& d
 		poolSizes.push_back ( VkDescriptorPoolSize{
 			.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 			.descriptorCount = dSetCount * storageBufferCount
-		} );
+			} );
 	}
 
 	if ( samplerCount )
@@ -479,9 +339,9 @@ VkDescriptorPool VulkanResources::addDescriptorPool ( const DescriptorSetInfo& d
 		poolSizes.push_back ( VkDescriptorPoolSize{
 			.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 			.descriptorCount = dSetCount * samplerCount
-		} );
+			} );
 	}
-	
+
 	const VkDescriptorPoolCreateInfo poolInfo = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 		.pNext = nullptr,
@@ -493,7 +353,7 @@ VkDescriptorPool VulkanResources::addDescriptorPool ( const DescriptorSetInfo& d
 
 	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
 
-	if( vkCreateDescriptorPool ( vkDev_.device, &poolInfo, nullptr, &descriptorPool ) != VK_SUCCESS )
+	if ( vkCreateDescriptorPool ( vkDev_.device, &poolInfo, nullptr, &descriptorPool ) != VK_SUCCESS )
 	{
 		printf ( "Cannot create descriptor pool\n" );
 		exit ( EXIT_FAILURE );
@@ -503,9 +363,201 @@ VkDescriptorPool VulkanResources::addDescriptorPool ( const DescriptorSetInfo& d
 	return descriptorPool;
 }
 
+VkPipeline VulkanResources::addComputePipeline ( const char* shaderFile, VkPipelineLayout pipelineLayout )
+{
+	ShaderModule s;
+	if ( createShaderModule ( vkDev_.device, &s, shaderFile ) == VK_NOT_READY )
+	{
+		printf ( "Unable to compile compute shader %s\n", shaderFile );
+		exit ( EXIT_FAILURE );
+	}
+
+	VkPipeline pipeline;
+	VkResult res = createComputePipeline ( vkDev_.device, s.shaderModule, pipelineLayout, &pipeline );
+	if ( res != VK_SUCCESS )
+	{
+		printf ( "Cannot create compute pipeline (%d / %d)\n", res, res );
+		exit ( EXIT_FAILURE );
+	}
+
+	vkDestroyShaderModule ( vkDev_.device, s.shaderModule, nullptr );
+
+	allPipelines_.push_back ( pipeline );
+	return pipeline;
+}
+
+bool VulkanResources::createGraphicsPipeline ( VulkanRenderDevice& vkdev, VkRenderPass renderPass, VkPipelineLayout pipelineLayout, const std::vector<std::string>& shaderFiles, VkPipeline* pipeline, VkPrimitiveTopology topology, bool useDepth, bool useBlending, bool dynamicScissorState, int32_t customWidth, int32_t customHeight, uint32_t numPatchControlPoints )
+{
+	std::vector<ShaderModule> localShaderModules;
+	std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+
+	shaderStages.resize ( shaderFiles.size () );
+	localShaderModules.resize ( shaderFiles.size () );
+
+	for ( size_t i = 0; i < shaderFiles.size (); i++ )
+	{
+		const std::string& shaderFile = shaderFiles[i];
+
+		auto idx = shaderMap_.find ( shaderFile );
+
+		if ( idx != shaderMap_.end () )
+		{
+			// printf("Already compiled file (%s)\n", shaderFile.c_str());
+			localShaderModules[i] = shaderModules_[idx->second];
+		} else
+		{
+			// printf("Compiling file (%s)\n", shaderFiles[i].c_str());
+			VK_CHECK ( createShaderModule ( vkDev_.device, &localShaderModules[i], shaderFile.c_str () ) );
+			shaderModules_.push_back ( localShaderModules[i] );
+			shaderMap_[shaderFile] = (int)shaderModules_.size () - 1;
+		}
+
+		VkShaderStageFlagBits stage = glslangShaderStageToVulkan ( glslangShaderStageFromFileName ( shaderFile.c_str () ) );
+
+		shaderStages[i] = shaderStageInfo ( stage, localShaderModules[i], "main" );
+
+	}
+
+	const VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
+	};
+
+	const VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+		/* The only difference from createGraphicsPipeline() */
+		.topology = topology,
+		.primitiveRestartEnable = VK_FALSE
+	};
+
+	const VkViewport viewport = {
+		.x = 0.0f,
+		.y = 0.0f,
+		.width = static_cast<float>(customWidth > 0 ? customWidth : vkDev_.framebufferWidth),
+		.height = static_cast<float>(customHeight > 0 ? customHeight : vkDev_.framebufferHeight),
+		.minDepth = 0.0f,
+		.maxDepth = 1.0f
+	};
+
+	const VkRect2D scissor = {
+		.offset = { 0, 0 },
+		.extent = { customWidth > 0 ? customWidth : vkDev_.framebufferWidth, customHeight > 0 ? customHeight : vkDev_.framebufferHeight }
+	};
+
+	const VkPipelineViewportStateCreateInfo viewportState = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+		.viewportCount = 1,
+		.pViewports = &viewport,
+		.scissorCount = 1,
+		.pScissors = &scissor
+	};
+
+	const VkPipelineRasterizationStateCreateInfo rasterizer = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+		.polygonMode = VK_POLYGON_MODE_FILL,
+		.cullMode = VK_CULL_MODE_NONE,
+		.frontFace = VK_FRONT_FACE_CLOCKWISE,
+		.lineWidth = 1.0f
+	};
+
+	const VkPipelineMultisampleStateCreateInfo multisampling = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+		.sampleShadingEnable = VK_FALSE,
+		.minSampleShading = 1.0f
+	};
+
+	const VkPipelineColorBlendAttachmentState colorBlendAttachment = {
+		.blendEnable = VK_TRUE,
+		.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+		.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+		.colorBlendOp = VK_BLEND_OP_ADD,
+		.srcAlphaBlendFactor = useBlending ? VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA : VK_BLEND_FACTOR_ONE,
+		.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+		.alphaBlendOp = VK_BLEND_OP_ADD,
+		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+	};
+
+	const VkPipelineColorBlendStateCreateInfo colorBlending = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+		.logicOpEnable = VK_FALSE,
+		.logicOp = VK_LOGIC_OP_COPY,
+		.attachmentCount = 1,
+		.pAttachments = &colorBlendAttachment,
+		.blendConstants = { 0.0f, 0.0f, 0.0f, 0.0f }
+	};
+
+	const VkPipelineDepthStencilStateCreateInfo depthStencil = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+		.depthTestEnable = static_cast<VkBool32>(useDepth ? VK_TRUE : VK_FALSE),
+		.depthWriteEnable = static_cast<VkBool32>(useDepth ? VK_TRUE : VK_FALSE),
+		.depthCompareOp = VK_COMPARE_OP_LESS,
+		.depthBoundsTestEnable = VK_FALSE,
+		.minDepthBounds = 0.0f,
+		.maxDepthBounds = 1.0f
+	};
+
+	VkDynamicState dynamicStateElt = VK_DYNAMIC_STATE_SCISSOR;
+
+	const VkPipelineDynamicStateCreateInfo dynamicState = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.dynamicStateCount = 1,
+		.pDynamicStates = &dynamicStateElt
+	};
+
+	const VkPipelineTessellationStateCreateInfo tessellationState = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.patchControlPoints = numPatchControlPoints
+	};
+
+	const VkGraphicsPipelineCreateInfo pipelineInfo = {
+		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+		.stageCount = static_cast<uint32_t>(shaderStages.size ()),
+		.pStages = shaderStages.data (),
+		.pVertexInputState = &vertexInputInfo,
+		.pInputAssemblyState = &inputAssembly,
+		.pTessellationState = (topology == VK_PRIMITIVE_TOPOLOGY_PATCH_LIST) ? &tessellationState : nullptr,
+		.pViewportState = &viewportState,
+		.pRasterizationState = &rasterizer,
+		.pMultisampleState = &multisampling,
+		.pDepthStencilState = useDepth ? &depthStencil : nullptr,
+		.pColorBlendState = &colorBlending,
+		.pDynamicState = dynamicScissorState ? &dynamicState : nullptr,
+		.layout = pipelineLayout,
+		.renderPass = renderPass,
+		.subpass = 0,
+		.basePipelineHandle = VK_NULL_HANDLE,
+		.basePipelineIndex = -1
+	};
+
+	VK_CHECK ( vkCreateGraphicsPipelines ( vkDev_.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, pipeline ) );
+
+	return true;
+}
+
+VkPipeline VulkanResources::addPipeline ( VkRenderPass renderPass, VkPipelineLayout layout, const std::vector<std::string>& shaderNames, const PipelineInfo& pi )
+{
+	VkPipeline pipeline;
+//	if ( !createGraphicsPipeline ( vkDev_, renderPass, layout, shaderNames, &pipeline, pi.topology_, pi.useDepth_, pi.useBlending_, pi.dynamicScissorState_, pi.width_, pi.height_, pi.patchControlPoints_ ) )
+	if(! this->createGraphicsPipeline(vkDev_, renderPass, layout, shaderNames, 
+		&pipeline, pi.topology_, pi.useDepth_, pi.useBlending_, pi.dynamicScissorState_, pi.width_, pi.height_, pi.patchControlPoints_))
+	{
+		printf ( "Cannot create graphics pipeline\n" );
+		exit ( EXIT_FAILURE );
+	}
+
+	allPipelines_.push_back ( pipeline );
+	return pipeline;
+}
+
 VkDescriptorSetLayout VulkanResources::addDescriptorSetLayout ( const DescriptorSetInfo& dsInfo )
 {
 	VkDescriptorSetLayout descriptorSetLayout;
+
+	std::vector<VkDescriptorBindingFlagsEXT> descriptorBindingFlags;
 
 	uint32_t bindingIdx = 0;
 
@@ -513,22 +565,30 @@ VkDescriptorSetLayout VulkanResources::addDescriptorSetLayout ( const Descriptor
 
 	for ( const auto& b : dsInfo.buffers_ )
 	{
+		descriptorBindingFlags.push_back ( 0u );
 		bindings.push_back ( descriptorSetLayoutBinding ( bindingIdx++, b.dInfo_.type_, b.dInfo_.shaderStageFlags_ ) );
 	}
 
 	for ( const auto& i : dsInfo.textures_ )
 	{
-		bindings.push_back ( descriptorSetLayoutBinding ( bindingIdx++, i.dInfo_.type_ /*VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER*/, i.dInfo_.shaderStageFlags_ ) );
+		descriptorBindingFlags.push_back ( 0u );
+		bindings.push_back ( descriptorSetLayoutBinding ( bindingIdx++, i.dInfo_.type_ , i.dInfo_.shaderStageFlags_ ) );
 	}
 
 	for ( const auto& t : dsInfo.textureArrays_ )
 	{
-		bindings.push_back ( descriptorSetLayoutBinding ( bindingIdx++, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, t.dInfo_.shaderStageFlags_, static_cast<uint32_t>(t.textureArray_.size ()) ) );
+		bindings.push_back ( descriptorSetLayoutBinding ( bindingIdx++, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, t.dInfo_.shaderStageFlags_, static_cast<uint32_t>(t.textures_.size ()) ) );
 	}
+
+	const VkDescriptorSetLayoutBindingFlagsCreateInfoEXT setLayoutBindingFlags = {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT,
+		.bindingCount = static_cast<uint32_t>(descriptorBindingFlags.size ()),
+		.pBindingFlags = descriptorBindingFlags.data ()
+	};
 
 	const VkDescriptorSetLayoutCreateInfo layoutInfo = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-		.pNext = nullptr,
+		.pNext = dsInfo.textureArrays_.empty() ? nullptr : &setLayoutBindingFlags,
 		.flags = 0,
 		.bindingCount = static_cast<uint32_t>(bindings.size ()),
 		.pBindings = bindings.size () > 0 ? bindings.data () : nullptr
@@ -539,9 +599,9 @@ VkDescriptorSetLayout VulkanResources::addDescriptorSetLayout ( const Descriptor
 		printf ( "Cannot create descriptor set layout\n" );
 		exit ( EXIT_FAILURE );
 	}
-	
+
 	allDSLayouts_.push_back ( descriptorSetLayout );
-	return descriptorSetLayout;	
+	return descriptorSetLayout;
 }
 
 VkDescriptorSet VulkanResources::addDescriptorSet ( VkDescriptorPool descriptorPool, VkDescriptorSetLayout dsLayout )
@@ -564,6 +624,7 @@ VkDescriptorSet VulkanResources::addDescriptorSet ( VkDescriptorPool descriptorP
 
 	return descriptorSet;
 }
+
 /* This routine counts all textures in all texture arrays (if any of them are present), creates a list of DescriptorWrite opertations, with required buffer/image info structures and calls the vkUpdateDescriptorSets() */
 void VulkanResources::updateDescriptorSet ( VkDescriptorSet ds, const DescriptorSetInfo& dsInfo )
 {
@@ -594,21 +655,27 @@ void VulkanResources::updateDescriptorSet ( VkDescriptorSet ds, const Descriptor
 		imageDescriptors[i] = VkDescriptorImageInfo{
 			.sampler = t.sampler,
 			.imageView = t.image.imageView,
-			.imageLayout = /* t.texture.layout */ VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		};
 
 		descriptorWrites.push_back ( imageWriteDescriptorSet ( ds, &imageDescriptors[i], bindingIdx++ ) );
 	}
 
+	/* 
+		To process the list of texture arrays we use two loops. The first collects all the individual image descriptions in a 
+		single array and stores the offsets of these images for each individual texture array. The 'taOffset' variable is used
+		to keep track of the offset in the global list of textures.
+	*/ 
 	uint32_t taOffset = 0;
 	std::vector<uint32_t> taOffsets ( dsInfo.textureArrays_.size () );
 	for ( size_t ta = 0; ta < dsInfo.textureArrays_.size (); ta++ )
 	{
 		taOffsets[ta] = taOffset;
 
-		for ( size_t j = 0; j < dsInfo.textureArrays_[ta].textureArray_.size (); j++ )
+		/* Inside each texture array, we must convert each texture handle the same way we did for single texture attachments */
+		for ( size_t j = 0; j < dsInfo.textureArrays_[ta].textures_.size (); j++ )
 		{
-			VulkanTexture t = dsInfo.textureArrays_[ta].textureArray_[j];
+			VulkanTexture t = dsInfo.textureArrays_[ta].textures_[j];
 
 			VkDescriptorImageInfo imageInfo = {
 				.sampler = t.sampler,
@@ -619,26 +686,185 @@ void VulkanResources::updateDescriptorSet ( VkDescriptorSet ds, const Descriptor
 			imageArrayDescriptors.push_back ( imageInfo ); // item 'taOffsets[ta] + j'
 		}
 
-		taOffset += static_cast<uint32_t>(dsInfo.textureArrays_[ta].textureArray_.size ());
+		// add the size of the texture array we just processed to 'taOffset'
+		taOffset += static_cast<uint32_t>(dsInfo.textureArrays_[ta].textures_.size ());
 	}
 
+	/* 
+		The second loop over the 'textureArrays' field fills Vulkan's write descriptor set operation structure with the 
+		appropriate pointers inside the 'imageArrayDescriptors' array.
+	*/
 	for ( size_t ta = 0; ta < dsInfo.textureArrays_.size (); ta++ )
 	{
-		VkWriteDescriptorSet writeSet = {
-			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstSet = ds,
-			.dstBinding = bindingIdx++,
-			.dstArrayElement = 0,
-			.descriptorCount = static_cast<uint32_t>(dsInfo.textureArrays_[ta].textureArray_.size ()),
-			.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			.pImageInfo = imageArrayDescriptors.data () + taOffsets[ta]
-		};
+		// TODO: is my check here needed?
+		if( dsInfo.textureArrays_[ta].textures_.size() > 0) 
+		{
+			VkWriteDescriptorSet writeSet = {
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = ds,
+				.dstBinding = bindingIdx++,
+				.dstArrayElement = 0,
+				.descriptorCount = static_cast<uint32_t>(dsInfo.textureArrays_[ta].textures_.size ()),
+				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+				.pImageInfo = (imageArrayDescriptors.data () + taOffsets[ta])
+			};
 
-		descriptorWrites.push_back ( writeSet );
+			descriptorWrites.push_back ( writeSet );
+		}		
 	}
 
 	vkUpdateDescriptorSets ( vkDev_.device, static_cast<uint32_t>(descriptorWrites.size ()), descriptorWrites.data (), 0, nullptr );
 }
+
+VkFramebuffer VulkanResources::addFramebuffer ( RenderPass renderPass, const std::vector<VulkanTexture>& images )
+{
+	VkFramebuffer framebuffer;
+	std::vector<VkImageView> attachments;
+	for ( const auto& i : images )
+	{
+		attachments.push_back ( i.image.imageView );
+	}
+
+	VkFramebufferCreateInfo fbInfo = {
+		.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.renderPass = renderPass.handle_,
+		.attachmentCount = (uint32_t)attachments.size (),
+		.pAttachments = attachments.data (),
+		.width = images[0].width,
+		.height = images[0].height,
+		.layers = 1
+	};
+
+	if ( vkCreateFramebuffer ( vkDev_.device, &fbInfo, nullptr, &framebuffer ) != VK_SUCCESS )
+	{
+		printf ( "Unable to create offscreen framebuffer\n" );
+		exit ( EXIT_FAILURE );
+	}
+
+	allFramebuffers_.push_back ( framebuffer );
+	return framebuffer;
+}
+
+std::vector<VkFramebuffer> VulkanResources::addFramebuffers ( VkRenderPass renderPass, VkImageView depthView )
+{
+	std::vector<VkFramebuffer> framebuffers;
+	createColorAndDepthFramebuffers ( vkDev_, renderPass, depthView, framebuffers );
+	for ( auto f : framebuffers )
+	{
+		allFramebuffers_.push_back ( f );
+	}
+
+	return framebuffers;
+}
+
+RenderPass VulkanResources::addFullScreenPass ( bool useDepth, const RenderPassCreateInfo& ci )
+{
+	RenderPass result ( vkDev_, useDepth, ci );
+	allRenderpasses_.push_back ( result.handle_ );
+	return result;
+}
+
+RenderPass VulkanResources::addRenderPass ( const std::vector<VulkanTexture>& outputs, const RenderPassCreateInfo& ci, bool useDepth )
+{
+	VkRenderPass renderPass;
+	if ( outputs.empty () )
+	{
+		printf ( "Empty list of output attachments for RenderPass\n" );
+		exit ( EXIT_FAILURE );
+	}
+
+	if ( outputs.size () == 1 )
+	{
+		printf ( "Creating color-only render pass\n" );
+		if ( !createColorOnlyRenderPass ( vkDev_, &renderPass, ci, outputs[0].format ) )
+		{
+			printf ( "Unable to create offscreen color-only pass\n" );
+			exit ( EXIT_FAILURE );
+		}
+	} else
+	{
+		if ( !createColorAndDepthRenderPass ( vkDev_, useDepth && (outputs.size () > 1), &renderPass, ci, outputs[0].format ) )
+		{
+			printf ( "Unable to create offscreen render pass\n" );
+			exit ( EXIT_FAILURE );
+		}
+	}
+
+	allRenderpasses_.push_back ( renderPass );
+	RenderPass rp;
+	rp.info_ = ci;
+	rp.handle_ = renderPass;
+	return rp;
+}
+
+RenderPass VulkanResources::addDepthRenderPass ( const std::vector<VulkanTexture>& outputs, const RenderPassCreateInfo& ci )
+{
+	VkRenderPass renderPass;
+	if ( !createDepthOnlyRenderPass ( vkDev_, &renderPass, ci ) )
+	{
+		printf ( "Unable to create depth-only render pass\n" );
+		exit ( EXIT_FAILURE );
+	}
+
+	allRenderpasses_.push_back ( renderPass );
+	RenderPass rp;
+	rp.info_ = ci;
+	rp.handle_ = renderPass;
+	return rp;
+}
+
+VkPipelineLayout VulkanResources::addPipelineLayout ( VkDescriptorSetLayout dsLayout, uint32_t vtxConstSize, uint32_t fragConstSize )
+{
+	VkPipelineLayout pipelineLayout;
+	if ( !createPipelineLayoutWithConstants ( vkDev_.device, dsLayout, &pipelineLayout, vtxConstSize, fragConstSize ) )
+	{
+		printf ( "Cannot create pipeline layout\n" );
+		exit ( EXIT_FAILURE );
+	}
+
+	allPipelineLayouts_.push_back ( pipelineLayout );
+	return pipelineLayout;
+}
+
+VulkanTexture VulkanResources::createFontTexture ( const char* fontfile )
+{
+	ImGuiIO& io = ImGui::GetIO ();
+	VulkanTexture res = { .image = {.image = VK_NULL_HANDLE } };
+
+	// Build texture atlas
+	ImFontConfig cfg = ImFontConfig ();
+	cfg.FontDataOwnedByAtlas = false;
+	cfg.RasterizerMultiply = 1.5f;
+	cfg.SizePixels = 768.0f / 32.0f;
+	cfg.PixelSnapH = true;
+	cfg.OversampleH = 4;
+	cfg.OversampleV = 4;
+	ImFont* Font = io.Fonts->AddFontFromFileTTF ( fontfile, cfg.SizePixels, &cfg );
+
+	unsigned char* pixels = nullptr;
+	int texWidth = 1, texHeight = 1;
+	io.Fonts->GetTexDataAsRGBA32 ( &pixels, &texWidth, &texHeight );
+
+	if ( !pixels || !createTextureImageFromData ( vkDev_, res.image.image, res.image.imageMemory, pixels, texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM ) )
+	{
+		printf ( "Failed to load texture\n" );
+		return res;
+	}
+
+	createImageView ( vkDev_.device, res.image.image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, &res.image.imageView );
+	createTextureSampler ( vkDev_.device, &res.sampler );
+
+	/* This is not strictly necesary, a font can be any texture */
+	io.Fonts->TexID = (ImTextureID)0;
+	io.FontDefault = Font;
+	io.DisplayFramebufferScale = ImVec2 ( 1, 1 );
+
+	allTextures_.push_back ( res );
+	return res;
+}
+
 
 /* Helper mesh-related functions */
 std::pair<BufferAttachment, BufferAttachment> VulkanResources::makeMeshBuffers ( const std::vector<float>& vertices, const std::vector<unsigned int>& indices )
@@ -732,166 +958,3 @@ std::pair<BufferAttachment, BufferAttachment> VulkanResources::createPlaneBuffer
 		std::vector<unsigned int> { 0u, 1u, 2u, 0u, 3u, 2u } );
 }
 
-std::vector<VkFramebuffer> VulkanResources::addFramebuffers ( VkRenderPass renderPass, VkImageView depthView )
-{
-	std::vector<VkFramebuffer> framebuffers;
-	createColorAndDepthFramebuffers ( vkDev_, renderPass, depthView, framebuffers );
-	for ( auto f : framebuffers )
-	{
-		allFramebuffers_.push_back ( f );
-	}
-
-	return framebuffers;
-}
-
-bool VulkanResources::createGraphicsPipeline ( VulkanRenderDevice& vkdev, VkRenderPass renderPass, VkPipelineLayout pipelineLayout, const std::vector<std::string>& shaderFiles, VkPipeline* pipeline, VkPrimitiveTopology topology, bool useDepth, bool useBlending, bool dynamicScissorState, int32_t customWidth, int32_t customHeight, uint32_t numPatchControlPoints )
-{
-	std::vector<ShaderModule> localShaderModules;
-	std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
-
-	shaderStages.resize ( shaderFiles.size () );
-	localShaderModules.resize ( shaderFiles.size () );
-
-	for ( size_t i = 0; i < shaderFiles.size (); i++ )
-	{
-		const std::string& shaderFile = shaderFiles[i];
-
-		auto idx = shaderMap_.find ( shaderFile );
-
-		if ( idx != shaderMap_.end () )
-		{
-			// printf("Already compiled file (%s)\n", shaderFile.c_str());
-			localShaderModules[i] = shaderModules_[idx->second];
-		} else
-		{
-			// printf("Compiling file (%s)\n", shaderFiles[i].c_str());
-			VK_CHECK(createShaderModule(vkDev_.device, &localShaderModules[i], shaderFile.c_str()));
-			shaderModules_.push_back ( localShaderModules[i] );
-			shaderMap_[shaderFile] = (int)shaderModules_.size () - 1;
-		}
-
-		VkShaderStageFlagBits stage = glslangShaderStageToVulkan ( glslangShaderStageFromFileName ( shaderFile.c_str () ) );
-
-		shaderStages[i] = shaderStageInfo ( stage, localShaderModules[i], "main" );	
-		
-	}
-
-	const VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
-	};
-
-	const VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-		/* The only difference from createGraphicsPipeline() */
-		.topology = topology,
-		.primitiveRestartEnable = VK_FALSE
-	};
-
-	const VkViewport viewport = {
-		.x = 0.0f,
-		.y = 0.0f,
-		.width = static_cast<float>(customWidth > 0 ? customWidth : vkDev_.framebufferWidth),
-		.height = static_cast<float>(customHeight > 0 ? customHeight : vkDev_.framebufferHeight),
-		.minDepth = 0.0f,
-		.maxDepth = 1.0f
-	};
-
-	const VkRect2D scissor = {
-		.offset = { 0, 0 },
-		.extent = { customWidth > 0 ? customWidth : vkDev_.framebufferWidth, customHeight > 0 ? customHeight : vkDev_.framebufferHeight }
-	};
-
-	const VkPipelineViewportStateCreateInfo viewportState = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-		.viewportCount = 1,
-		.pViewports = &viewport,
-		.scissorCount = 1,
-		.pScissors = &scissor
-	};
-
-	const VkPipelineRasterizationStateCreateInfo rasterizer = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-		.polygonMode = VK_POLYGON_MODE_FILL,
-		.cullMode = VK_CULL_MODE_NONE,
-		.frontFace = VK_FRONT_FACE_CLOCKWISE,
-		.lineWidth = 1.0f
-	};
-
-	const VkPipelineMultisampleStateCreateInfo multisampling = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
-		.sampleShadingEnable = VK_FALSE,
-		.minSampleShading = 1.0f		
-	};
-
-	const VkPipelineColorBlendAttachmentState colorBlendAttachment = {
-		.blendEnable = VK_TRUE,
-		.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-		.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-		.colorBlendOp = VK_BLEND_OP_ADD,
-		.srcAlphaBlendFactor = useBlending ? VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA : VK_BLEND_FACTOR_ONE,
-		.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
-		.alphaBlendOp = VK_BLEND_OP_ADD,
-		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT	
-	};
-
-	const VkPipelineColorBlendStateCreateInfo colorBlending = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-		.logicOpEnable = VK_FALSE,
-		.logicOp = VK_LOGIC_OP_COPY,
-		.attachmentCount = 1,
-		.pAttachments = &colorBlendAttachment,
-		.blendConstants = { 0.0f, 0.0f, 0.0f, 0.0f }
-	};
-
-	const VkPipelineDepthStencilStateCreateInfo depthStencil = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-		.depthTestEnable = static_cast<VkBool32>(useDepth ? VK_TRUE : VK_FALSE),
-		.depthWriteEnable = static_cast<VkBool32>(useDepth ? VK_TRUE : VK_FALSE),
-		.depthCompareOp = VK_COMPARE_OP_LESS,
-		.depthBoundsTestEnable = VK_FALSE,
-		.minDepthBounds = 0.0f,
-		.maxDepthBounds = 1.0f	
-	};
-	
-	VkDynamicState dynamicStateElt = VK_DYNAMIC_STATE_SCISSOR;
-
-	const VkPipelineDynamicStateCreateInfo dynamicState = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-		.pNext = nullptr,
-		.flags = 0,
-		.dynamicStateCount = 1,
-		.pDynamicStates = &dynamicStateElt
-	};
-
-	const VkPipelineTessellationStateCreateInfo tessellationState = {
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
-		.pNext = nullptr,
-		.flags = 0,
-		.patchControlPoints = numPatchControlPoints
-	};	
-	
-	const VkGraphicsPipelineCreateInfo pipelineInfo = {
-		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,	
-		.stageCount = static_cast<uint32_t>(shaderStages.size ()),
-		.pStages = shaderStages.data (),
-		.pVertexInputState = &vertexInputInfo,
-		.pInputAssemblyState = &inputAssembly,
-		.pTessellationState = (topology == VK_PRIMITIVE_TOPOLOGY_PATCH_LIST) ? &tessellationState : nullptr,
-		.pViewportState = &viewportState,
-		.pRasterizationState = &rasterizer,
-		.pMultisampleState = &multisampling,
-		.pDepthStencilState = useDepth ? &depthStencil : nullptr,
-		.pColorBlendState = &colorBlending,
-		.pDynamicState = dynamicScissorState ? &dynamicState : nullptr,
-		.layout = pipelineLayout,
-		.renderPass = renderPass,
-		.subpass = 0,
-		.basePipelineHandle = VK_NULL_HANDLE,
-		.basePipelineIndex = -1
-	};
-
-	VK_CHECK ( vkCreateGraphicsPipelines ( vkDev_.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, pipeline ) );
-
-	return true;
-}

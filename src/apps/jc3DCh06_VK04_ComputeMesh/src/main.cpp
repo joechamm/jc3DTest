@@ -9,7 +9,7 @@
 #include <jcVkFramework/vkRenderers/VulkanModelRenderer.h>
 #include <jcVkFramework/vkRenderers/VulkanImGui.h>
 
-#include <jcVkFramework/ResourceString.h>
+#include <jcCommonFramework/ResourceString.h>
 
 struct MouseState
 {

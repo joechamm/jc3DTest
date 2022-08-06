@@ -1,5 +1,5 @@
 #include <jcVkFramework/vkFramework/InfinitePlaneRenderer.h>
-#include <jcVkFramework/ResourceString.h>
+#include <jcCommonFramework/ResourceString.h>
 
 InfinitePlaneRenderer::InfinitePlaneRenderer ( VulkanRenderContext& ctx, const std::vector<VulkanTexture>& outputs, RenderPass screenRenderPass )
  : Renderer ( ctx )

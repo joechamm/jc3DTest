@@ -1,6 +1,6 @@
 #include <jcVkFramework/vkFramework/GuiRenderer.h>
-#include <jcVkFramework/scene/Scene.h>
-#include <jcVkFramework/ResourceString.h>
+#include <jcCommonFramework/scene/Scene.h>
+#include <jcCommonFramework/ResourceString.h>
 
 static constexpr uint32_t ImGuiVtxBufferSize = 512 * 1024 * sizeof ( ImDrawVert );
 static constexpr uint32_t ImGuiIdxBufferSize = 512 * 1024 * sizeof ( uint32_t );

@@ -4,7 +4,7 @@
 #include <jcVkFramework/vkRenderers/VulkanClear.h>
 #include <jcVkFramework/vkRenderers/VulkanFinish.h>
 
-#include <jcVkFramework/ResourceString.h>
+#include <jcCommonframework/ResourceString.h>
 
 const uint32_t kScreenWidth = 1280;
 const uint32_t kScreenHeight = 720;

@@ -8,7 +8,7 @@
 //#include "EasyProfilerWrapper.h"
 
 #include <helpers/RootDir.h>
-#include <jcVkFramework/ResourceString.h>
+#include <jcCommonframework/ResourceString.h>
 
 using glm::mat4;
 using glm::vec3;

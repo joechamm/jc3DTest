@@ -1,7 +1,7 @@
 #ifndef __VULKAN_COMPUTED_IMAGE_H__
 #define __VULKAN_COMPUTED_IMAGE_H__
 
-#include <jcVkFramework/Utils.h>
+#include <jcCommonFramework/Utils.h>
 #include <jcVkFramework/vkRenderers/VulkanComputedItem.h>
 
 struct ComputedImage : public ComputedItem

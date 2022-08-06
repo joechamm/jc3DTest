@@ -2,11 +2,17 @@
 #define __MULTI_RENDERER_H__
 
 #include <jcVkFramework/vkFramework/Renderer.h>
-#include <jcVkFramework/scene/Scene.h>
-#include <jcVkFramework/scene/Material.h>
-#include <jcVkFramework/scene/VtxData.h>
+#include <jcCommonFramework/scene/Scene.h>
+#include <jcCommonFramework/scene/Material.h>
+#include <jcCommonFramework/scene/VtxData.h>
+
+#include <jcCommonFramework/ResourceString.h>
 
 #include <taskflow/taskflow/taskflow.hpp>
+
+// for right now store the default vert and frag shaders as constexpr
+constexpr const char* DefaultMeshVertexShader = ROOT_DIR "assets/shaders/VK_DefaultMesh.vert";
+constexpr const char* DefaultMeshFragmentShader = ROOT_DIR "assets/shaders/VK_DefaultMesh.frag";
 
 // Container of mesh data, material data and scene nodes with transformations
 struct VKSceneData
@@ -85,10 +91,11 @@ private:
 	} ubo_;
 
 public:
-	MultiRenderer ( VulkanRenderContext& ctx,
+	MultiRenderer ( 
+		VulkanRenderContext& ctx,
 		VKSceneData& sceneData,
-		const std::string& vtxShaderFile,
-		const std::string& fragShaderFile,
+		const char* vtxShaderFile = DefaultMeshVertexShader,
+		const char* fragShaderFile = DefaultMeshFragmentShader,
 		const std::vector<VulkanTexture>& outputs = std::vector<VulkanTexture>{},
 		RenderPass screenRenderPass = RenderPass (),
 		const std::vector<BufferAttachment>& auxBuffers = std::vector<BufferAttachment>{},

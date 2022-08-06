@@ -111,6 +111,7 @@ set_property(TARGET SPVRemapper   PROPERTY FOLDER "ThirdPartyLibraries/glslang")
 # add shared utils code for GL and Vulkan
 #add_subdirectory(src/libs)
 #target_sources(jc3DTestSharedLibs PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/extern/src/glslang/StandAlone/ResourceLimits.cpp)
+add_subdirectory(libs/jcCommonFramework)
 add_subdirectory(libs/jcVkFramework)
 add_subdirectory(libs/jcGLframework)
 

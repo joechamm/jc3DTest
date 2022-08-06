@@ -1,6 +1,6 @@
 #include <jcVkFramework/vkRenderers/VulkanCube.h>
-#include <jcVkFramework/EasyProfilerWrapper.h>
-#include <jcVkFramework/ResourceString.h>
+#include <jcCommonFramework/EasyProfilerWrapper.h>
+#include <jcCommonFramework/ResourceString.h>
 
 using glm::mat4;
 using std::string;

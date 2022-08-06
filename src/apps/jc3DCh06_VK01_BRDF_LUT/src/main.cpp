@@ -5,7 +5,7 @@
 #include <gli/texture2d.hpp>
 #include <gli/load_ktx.hpp>
 
-#include <jcVkFramework/ResourceString.h>
+#include <jcCommonframework/ResourceString.h>
 
 constexpr int brdfW = 256;
 constexpr int brdfH = 256;

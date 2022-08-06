@@ -242,19 +242,19 @@ VkFormat findDepthFormat ( VkPhysicalDevice device );
 
 bool hasStencilComponent ( VkFormat format );
 
-bool createGraphicsPipeline (
-	VulkanRenderDevice& vkDev,
-	VkRenderPass renderPass, 
-	VkPipelineLayout pipelineLayout,
-	const std::vector<const char*>& shaderFiles,
-	VkPipeline* pipeline,
-	VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST /* defaults to triangles */,
-	bool useDepth = true,
-	bool useBlending = true,
-	bool dynamicScissorState = false,
-	int32_t customWidth = -1,
-	int32_t customHeight = -1,
-	uint32_t numPatchControlPoints = 0 );
+//bool createGraphicsPipeline (
+//	VulkanRenderDevice& vkDev,
+//	VkRenderPass renderPass, 
+//	VkPipelineLayout pipelineLayout,
+//	const std::vector<const char*>& shaderFiles,
+//	VkPipeline* pipeline,
+//	VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST /* defaults to triangles */,
+//	bool useDepth = true,
+//	bool useBlending = true,
+//	bool dynamicScissorState = false,
+//	int32_t customWidth = -1,
+//	int32_t customHeight = -1,
+//	uint32_t numPatchControlPoints = 0 );
 
 bool createGraphicsPipeline (
 	VulkanRenderDevice& vkDev,
@@ -521,6 +521,10 @@ void updateTextureInDescriptorSetArray ( VulkanRenderDevice& vkDev, VkDescriptor
 
 std::string vulkanResultToString ( VkResult result );
 std::string vulkanObjectTypeToString ( VkObjectType type );
+std::string vulkanStageFlagsToString ( VkShaderStageFlags flags );
+std::string vulkanDescriptorTypeToString ( VkDescriptorType type );
+std::string vuklanDescriptorWriteSetToString ( VkWriteDescriptorSet writeSet );
+std::string vulkanDescriptorSetBindingToString ( VkDescriptorSetLayoutBinding dsLayoutBinding );
 
 std::vector<VkLayerProperties> getAvailableLayers ( void );
 std::vector<VkExtensionProperties> getAvailableExtensionsByLayer ( const char* layer );

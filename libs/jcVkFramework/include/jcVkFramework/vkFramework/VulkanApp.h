@@ -16,11 +16,11 @@
 
 #include <imgui/imgui.h>
 
-#include <jcVkFramework/Camera.h>
-#include <jcVkFramework/Utils.h>
-#include <jcVkFramework/UtilsMath.h>
+#include <jcCommonFramework/Camera.h>
+#include <jcCommonFramework/Utils.h>
+#include <jcCommonFramework/UtilsMath.h>
 #include <jcVkFramework/UtilsVulkan.h>
-#include <jcVkFramework/UtilsFPS.h>
+#include <jcCommonFramework/UtilsFPS.h>
 
 #include <jcVkFramework/vkFramework/VulkanResources.h>
 
