@@ -61,7 +61,7 @@ GLFramebuffer::GLFramebuffer ( int width, int height, GLenum formatColor, GLenum
 		glTextureParameterfv ( texDepth_->getHandle (), GL_TEXTURE_BORDER_COLOR, border );
 		glTextureParameteri ( texDepth_->getHandle (), GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER );
 		glTextureParameteri ( texDepth_->getHandle (), GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER );
-		glNamedFramebufferTexture(handle_, GL_DEPTH_ATTACHMENT, texDepth_->getHandle(), 0):
+		glNamedFramebufferTexture ( handle_, GL_DEPTH_ATTACHMENT, texDepth_->getHandle (), 0 );
 	}
 
 	const GLenum status = glCheckNamedFramebufferStatus ( handle_, GL_FRAMEBUFFER );
