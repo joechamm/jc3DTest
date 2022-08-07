@@ -2,31 +2,25 @@
 #include <stdlib.h>
 #include <vector>
 
-#include <jcCommonframework/Bitmap.h>
 #include <jcGLframework/GLFWApp.h>
 #include <jcGLframework/GLShader.h>
-#include <jcGLframework/GLTexture.h>
-#include <jcCommonframework/UtilsMath.h>
-#include <jcCommonframework/Camera.h>
-#include <jcCommonframework/scene/VtxData.h>
-#include <jcCommonframework/UtilsCubemap.h>
-
-#include <jcCommonframework/ResourceString.h>
-
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
-#include <assimp/cimport.h>
-#include <assimp/version.h>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#include <jcGLframework/GLSceneData.h>
+#include <jcCommonFramework/UtilsMath.h>
+#include <jcCommonFramework/Camera.h>
+#include <jcCommonFramework/scene/VtxData.h>
+#include <jcCommonFramework/ResourceString.h>
 
 using glm::mat4;
 using glm::vec4;
 using glm::vec3;
 using glm::vec2;
-using glm::ivec2;
-using std::string;
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb/stb_image.h>
+
+const GLuint kBufferIndex_PerFrameUniforms = 0;
+const GLuint kBufferIndex_ModelMatrices = 1;
+const GLuint kBufferIndex_Materials = 2;
 
 struct PerFrameData
 {
@@ -37,133 +31,143 @@ struct PerFrameData
 
 struct MouseState
 {
-	glm::vec2 pos = glm::vec2 ( 0.0f );
+	vec2 pos = vec2 ( 0.0f );
 	bool pressedLeft = false;
 } mouseState;
 
-CameraPositioner_FirstPerson positioner ( vec3 ( 0.0f, 6.0f, 11.0f ), vec3 ( 0.0f, 4.0f, -1.0f ), vec3 ( 0.0f, 1.0f, 0.0f ) );
+CameraPositioner_FirstPerson positioner ( vec3 ( -10.0f, 3.0f, 3.0f ), vec3 ( 0.0f, 0.0f, -1.0f ), vec3 ( 0.0f, 1.0f, 0.0f ) );
 Camera camera ( positioner );
 
-class GLMeshPVP final
+struct DrawElementsIndirectCommand
+{
+	GLuint count_;
+	GLuint instanceCount_;
+	GLuint firstIndex_;
+	GLuint baseVertex_;
+	GLuint baseInstance_;
+};
+
+class GLMesh final
 {
 	GLuint vao_;
 	uint32_t numIndices_;
 
 	GLBuffer bufferIndices_;
 	GLBuffer bufferVertices_;
+	GLBuffer bufferMaterials_;
+
+	GLBuffer bufferIndirect_;
+
+	GLBuffer bufferModelMatrices_;
 
 public:
-	GLMeshPVP ( const uint32_t* indices, uint32_t indicesSize, const float* vertexData, uint32_t verticesSize )
-		: numIndices_ ( indicesSize / sizeof ( uint32_t ) )
-		, bufferIndices_ ( indicesSize, indices, 0 )
-		, bufferVertices_ ( verticesSize, vertexData, 0 )
+	explicit GLMesh ( const GLSceneData& data )
+		: numIndices_ ( data.header_.indexDataSize / sizeof ( uint32_t ) )
+		, bufferIndices_ ( data.header_.indexDataSize, data.meshData_.indexData_.data (), 0 )
+		, bufferVertices_ ( data.header_.vertexDataSize, data.meshData_.vertexData_.data (), 0 )
+		, bufferMaterials_ ( sizeof ( MaterialDescription )* data.materials_.size (), data.materials_.data (), 0 )
+		, bufferIndirect_ ( sizeof ( DrawElementsIndirectCommand )* data.shapes_.size () + sizeof ( GLsizei ), nullptr, GL_DYNAMIC_STORAGE_BIT )
+		, bufferModelMatrices_ ( sizeof ( mat4 )* data.shapes_.size (), nullptr, GL_DYNAMIC_STORAGE_BIT )
 	{
 		glCreateVertexArrays ( 1, &vao_ );
 		glVertexArrayElementBuffer ( vao_, bufferIndices_.getHandle () );
+		glVertexArrayVertexBuffer ( vao_, 0, bufferVertices_.getHandle (), 0, sizeof ( vec3 ) + sizeof ( vec3 ) + sizeof ( vec2 ) );
+		// position
+		glEnableVertexArrayAttrib ( vao_, 0 );
+		glVertexArrayAttribFormat ( vao_, 0, 3, GL_FLOAT, GL_FALSE, 0 );
+		glVertexArrayAttribBinding ( vao_, 0, 0 );
+
+		//uv 
+		glEnableVertexArrayAttrib ( vao_, 1 );
+		glVertexArrayAttribFormat ( vao_, 1, 2, GL_FLOAT, GL_FALSE, sizeof ( vec3 ) );
+		glVertexArrayAttribBinding ( vao_, 1, 0 );
+
+		// normal
+		glEnableVertexArrayAttrib ( vao_, 2 );
+		glVertexArrayAttribFormat ( vao_, 2, 3, GL_FLOAT, GL_TRUE, sizeof ( vec3 ) + sizeof ( vec2 ) );
+		glVertexArrayAttribBinding ( vao_, 2, 0 );
+
+		std::vector<uint8_t> drawCommands;
+
+		drawCommands.resize ( sizeof ( DrawElementsIndirectCommand ) * data.shapes_.size () + sizeof ( GLsizei ) );
+
+		// store the number of draw commands in the very beginning of the buffer
+		const GLsizei numCommands = (GLsizei)data.shapes_.size ();
+		memcpy ( drawCommands.data (), &numCommands, sizeof ( numCommands ) );
+
+		DrawElementsIndirectCommand* cmd = std::launder ( reinterpret_cast<DrawElementsIndirectCommand*>(drawCommands.data () + sizeof ( GLsizei )) );
+
+		// prepare indirect commands buffer
+		for ( size_t i = 0; i != data.shapes_.size (); i++ )
+		{
+			const uint32_t meshIdx = data.shapes_[i].meshIndex;
+			const uint32_t lod = data.shapes_[i].LOD;
+			*cmd++ = {
+				.count_ = data.meshData_.meshes_[meshIdx].getLODIndicesCount ( lod ),
+				.instanceCount_ = 1,
+				.firstIndex_ = data.shapes_[i].indexOffset,
+				.baseVertex_ = data.shapes_[i].vertexOffset,
+				.baseInstance_ = data.shapes_[i].materialIndex
+			};
+		}
+
+		glNamedBufferSubData ( bufferIndirect_.getHandle (), 0, drawCommands.size (), drawCommands.data () );
+
+		std::vector<mat4> matrices ( data.shapes_.size () );
+		size_t i = 0;
+		for ( const auto& c : data.shapes_ )
+		{
+			matrices[i++] = data.scene_.globalTransforms_[c.transformIndex];
+		}
+
+		glNamedBufferSubData ( bufferModelMatrices_.getHandle (), 0, matrices.size () * sizeof ( mat4 ), matrices.data () );
 	}
 
-	void draw () const
+	void draw ( const GLSceneData& data ) const
 	{
 		glBindVertexArray ( vao_ );
-		glBindBufferBase ( GL_SHADER_STORAGE_BUFFER, 1, bufferVertices_.getHandle () );
-		glDrawElements ( GL_TRIANGLES, static_cast<GLsizei>(numIndices_), GL_UNSIGNED_INT, nullptr );
+		glBindBufferBase ( GL_SHADER_STORAGE_BUFFER, kBufferIndex_Materials, bufferMaterials_.getHandle () );
+		glBindBufferBase ( GL_SHADER_STORAGE_BUFFER, kBufferIndex_ModelMatrices, bufferModelMatrices_.getHandle () );
+		glBindBuffer ( GL_DRAW_INDIRECT_BUFFER, bufferIndirect_.getHandle () );
+		glBindBuffer ( GL_PARAMETER_BUFFER, bufferIndirect_.getHandle () );
+		glMultiDrawElementsIndirectCount ( GL_TRIANGLES, GL_UNSIGNED_INT, (const void*)sizeof ( GLsizei ), 0, (GLsizei)data.shapes_.size (), 0 );
 	}
 
-	~GLMeshPVP ()
+	~GLMesh ()
 	{
 		glDeleteVertexArrays ( 1, &vao_ );
 	}
+
+	GLMesh ( const GLMesh& ) = delete;
+	GLMesh ( GLMesh&& ) = default;
 };
 
-int main ( void )
+int main ()
 {
-	GLFWApp app ( 1600, 900, "GL01_PBR Exercise" );
+	GLFWApp app;
 
-	GLShader shdGridVertex ( appendToRoot ( "assets/shaders/GL06_grid.vert" ));
-	GLShader shdGridFrag ( appendToRoot ( "assets/shaders/GL06_grid.frag" ));
-	GLProgram progGrid ( shdGridVertex, shdGridFrag );
+	GLShader shdGridVertex ( appendToRoot ( "assets/shaders/GL07_grid.vert" ).c_str () );
+	GLShader shdGridFragment ( appendToRoot ( "assets/shaders/GL07_grid.frag" ).c_str () );
+	GLProgram progGrid ( shdGridVertex, shdGridFragment );
 
 	const GLsizeiptr kUniformBufferSize = sizeof ( PerFrameData );
 
 	GLBuffer perFrameDataBuffer ( kUniformBufferSize, nullptr, GL_DYNAMIC_STORAGE_BIT );
-	glBindBufferRange ( GL_UNIFORM_BUFFER, 0, perFrameDataBuffer.getHandle (), 0, kUniformBufferSize );
+	glBindBufferRange ( GL_UNIFORM_BUFFER, kBufferIndex_PerFrameUniforms, perFrameDataBuffer.getHandle (), 0, kUniformBufferSize );
 
 	glClearColor ( 1.0f, 1.0f, 1.0f, 1.0f );
-	glEnable ( GL_BLEND );
 	glBlendFunc ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 	glEnable ( GL_DEPTH_TEST );
 
-	GLShader shaderVertex ( appendToRoot ( "assets/shaders/GL06_PBR.vert" ));
-	GLShader shaderFragment ( appendToRoot ( "assets/shaders/GL06_PBR.frag" ));
+	GLShader shaderVertex ( appendToRoot ( "assets/shaders/GL07_mesh.vert" ).c_str () );
+	GLShader shaderFragment ( appendToRoot ( "assets/shaders/GL07_mesh.frag" ).c_str () );
 	GLProgram program ( shaderVertex, shaderFragment );
 
-	const aiScene* scene = aiImportFile ( appendToRoot ( "assets/models/DamagedHelmet/glTF/DamagedHelmet.gltf" ).c_str (), aiProcess_Triangulate );
+	GLSceneData sceneData1 ( appendToRoot ( "assets/meshes/test.meshes" ).c_str (), appendToRoot ( "assets/meshes/test.scene" ).c_str (), appendToRoot ( "assets/meshes/test.materials" ).c_str () );
+	GLSceneData sceneData2 ( appendToRoot ( "assets/meshes/test2.meshes" ).c_str (), appendToRoot ( "assets/meshes/test2.scene" ).c_str (), appendToRoot ( "assets/meshes/test2.materials" ).c_str () );
 
-	if ( !scene || !scene->HasMeshes () )
-	{
-		printf ( "Unable to load model from [%s]\n", appendToRoot ( "assets/models/DamagedHelmet/glTF/DamagedHelmet.gltf" ).c_str () );
-		exit ( 255 );
-	}
-
-	struct VertexData
-	{
-		vec3 pos;
-		vec3 n;
-		vec2 tc;
-	};
-
-	std::vector<VertexData> vertices;
-	std::vector<uint32_t> indices;
-	{
-		const aiMesh* mesh = scene->mMeshes[0];
-		for ( unsigned i = 0; i != mesh->mNumVertices; i++ )
-		{
-			const aiVector3D v = mesh->mVertices[i];
-			const aiVector3D n = mesh->mNormals[i];
-			const aiVector3D t = mesh->mTextureCoords[0][i];
-			vertices.push_back ( { .pos = vec3 ( v.x, v.y, v.z ), .n = vec3 ( n.x, n.y, n.z ), .tc = vec2 ( t.x, 1.0f - t.y ) } );
-		}
-		for ( unsigned i = 0; i != mesh->mNumFaces; i++ )
-		{
-			for ( unsigned j = 0; j != 3; j++ )
-			{
-				indices.push_back ( mesh->mFaces[i].mIndices[j] );
-			}
-		}
-		aiReleaseImport ( scene );
-	}
-
-	const size_t kSizeIndices = sizeof ( uint32_t ) * indices.size ();
-	const size_t kSizeVertices = sizeof ( VertexData ) * vertices.size ();
-
-	GLMeshPVP mesh ( indices.data (), (uint32_t)kSizeIndices, (float*)vertices.data (), (uint32_t)kSizeVertices );
-
-	GLTexture texAO ( GL_TEXTURE_2D, appendToRoot ( "assets/models/DamagedHelmet/glTF/Default_AO.jpg" ) );
-	GLTexture texEmissive ( GL_TEXTURE_2D, appendToRoot ( "assets/models/DamagedHelmet/glTF/Default_emissive.jpg" ) );
-	GLTexture texAlbedo ( GL_TEXTURE_2D, appendToRoot ( "assets/models/DamagedHelmet/glTF/Default_albedo.jpg" ) );
-	GLTexture texMeR ( GL_TEXTURE_2D, appendToRoot ( "assets/models/DamagedHelmet/glTF/Default_metalRoughness.jpg" ) );
-	GLTexture texNormal ( GL_TEXTURE_2D, appendToRoot ( "assets/models/DamagedHelmet/glTF/Default_normal.jpg" ) );
-
-	const GLuint textures[] = { texAO.getHandle (), texEmissive.getHandle (), texAlbedo.getHandle (), texMeR.getHandle (), texNormal.getHandle () };
-
-	glBindTextures ( 0, sizeof ( textures ) / sizeof ( GLuint ), textures );
-
-	// cube map
-	GLTexture envMap ( GL_TEXTURE_CUBE_MAP, appendToRoot ( "assets/images/piazza_bologni_1k.hdr" ) );
-	GLTexture envMapIrradiance ( GL_TEXTURE_CUBE_MAP, appendToRoot ( "assets/images/piazza_bologni_1k_irradiance.hdr" ) );
-	
-	const GLuint envMaps[] = { envMap.getHandle (), envMapIrradiance.getHandle () };
-
-	glBindTextures ( 5, 2, envMaps );
-
-	// BRDF LUT
-	GLTexture brdfLUT ( GL_TEXTURE_2D, appendToRoot ( "assets/images/brdfLUT.ktx" ) );
-	glBindTextureUnit ( 7, brdfLUT.getHandle () );
-
-	// model matrices
-	const mat4 m ( 1.0f );
-	GLBuffer modelMatrices ( sizeof ( mat4 ), value_ptr ( m ), GL_DYNAMIC_STORAGE_BIT );
-	glBindBufferBase ( GL_SHADER_STORAGE_BUFFER, 2, modelMatrices.getHandle () );
+	GLMesh mesh1 ( sceneData1 );
+	GLMesh mesh2 ( sceneData2 );
 
 	glfwSetCursorPosCallback (
 		app.getWindow (),
@@ -181,41 +185,30 @@ int main ( void )
 		[]( auto* window, int button, int action, int mods )
 		{
 			if ( button == GLFW_MOUSE_BUTTON_LEFT )
+			{
 				mouseState.pressedLeft = action == GLFW_PRESS;
+			}
 		}
 	);
-
-	positioner.maxSpeed_ = 5.0f;
 
 	glfwSetKeyCallback (
 		app.getWindow (),
-		[]( auto* window, int key, int scancode, int action, int mods )
+		[]( GLFWwindow* window, int key, int scancode, int action, int mods )
 		{
 			const bool pressed = action != GLFW_RELEASE;
-			if ( key == GLFW_KEY_ESCAPE && pressed )
-			{
-				glfwSetWindowShouldClose ( window, GLFW_TRUE );
-			}
-			if ( key == GLFW_KEY_W )
-				positioner.movement_.forward_ = pressed;
-			if ( key == GLFW_KEY_S )
-				positioner.movement_.backward_ = pressed;
-			if ( key == GLFW_KEY_A )
-				positioner.movement_.left_ = pressed;
-			if ( key == GLFW_KEY_D )
-				positioner.movement_.right_ = pressed;
-			if ( key == GLFW_KEY_1 )
-				positioner.movement_.up_ = pressed;
-			if ( key == GLFW_KEY_2 )
-				positioner.movement_.down_ = pressed;
-			if ( mods & GLFW_MOD_SHIFT )
-				positioner.movement_.fastSpeed_ = pressed;
-			else
-				positioner.movement_.fastSpeed_ = false;
-			if ( key == GLFW_KEY_SPACE )
-				positioner.setUpVector ( vec3 ( 0.0f, 1.0f, 0.0f ) );
+			if ( key == GLFW_KEY_ESCAPE && pressed ) glfwSetWindowShouldClose ( window, GLFW_TRUE );
+			if ( key == GLFW_KEY_W ) positioner.movement_.forward_ = pressed;
+			if ( key == GLFW_KEY_S ) positioner.movement_.backward_ = pressed;
+			if ( key == GLFW_KEY_A ) positioner.movement_.left_ = pressed;
+			if ( key == GLFW_KEY_D ) positioner.movement_.right_ = pressed;
+			if ( key == GLFW_KEY_1 ) positioner.movement_.up_ = pressed;
+			if ( key == GLFW_KEY_2 ) positioner.movement_.down_ = pressed;
+			if ( mods & GLFW_MOD_SHIFT ) positioner.movement_.fastSpeed_ = pressed;
+			if ( key == GLFW_KEY_SPACE ) positioner.setUpVector ( vec3 ( 0.0f, 1.0f, 0.0f ) );
 		}
 	);
+
+	positioner.maxSpeed_ = 1.0f;
 
 	double timeStamp = glfwGetTime ();
 	float deltaSeconds = 0.0f;
@@ -235,22 +228,16 @@ int main ( void )
 		glViewport ( 0, 0, width, height );
 		glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-		const mat4 p = glm::perspective ( 45.0f, ratio, 0.5f, 5000.0f );
+		const mat4 p = glm::perspective ( 45.0f, ratio, 0.1f, 1000.0f );
 		const mat4 view = camera.getViewMatrix ();
 
 		const PerFrameData perFrameData = { .view = view, .proj = p, .cameraPos = glm::vec4 ( camera.getPosition (), 1.0f ) };
 		glNamedBufferSubData ( perFrameDataBuffer.getHandle (), 0, kUniformBufferSize, &perFrameData );
 
-		const mat4 scale = glm::scale ( mat4 ( 1.0f ), vec3 ( 5.0f ) );
-		const mat4 rot = glm::rotate ( mat4 ( 1.0f ), glm::radians ( 90.0f ), vec3 ( 1.0f, 0.0f, 0.0f ) );
-		const mat4 pos = glm::translate ( mat4 ( 1.0f ), vec3 ( 0.0f, 0.0f, -1.0f ) );
-		const mat4 m = glm::rotate ( scale * rot * pos, (float)glfwGetTime () * 0.1f, vec3 ( 0.0f, 0.0f, 1.0f ) );
-		glNamedBufferSubData ( modelMatrices.getHandle (), 0, sizeof ( mat4 ), value_ptr ( m ) );
-
-		glEnable ( GL_DEPTH_TEST );
 		glDisable ( GL_BLEND );
 		program.useProgram ();
-		mesh.draw ();
+		mesh1.draw ( sceneData1 );
+		mesh2.draw ( sceneData2 );
 
 		glEnable ( GL_BLEND );
 		progGrid.useProgram ();
