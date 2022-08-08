@@ -71,7 +71,7 @@ public:
 
 		// store the number of draw commands in the very beginning of the buffer
 		const GLsizei numCommands = (GLsizei)data.shapes_.size ();
-		mempcy ( drawCommands.data (), &numCommands, sizeof ( numCommands ) );
+		memcpy ( drawCommands.data (), &numCommands, sizeof ( numCommands ) );
 
 		DrawElementsIndirectCommand* cmd = std::launder ( reinterpret_cast<DrawElementsIndirectCommand*>(drawCommands.data () + sizeof ( GLsizei )) );
 
@@ -94,8 +94,8 @@ public:
 		std::vector<mat4> matrices ( data.shapes_.size () );
 		size_t i = 0;
 		for ( const auto& c : data.shapes_ )
-		{
-			matrices[i++] = data.scene_.globalTransform_[c.transformIndex];
+		{	
+			matrices[i++] = data.scene_.globalTransforms_[c.transformIndex];
 		}
 
 		glNamedBufferSubData ( bufferModelMatrices_.getHandle (), 0, matrices.size () * sizeof ( mat4 ), matrices.data () );
