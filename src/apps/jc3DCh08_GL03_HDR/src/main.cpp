@@ -282,7 +282,7 @@ int main ()
 		ImGui::NewFrame();
 		ImGui::Begin("Control", nullptr);
 		ImGui::Checkbox("Enable HDR", &g_EnableHDR);
-		ImGui::PushItemFlag(ImGuiItemFlags_Disabled, &g_EnableHDR);
+		ImGui::PushItemFlag(ImGuiItemFlags_Disabled, !g_EnableHDR);
 		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * g_EnableHDR ? 1.0f : 0.2f);
 		ImGui::Separator();
 		ImGui::Text("Average luminance:");
