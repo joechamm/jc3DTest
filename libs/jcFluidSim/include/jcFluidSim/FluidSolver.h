@@ -132,6 +132,9 @@ public:
 	vec2 computeNormalVelocityComponent(const vec2& unitPos, const vec2& normComp);
 
 	void setBasisDimension ( int dim );
+	void setVelocityResolution ( int res );
+
+	const void* getVelocityField(int* size) const;
 };
 
 #endif // !__FLUID_SOLVER_H__

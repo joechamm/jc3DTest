@@ -2,8 +2,16 @@
 
 #include <stdexcept>
 
+constexpr float kEnergyMaximum = 1000.0f;
+constexpr float kEnergyEpsilon = 0.00001f;
+constexpr float kDomainMargin = 0.0001f;
+
 FluidSolver::FluidSolver()
 {
+	float viscCoarse = static_cast< float >( viscCoarse_ );
+	float viscFine = static_cast< float >( viscFine_ );
+	viscosity_ = ( viscCoarse + viscFine / 200.0f ) / 500.0f;
+
 	initFields ();
 	fillLookupTables ();
 	precomputeBasisFields ();
@@ -43,14 +51,11 @@ FluidSolver::~FluidSolver()
 	{
 		destroyCkMatrices ();
 	}
-
 }
 
 void FluidSolver::initFields()
 {
-	float viscCoarse = static_cast< float >( viscCoarse_ );
-	float viscFine = static_cast< float >( viscFine_ );
-	viscosity_ = ( viscCoarse + viscFine / 200.0f ) / 500.0f;
+	
 
 	updateTransforms ();
 
@@ -679,6 +684,8 @@ void FluidSolver::updateFields()
 {
 	float previousEnergy = currentEnergy ();
 	float oneOverSix = 1.0f / 6.0f;
+	float frcEnergy = 0.0f;
+	float dwEnergy = 0.0f;
 
 	// 4th order Runge-Kutta to update velocity
 	rk4Qn_ [ 0 ] = wCoefficients_;
@@ -707,6 +714,17 @@ void FluidSolver::updateFields()
 		dwCoefficients_ ( k ) = oneOverSix * ( rk4Dwt_ [ 0 ] ( k ) + rk4Dwt_ [ 1 ] ( k ) * 2.0f + rk4Dwt_ [ 2 ] ( k ) * 2.0f + rk4Dwt_ [ 3 ] ( k ) );
 	}
 
+	for ( int k = 0; k < basisDimension_; k++ )
+	{
+		dwEnergy += dwCoefficients_ ( k ) * dwCoefficients_ ( k );
+	}
+
+	if ( dwEnergy > kEnergyMaximum )
+	{
+		float factor = sqrtf ( kEnergyMaximum / dwEnergy );
+		dwCoefficients_ *= factor;
+	}
+
 	wCoefficients_ += dwCoefficients_ * dt_;
 
 	if ( previousEnergy > 1e-5 )
@@ -716,12 +734,23 @@ void FluidSolver::updateFields()
 
 	for ( int k = 0; k < basisDimension_; k++ )
 	{
+		frcEnergy += dwForceCoefficients_ ( k ) * dwForceCoefficients_ ( k );
+	}
+
+	if ( frcEnergy > kEnergyMaximum )
+	{
+		float factor = sqrtf ( kEnergyMaximum / frcEnergy );
+		dwForceCoefficients_ *= factor;
+	}
+
+	for ( int k = 0; k < basisDimension_; k++ )
+	{
 		float eigenvalue = -pEigenvalues_ [ k ];
 		wCoefficients_ ( k ) = wCoefficients_ ( k ) * expf ( eigenvalue * dt_ * viscosity_ ) + dwForceCoefficients_ ( k );
 		dwForceCoefficients_ ( k ) = 0.0f;
 	}
 
-	// TODO: expandBasis();
+	expandBasis ();
 }
 
 void FluidSolver::expandBasis ()
@@ -987,4 +1016,47 @@ void FluidSolver::setBasisDimension ( int dim )
 	fillDensityTexture();
 	
 	*/
+}
+
+void FluidSolver::setVelocityResolution ( int res )
+{
+	if ( res <= 0 )
+	{
+		throw std::runtime_error ( "Invalid Velocity Resolution" );
+		return;
+	}
+
+	destroyLookupTables ();
+	destroyCkMatrices ();
+	destroyBasisFields ();
+	destroyEigenValues ();
+
+	velocityGridResolutionX_ = res;
+	velocityGridResolutionY_ = res;
+
+	initFields ();
+	fillLookupTables ();
+	precomputeBasisFields ();
+	precomputeDynamics ();
+	expandBasis ();
+	updateTransforms ();
+}
+
+const void* FluidSolver::getVelocityField ( int* size ) const
+{
+	if ( ppVelocityField_ == nullptr )
+	{
+		if ( size )
+		{
+			*size = -1;
+		}
+		return nullptr;
+	}
+
+	if ( size )
+	{
+		*size = (velocityGridResolutionX_ + 1) * (velocityGridResolutionY_ + 1) * sizeof ( vec2 );
+	}
+
+	return reinterpret_cast< void* >( ppVelocityField_ );	
 }

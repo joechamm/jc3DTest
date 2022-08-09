@@ -115,6 +115,9 @@ add_subdirectory(libs/jcCommonFramework)
 add_subdirectory(libs/jcVkFramework)
 add_subdirectory(libs/jcGLframework)
 
+# Fluid sim
+add_subdirectory(libs/jcFluidSim)
+
 target_sources(jcVkFramework PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/extern/src/glslang/StandAlone/ResourceLimits.cpp)
 
 add_subdirectory(src/apps/jc3DCh02_Assimp)
@@ -155,3 +158,6 @@ add_subdirectory(src/apps/jc3DCh08_GL04_HDR_Adaptation)
 add_subdirectory(src/apps/jc3DCh08_VK01_ShadowMapping)
 add_subdirectory(src/apps/jc3DCh08_VK02_SSAO)
 add_subdirectory(src/apps/jc3DCh08_VK03_HDR)
+
+# Fluid sim 
+add_subdirectory(src/apps/jcEigenFluids)
