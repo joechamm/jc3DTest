@@ -6,11 +6,18 @@ constexpr float kEnergyMaximum = 1000.0f;
 constexpr float kEnergyEpsilon = 0.00001f;
 constexpr float kDomainMargin = 0.0001f;
 
-FluidSolver::FluidSolver()
+FluidSolver::FluidSolver(uint32_t basisDimension, uint32_t velocityGridResolutionX, uint32_t velocityGridResolutionY) :
+	basisDimension_(basisDimension)
+	, velocityGridResolutionX_(velocityGridResolutionX)
+	, velocityGridResolutionY_(velocityGridResolutionY)
 {
 	float viscCoarse = static_cast< float >( viscCoarse_ );
 	float viscFine = static_cast< float >( viscFine_ );
 	viscosity_ = ( viscCoarse + viscFine / 200.0f ) / 500.0f;
+	
+	oldBasisDimension_ = basisDimension;
+	
+	basisDimensionSqrt_ = static_cast< int >( glm::floor ( sqrtf ( static_cast< float >( basisDimension ) ) ) );
 
 	initFields ();
 	fillLookupTables ();
@@ -112,7 +119,7 @@ void FluidSolver::createLookupTables()
 
 	for (int k1 = 0; k1 < basisDimensionSqrt_ + 1; k1++)
 	{
-		for (int k2 = 0; k2 < basisDimensionSqrt_ + 1; k2) 
+		for (int k2 = 0; k2 < basisDimensionSqrt_ + 1; k2++) 
 		{
 			ppBasisReverseLookupTable_ [ k1 ][ k2 ] = -1;
 		}
@@ -260,8 +267,8 @@ void FluidSolver::precomputeDynamics()
 	{
 		ivec2 idxK = basisLookup ( k );
 
-//		float eigenvalue = static_cast< float >( idxK.x * idxK.x + idxK.y * idxK.y ); // eigenvalue for this domain is the sum of the squares of the basis indices
-		float eigenvalue = static_cast< float >( glm::dot ( idxK, idxK ) );
+		float eigenvalue = static_cast< float >( idxK.x * idxK.x + idxK.y * idxK.y ); // eigenvalue for this domain is the sum of the squares of the basis indices
+//		float eigenvalue = static_cast< float >( glm::dot ( idxK, idxK ) );
 		pEigenvalues_ [ k ] = eigenvalue;
 		pEigenvaluesInverse_ [ k ] = 1.0f / eigenvalue;
 		pEigenvaluesInverseRoot_[k] = 1.0f / sqrtf(eigenvalue);
@@ -271,15 +278,15 @@ void FluidSolver::precomputeDynamics()
 	{
 		ivec2 idxA = basisLookup ( d1 );
 
-//		float eigenvalueA = static_cast< float >( idxA.x * idxA.x + idxA.y * idxA.y );
-		float eigenvalueA = static_cast< float >( glm::dot ( idxA, idxA ) );
+		float eigenvalueA = static_cast< float >( idxA.x * idxA.x + idxA.y * idxA.y );
+//		float eigenvalueA = static_cast< float >( glm::dot ( idxA, idxA ) );
 
 		for ( int d2 = 0; d2 < basisDimension_; d2++ )
 		{
 			ivec2 idxB = basisLookup ( d2 );
 
-//			float eigenvalueB = static_cast< float >( idxB.x * idxB.x + idxB.y * idxB.y );
-			float eigenvalueB = static_cast< float >( glm::dot ( idxB, idxB ) );
+			float eigenvalueB = static_cast< float >( idxB.x * idxB.x + idxB.y * idxB.y );
+//			float eigenvalueB = static_cast< float >( glm::dot ( idxB, idxB ) );
 			float inverseEigenvalB = 1.0f / eigenvalueB;
 
 			int k1 = basisReverseLookup ( idxA );
@@ -330,13 +337,13 @@ void FluidSolver::basisFieldRect2d(const ivec2& k, float amplitude, vec2** vBasi
 
 	if ( k.x != 0 )
 	{
-//		scaleX = - 1.0f / static_cast< float >( k.x * k.x + k.y * k.y );
-		scaleX = -1.0f / static_cast< float >( glm::dot ( k, k ) );
+		scaleX = - 1.0f / static_cast< float >( k.x * k.x + k.y * k.y );
+//		scaleX = -1.0f / static_cast< float >( glm::dot ( k, k ) );
 	}
 	if ( k.y != 0 )
 	{
-//		scaleY = - 1.0f / static_cast< float >( k.x * k.x + k.y * k.y );
-		scaleY = -1.0f / static_cast< float >( glm::dot ( k, k ) );
+		scaleY = - 1.0f / static_cast< float >( k.x * k.x + k.y * k.y );
+//		scaleY = -1.0f / static_cast< float >( glm::dot ( k, k ) );
 	}
 	
 	float dx = domainWidth_ / static_cast< float >( velocityGridResolutionX_ );
@@ -586,13 +593,13 @@ Eigen::VectorXf FluidSolver::projectForces(const vector<vec4>& forcePath)
 
 		if ( idxK.x != 0 )
 		{
-//			xfact = 1.0f / static_cast< float >( idxK.x * idxK.x + idxK.y * idxK.y );
-			xfact = 1.0f / static_cast< float >( glm::dot ( idxK, idxK ) );
+			xfact = 1.0f / static_cast< float >( idxK.x * idxK.x + idxK.y * idxK.y );
+//			xfact = 1.0f / static_cast< float >( glm::dot ( idxK, idxK ) );
 		}
 		if ( idxK.y != 0 )
 		{
-//			yfact = 1.0f / static_cast< float >( idxK.x * idxK.x + idxK.y + idxK.y );
-			yfact = 1.0f / static_cast< float >( glm::dot ( idxK, idxK ) );
+			yfact = 1.0f / static_cast< float >( idxK.x * idxK.x + idxK.y + idxK.y );
+//			yfact = 1.0f / static_cast< float >( glm::dot ( idxK, idxK ) );
 		}
 
 		for(const auto& forcePathPoint : forcePath)
@@ -645,11 +652,13 @@ Eigen::VectorXf FluidSolver::projectDirectForce(const vec2& unitPos, const vec2&
 
 		if ( idxK.x != 0 )
 		{
-			xfact = -1.0f / static_cast< float >( glm::dot ( idxK, idxK ) );
+			xfact = -1.0f / static_cast< float >( idxK.x * idxK.x + idxK.y * idxK.y );
+//			xfact = -1.0f / static_cast< float >( glm::dot ( idxK, idxK ) );
 		}
 		if ( idxK.y != 0 )
 		{
-			yfact = -1.0f / static_cast< float >( glm::dot ( idxK, idxK ) );
+			yfact = -1.0f / static_cast< float >( idxK.x * idxK.x + idxK.y * idxK.y );
+//			yfact = -1.0f / static_cast< float >( glm::dot ( idxK, idxK ) );
 		}
 
 		float x = forcePos.x;

@@ -69,7 +69,7 @@ class FluidSolver
 	mat3 gridToUnitTransform_ = mat3 ( 1.0f );
 
 public:
-	FluidSolver();
+	FluidSolver(uint32_t basisDimension = 36, uint32_t velocityGridResolutionX = 36, uint32_t velocityGridResolutionY = 36);
 	~FluidSolver();
 
 	// initialization
