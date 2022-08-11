@@ -172,35 +172,50 @@ inline VkDescriptorSetLayoutBinding descriptorSetLayoutBinding ( uint32_t bindin
 
 inline VkWriteDescriptorSet bufferWriteDescriptorSet ( VkDescriptorSet ds, const VkDescriptorBufferInfo* bi, uint32_t bindIdx, VkDescriptorType dType )
 {
-	return VkWriteDescriptorSet{
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.pNext = nullptr,
-		.dstSet = ds,
-		.dstBinding = bindIdx,
-		.dstArrayElement = 0,
-		.descriptorCount = 1,
-		.descriptorType = dType,
-		.pImageInfo = nullptr,
-		.pBufferInfo = bi,
-		.pTexelBufferView = nullptr
+	return VkWriteDescriptorSet { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr,
+		ds, bindIdx, 0, 1, dType, nullptr, bi, nullptr
 	};
 }
 
-inline VkWriteDescriptorSet imageWriteDescriptorSet ( VkDescriptorSet ds, const VkDescriptorImageInfo* ii, uint32_t bindIndex )
+inline VkWriteDescriptorSet imageWriteDescriptorSet ( VkDescriptorSet ds, const VkDescriptorImageInfo* ii, uint32_t bindIdx )
 {
-	return VkWriteDescriptorSet{
-		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-		.pNext = nullptr,
-		.dstSet = ds,
-		.dstBinding = bindIndex,
-		.dstArrayElement = 0,
-		.descriptorCount = 1,
-		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.pImageInfo = ii,
-		.pBufferInfo = nullptr,
-		.pTexelBufferView = nullptr
+	return VkWriteDescriptorSet { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr,
+		ds, bindIdx, 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 
+		ii, nullptr, nullptr
 	};
 }
+
+//inline VkWriteDescriptorSet bufferWriteDescriptorSet ( VkDescriptorSet ds, const VkDescriptorBufferInfo* bi, uint32_t bindIdx, VkDescriptorType dType )
+//{
+//		return VkWriteDescriptorSet{
+//			.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+//			.pNext = nullptr,
+//			.dstSet = ds,
+//			.dstBinding = bindIdx,
+//			.dstArrayElement = 0,
+//			.descriptorCount = 1,
+//			.descriptorType = dType,
+//			.pImageInfo = nullptr,
+//			.pBufferInfo = bi,
+//			.pTexelBufferView = nullptr
+//		};
+//}
+
+//inline VkWriteDescriptorSet imageWriteDescriptorSet ( VkDescriptorSet ds, const VkDescriptorImageInfo* ii, uint32_t bindIndex )
+//{
+//	return VkWriteDescriptorSet{
+//		.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+//		.pNext = nullptr,
+//		.dstSet = ds,
+//		.dstBinding = bindIndex,
+//		.dstArrayElement = 0,
+//		.descriptorCount = 1,
+//		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+//		.pImageInfo = ii,
+//		.pBufferInfo = nullptr,
+//		.pTexelBufferView = nullptr
+//	};
+//}
 
 void createInstance ( VkInstance* instance );
 void createInstanceWithDebugging ( VkInstance* instance, const char* appName = "jc3DTest Vulkan Application" );

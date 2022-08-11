@@ -71,14 +71,18 @@ struct VulkanRenderContext
 	std::vector<VkFramebuffer> swapchainFramebuffers_;
 	std::vector<VkFramebuffer> swapchainFramebuffers_NoDepth_;
 	
-	VulkanRenderContext(void* window, uint32_t screenWidth, uint32_t screenHeight) 
-		: ctxCreator_(vk_, vkDev_, window, screenWidth, screenHeight)
+	VulkanRenderContext(void* window, uint32_t screenWidth, uint32_t screenHeight, const VulkanContextFeatures& ctxFeatures = VulkanContextFeatures()) 
+		: ctxCreator_(vk_, vkDev_, window, screenWidth, screenHeight, ctxFeatures)
 		, resources_(vkDev_)
-		, depthTexture_(resources_.addDepthTexture(0, 0, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL))
+
+		, depthTexture_(resources_.addDepthTexture(vkDev_.framebufferWidth, vkDev_.framebufferHeight, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL))
+
 		, screenRenderPass_(resources_.addFullScreenPass())
 		, screenRenderPass_NoDepth_(resources_.addFullScreenPass(false))
+
 		, finalRenderPass_(resources_.addFullScreenPass(true, RenderPassCreateInfo { .clearColor_ = false, .clearDepth_ = false, .flags_ = eRenderPassBit_Last }))
 		, clearRenderPass_(resources_.addFullScreenPass(true, RenderPassCreateInfo { .clearColor_ = true, .clearDepth_ = true, .flags_ = eRenderPassBit_First }))
+		
 		, swapchainFramebuffers_(resources_.addFramebuffers(screenRenderPass_.handle_, depthTexture_.image.imageView))
 		, swapchainFramebuffers_NoDepth_(resources_.addFramebuffers(screenRenderPass_NoDepth_.handle_))
 	{
@@ -87,6 +91,15 @@ struct VulkanRenderContext
 	void updateBuffers ( uint32_t imageIndex );
 	void beginRenderPass ( VkCommandBuffer cmdBuffer, VkRenderPass pass, size_t currentImage, const VkRect2D area, VkFramebuffer fb = VK_NULL_HANDLE, uint32_t clearValueCount = 0, const VkClearValue* clearValues = nullptr );
 	void composeFrame(VkCommandBuffer commandBuffer, uint32_t currentImage);
+
+	inline PipelineInfo pipelineParametersForOutputs ( const std::vector<VulkanTexture>& outputs ) const
+	{
+		return PipelineInfo {
+			.width_ = outputs.empty () ? vkDev_.framebufferWidth : outputs [ 0 ].width,
+			.height_ = outputs.empty () ? vkDev_.framebufferHeight : outputs [ 0 ].height,
+			.useBlending_ = false
+		};
+	}
 };
 
 struct VulkanApp
@@ -105,9 +118,9 @@ protected:
 	FramesPerSecondCounter fpsCounter_;
 	
 public:
-	VulkanApp ( int screenWidth, int screenHeight )
+	VulkanApp ( int screenWidth, int screenHeight, const VulkanContextFeatures& ctxFeatures = VulkanContextFeatures() )
 		: window_ ( initVulkanApp ( screenWidth, screenHeight, &resolution_ ) )
-		, ctx_ ( window_, resolution_.width, resolution_.height )
+		, ctx_ ( window_, resolution_.width, resolution_.height, ctxFeatures )
 		, onScreenRenderers_ ( ctx_.onScreenRenderers_ )
 	{
 		glfwSetWindowUserPointer ( window_, this );
