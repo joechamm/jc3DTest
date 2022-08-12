@@ -20,7 +20,7 @@ public:
 	}
 };
 
-struct ShaderOptimalDepthBarrier : public Renderer
+struct ShaderOptimalToDepthBarrier : public Renderer
 {
 private:
 	VulkanTexture tex_;
@@ -31,7 +31,7 @@ public:
 		, tex_ ( tex )
 	{}
 
-	void fillCommandBuffer ( VkCommandBuffer cmdBuffer, size_t currentImage, VkFramebuffer fb = VK_NULL_HANDLE, VulkanRenderPass rp = VK_NULL_HANDLE ) override
+	void fillCommandBuffer ( VkCommandBuffer cmdBuffer, size_t currentImage, VkFramebuffer fb = VK_NULL_HANDLE, VkRenderPass rp = VK_NULL_HANDLE ) override
 	{
 		transitionImageLayoutCmd ( cmdBuffer, tex_.image.image, tex_.format, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL );
 	}
@@ -47,7 +47,7 @@ public:
 		: Renderer(c)
 		, tex_(tex) {}
 
-	void fillCommandBuffer ( VkCommandBuffer cmdBuffer, size_t currentImage, VkFramebuffer fb = VK_NULL_HANDLE, VulkanRenderPass rp = VK_NULL_HANDLE ) override
+	void fillCommandBuffer ( VkCommandBuffer cmdBuffer, size_t currentImage, VkFramebuffer fb = VK_NULL_HANDLE, VkRenderPass rp = VK_NULL_HANDLE ) override
 	{
 		transitionImageLayoutCmd ( cmdBuffer, tex_.image.image, tex_.format, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 	}
@@ -64,7 +64,7 @@ public:
 		, tex_ ( tex )
 	{}
 
-	void fillCommandBuffer ( VkCommandBuffer cmdBuffer, size_t currentImage, VkFramebuffer fb = VK_NULL_HANDLE, VulkanRenderPass rp = VK_NULL_HANDLE ) override
+	void fillCommandBuffer ( VkCommandBuffer cmdBuffer, size_t currentImage, VkFramebuffer fb = VK_NULL_HANDLE, VkRenderPass rp = VK_NULL_HANDLE ) override
 	{
 		transitionImageLayoutCmd ( cmdBuffer, tex_.image.image, tex_.format, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 	}
@@ -81,7 +81,7 @@ public:
 		, tex_ ( tex )
 	{}
 
-	void fillCommandBuffer ( VkCommandBuffer cmdBuffer, size_t currentImage, VkFramebuffer fb = VK_NULL_HANDLE, VulkanRenderPass rp = VK_NULL_HANDLE ) override
+	void fillCommandBuffer ( VkCommandBuffer cmdBuffer, size_t currentImage, VkFramebuffer fb = VK_NULL_HANDLE, VkRenderPass rp = VK_NULL_HANDLE ) override
 	{
 		transitionImageLayoutCmd ( cmdBuffer, tex_.image.image, tex_.format, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL );
 	}

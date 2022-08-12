@@ -39,18 +39,14 @@ void QuadRenderer::fillCommandBuffer ( VkCommandBuffer cmdBuffer, size_t current
 {
 	if ( quads_.empty () ) return;
 
-	bool hasRP = rp != VK_NULL_HANDLE;
-	bool hasFB = fb != VK_NULL_HANDLE;
-	beginRenderPass ( hasRP ? rp : renderPass_.handle_, hasFB ? fb : framebuffer_, cmdBuffer, currentImage );
+	beginRenderPass ( (rp != VK_NULL_HANDLE) ? rp : renderPass_.handle_, (fb != VK_NULL_HANDLE) ? fb : framebuffer_, cmdBuffer, currentImage);
 	vkCmdDraw ( cmdBuffer, static_cast<uint32_t>(quads_.size ()), 1, 0, 0 );
 	vkCmdEndRenderPass ( cmdBuffer );
 }
 
 void QuadRenderer::updateBuffers ( size_t currentImage )
 {
-	if ( quads_.empty () ) return;
-
-	uploadBufferData ( ctx_.vkDev_, storages_[currentImage].memory, 0, quads_.data (), quads_.size () * sizeof ( VertexData ) );
+	if ( !quads_.empty () ) uploadBufferData ( ctx_.vkDev_, storages_[currentImage].memory, 0, quads_.data (), quads_.size () * sizeof ( VertexData ) );
 }
 
 void QuadRenderer::quad(float x1, float y1, float x2, float y2, int texIdx) 
