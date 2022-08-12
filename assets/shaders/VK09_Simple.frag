@@ -1,0 +1,19 @@
+//
+#version 460
+
+layout (location = 0) in vec3 v_worldNormal;
+layout (location = 1) in vec4 v_worldPosition;
+
+layout (location = 0) out vec4 outColor;
+
+void main()
+{
+	// world-space normal 
+	vec3 n = normalize(v_worldNormal);
+
+	vec3 lightDir = normalize(vec3(-1.0, 1.0, -1.0));
+
+	float NdotL = clamp(dot(n, lightDir), 0.3, 1.0);
+
+	outColor = vec4(vec3(1.0, 1.0, 1.0) * NdotL, 1.0);
+}

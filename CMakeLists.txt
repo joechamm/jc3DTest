@@ -73,8 +73,10 @@ include_directories(extern/src/stb)
 include_directories(extern/src/glslang)
 include_directories(extern/src/glslang/StandAlone)
 include_directories(extern/src/glslang/src)
+include_directories(extern/src/bullet/src)
 include_directories(extern/src/ImGuizmo)
 
+add_subdirectory(extern/cmake/bullet)
 add_subdirectory(extern/src/ImGuizmo)
 
 set(GLAD_SOURCES extern/src/glad/src/gl.c extern/src/glad/src/vulkan.c)
@@ -158,6 +160,7 @@ add_subdirectory(src/apps/jc3DCh08_GL04_HDR_Adaptation)
 add_subdirectory(src/apps/jc3DCh08_VK01_ShadowMapping)
 add_subdirectory(src/apps/jc3DCh08_VK02_SSAO)
 add_subdirectory(src/apps/jc3DCh08_VK03_HDR)
+add_subdirectory(src/apps/jc3DCh09_VK01_Physics)
 
 # Fluid sim 
 add_subdirectory(src/apps/jcEigenFluids)
