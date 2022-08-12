@@ -108,7 +108,7 @@ public:
 				.baseVertex_ = data.shapes_ [ i ].vertexOffset,
 				.baseInstance_ = data.shapes_ [ i ].materialIndex + ( uint32_t ( i ) << 16 )
 			};
-			matrices [ i ] = data.scene_.globalTransform_ [ data.shapes_ [ i ].transformIndex ];
+			matrices [ i ] = data.scene_.globalTransforms_ [ data.shapes_ [ i ].transformIndex ];
 		}
 
 		bufferIndirect_.uploadIndirectBuffer ();

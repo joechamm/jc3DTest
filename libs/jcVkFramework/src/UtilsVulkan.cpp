@@ -626,12 +626,17 @@ void createInstanceWithReportDebugging ( VkInstance* instance, const char* appNa
 	
 	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {};
 	debugCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-#ifdef _DEBUG
+#ifdef _VERBOSE
 	debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
 	debugCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 #else 
-	debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-	debugCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT;
+	#ifdef _DEBUG
+		debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
+		debugCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+	#else 
+		debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+		debugCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT;
+	#endif
 #endif
 	debugCreateInfo.pfnUserCallback = VulkanDebugCallback;
 	createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
@@ -2015,10 +2020,15 @@ VulkanContextCreator::VulkanContextCreator ( VulkanInstance& vk, VulkanRenderDev
 //	createInstanceWithDebugging ( &vk.instance );
 	createInstanceWithReportDebugging ( &vk.instance );
 
-	if ( !setupAlternateDebugMessengerAndReportCallbacks ( vk.instance, &vk.messenger, &vk.reportCallback ) )
+	if ( !setupDebugMessengerAndReportCallbacks ( &vk.instance, &vk.messenger, &vk.reportCallback ) )
 	{
 		exit ( 0 );
 	}
+
+	//if ( !setupAlternateDebugMessengerAndReportCallbacks ( vk.instance, &vk.messenger, &vk.reportCallback ) )
+	//{
+	//	exit ( 0 );
+	//}
 
 	//if ( !setupDebugCallbacks ( vk.instance, &vk.messenger ) )
 	//{

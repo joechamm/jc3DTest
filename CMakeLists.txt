@@ -161,6 +161,13 @@ add_subdirectory(src/apps/jc3DCh08_VK01_ShadowMapping)
 add_subdirectory(src/apps/jc3DCh08_VK02_SSAO)
 add_subdirectory(src/apps/jc3DCh08_VK03_HDR)
 add_subdirectory(src/apps/jc3DCh09_VK01_Physics)
+add_subdirectory(src/apps/jc3DCh10_GL01_CullingCPU)
+add_subdirectory(src/apps/jc3DCh10_GL02_CullingGPU)
+add_subdirectory(src/apps/jc3DCh10_GL03_OITransparency)
+add_subdirectory(src/apps/jc3DCh10_GL04_LazyLoading)
+add_subdirectory(src/apps/jc3DCh10_GL05_Final)
+add_subdirectory(src/apps/jc3DCh10_VK01_AtomicsTest)
+add_subdirectory(src/apps/jc3DCh10_VK02_Final)
 
 # Fluid sim 
 add_subdirectory(src/apps/jcEigenFluids)

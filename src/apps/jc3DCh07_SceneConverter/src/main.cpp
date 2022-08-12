@@ -873,18 +873,20 @@ void mergeBistro ()
 
 int main ()
 {
-	fs::create_directory ( appendToRoot ( "assets/out_textures" ).c_str());
+//	fs::create_directory ( appendToRoot ( "assets/out_textures" ).c_str());
 //	const auto configs = readConfigFile ( appendToRoot ( "assets/sceneconverter.json" ).c_str());
-	const auto configs = readConfigFileAppendToRoot ( appendToRoot ( "assets/sceneconverter.json" ).c_str () );
-	for ( const auto& cfg : configs )
-	{
-#ifdef _DEBUG
-		printf ( "Converting '%s'\n", cfg.filename.c_str () );
-		printf ( "OutputScene: %s\nOutputMesh: %s\nOutputMaterials: %s\n", cfg.outputScene.c_str (), cfg.outputMesh.c_str (), cfg.outputMaterials.c_str () );
-#endif
+//	const auto configs = readConfigFileAppendToRoot ( appendToRoot ( "assets/sceneconverter.json" ).c_str () );
+//	for ( const auto& cfg : configs )
+//	{
+//#ifdef _DEBUG
+//		printf ( "Converting '%s'\n", cfg.filename.c_str () );
+//		printf ( "OutputScene: %s\nOutputMesh: %s\nOutputMaterials: %s\n", cfg.outputScene.c_str (), cfg.outputMesh.c_str (), cfg.outputMaterials.c_str () );
+//#endif
 		
-		processSceneAndSave ( cfg );
-	}
+//		processSceneAndSave ( cfg );
+//	}
+
+	mergeBistro ();
 
 	// Final step: optimize bistro scene
 	return 0;
