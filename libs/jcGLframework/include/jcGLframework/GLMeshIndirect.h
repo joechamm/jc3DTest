@@ -79,6 +79,7 @@ public:
 		glCreateVertexArrays ( 1, &vao_ );
 		glVertexArrayElementBuffer ( vao_, bufferIndices_.getHandle () );
 		glVertexArrayVertexBuffer ( vao_, 0, bufferVertices_.getHandle (), 0, sizeof ( vec3 ) + sizeof ( vec3 ) + sizeof ( vec2 ) );
+		
 		// position
 		glEnableVertexArrayAttrib ( vao_, 0 );
 		glVertexArrayAttribFormat ( vao_, 0, 3, GL_FLOAT, GL_FALSE, 0 );
