@@ -1,6 +1,6 @@
 #version 460 core 
 
-layout (location = 0) out vec4 out_FragColor;
+layout (location = 0) out vec2 out_FragColor;
 
 layout (std140, binding = 0) uniform PerFrameData 
 {
@@ -30,11 +30,11 @@ void main()
 	float T = texelFetch(TemperatureTexture, TC, 0).r;
 	vec2 V = texelFetch(VelocityTexture, TC, 0).xy;
 
-	out_FragColor = vec4(V, 0.0, 1.0);
+	out_FragColor = V;
 
 	if(T > ambientTemperature)
 	{
 		float D = texelFetch(DensityTexture, TC, 0).x;
-		out_FragColor += (timeStep * (T - ambientTemperature) * sigma - D * kappa) * vec4(0.0, 1.0, 0.0, 0.0);
+		out_FragColor += (timeStep * (T - ambientTemperature) * sigma - D * kappa) * vec2(0, 1);
 	}
 }

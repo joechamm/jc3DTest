@@ -1,6 +1,6 @@
 #version 460 core 
 
-layout (location = 0) out vec4 out_FragColor;
+layout (location = 0) out vec3 out_FragColor;
 
 layout (std140, binding = 0) uniform PerFrameData 
 {
@@ -22,5 +22,5 @@ layout (std140, binding = 0) uniform PerFrameData
 
 void main()
 {
-	out_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+	out_FragColor = vec3(1, 0, 0);
 }

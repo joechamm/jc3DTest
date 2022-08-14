@@ -1,6 +1,6 @@
 #version 460 core 
 
-layout (location = 0) out vec4 out_FragColor;
+layout (location = 0) out float out_FragColor;
 
 layout (std140, binding = 0) uniform PerFrameData 
 {
@@ -45,6 +45,5 @@ void main()
 	if(oE.x > 0) vE = oE.yz;
 	if(oW.x > 0) vW = oW.yz;
 
-	float val = halfInverseCellSize * (vE.x - vW.x + vN.y - vS.y);
-	out_FragColor = vec4(val, val, val, 1.0);
+	out_FragColor = halfInverseCellSize * (vE.x - vW.x + vN.y - vS.y);
 }	

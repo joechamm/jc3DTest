@@ -21,8 +21,10 @@ using glm::vec2;
 //constexpr uint32_t g_FramebufferWidth = 512;
 //constexpr uint32_t g_FramebufferHeight = 512;
 
-constexpr uint32_t g_ViewportWidth = 480;
-constexpr uint32_t g_ViewportHeight = 853;
+bool g_DrawEyeball = false;
+
+constexpr uint32_t g_ViewportWidth = 1024;
+constexpr uint32_t g_ViewportHeight = 1024;
 
 constexpr uint32_t g_GridWidth = g_ViewportWidth / 2;
 constexpr uint32_t g_GridHeight = g_ViewportHeight / 2;
@@ -215,8 +217,13 @@ bool CreateObstacles ( GLuint prog, uint32_t width, uint32_t height, GLFramebuff
 	if(dest == nullptr)
 		return false;
 
-	glClearNamedFramebufferfv(dest->getHandle(), GL_COLOR, 0, glm::value_ptr(vec4(0.0f, 0.0f, 0.0f, 0.0f)));
-	dest->bind ();
+	glBindFramebuffer ( GL_FRAMEBUFFER, dest->getHandle () );
+	glViewport ( 0, 0, width, height );
+	glClearColor ( 0.0f, 0.0f, 0.0f, 0.0f );
+	glClear ( GL_COLOR_BUFFER_BIT );
+
+//	glClearNamedFramebufferfv(dest->getHandle(), GL_COLOR, 0, glm::value_ptr(vec4(0.0f, 0.0f, 0.0f, 0.0f)));
+//	dest->bind ();
 
 	glUseProgram ( prog );
 
@@ -249,7 +256,7 @@ bool CreateObstacles ( GLuint prog, uint32_t width, uint32_t height, GLFramebuff
 	{
 		const int slices = 64;
 		std::vector<vec4> positions ( slices * 3 );
-		float twopi = 2.0f * glm::pi<float> ();
+		constexpr float twopi = 2.0f * glm::pi<float> ();
 		float theta = 0.0f;
 		float dtheta = twopi / static_cast< float >( slices - 1 );
 		for ( int i = 0; i < slices; i++ )
@@ -280,7 +287,10 @@ bool ClearSurface ( GLFramebuffer* surfaceFramebuffer, float v )
 {
 	if(surfaceFramebuffer == nullptr) return false;
 
-	glClearNamedFramebufferfv ( surfaceFramebuffer->getHandle (), GL_COLOR, 0, glm::value_ptr ( vec4(v, v, v, v )) );
+//	glClearNamedFramebufferfv ( surfaceFramebuffer->getHandle (), GL_COLOR, 0, glm::value_ptr ( vec4(v, v, v, v )) );
+	glBindFramebuffer ( GL_FRAMEBUFFER, surfaceFramebuffer->getHandle () );
+	glClearColor ( v, v, v, v );
+	glClear ( GL_COLOR_BUFFER_BIT );
 
 	return true;
 }
@@ -408,6 +418,10 @@ int main ()
 		[] ( GLFWwindow* window, int key, int scancode, int action, int mods )
 		{
 			const bool pressed = action != GLFW_RELEASE;
+			if ( key == GLFW_KEY_SPACE )
+			{
+				g_DrawEyeball = pressed;
+			}
 			if ( key == GLFW_KEY_ESCAPE && pressed )
 				glfwSetWindowShouldClose ( window, GLFW_TRUE );
 		}
@@ -438,6 +452,9 @@ int main ()
 	GLShader shdSetup ( appendToRoot ( "assets/shaders/FluidSetup.frag" ).c_str () );
 	GLProgram progSetup ( shdVert, shdSetup );
 
+	GLShader shdRendImg ( appendToRoot ( "assets/shaders/FluidRenderImage.frag" ).c_str () );
+	GLProgram progRenderImg ( shdVert, shdRendImg );
+
 	const GLsizeiptr kUniformBufferSize = sizeof ( PerFrameData );
 	
 	GLBuffer perFrameDataBuffer ( kUniformBufferSize, nullptr, GL_DYNAMIC_STORAGE_BIT );
@@ -453,7 +470,7 @@ int main ()
 
 	CreateObstacles ( progSetup.getHandle(), g_GridWidth, g_GridHeight, &obstaclesFramebuffer );
 
-	GLFramebuffer hiresObstaclesFramebuffer ( g_HiresViewportWidth, g_HiresViewportHeight, GL_R16F, 0 );
+	GLFramebuffer hiresObstaclesFramebuffer ( g_HiresViewportWidth, g_HiresViewportHeight, g_UseHalfFloats ? GL_R16F : GL_R32F, 0 );
 
 	CreateObstacles ( progSetup.getHandle(), g_HiresViewportWidth, g_HiresViewportHeight, &hiresObstaclesFramebuffer );
 
@@ -475,6 +492,8 @@ int main ()
 
 	GLBuffer squarePositionsBuffer ( sqPosBufSize, squarePositions.data(), 0);
 	GLBuffer squareIndicesBuffer ( sqIndBufSize, indices.data(), 0);
+
+	GLTexture eyeBallTexture ( GL_TEXTURE_2D, appendToRoot ( "assets/images/eyeball.bmp" ) );
 			
 	GLuint vao;
 	glCreateVertexArrays ( 1, &vao );
@@ -576,6 +595,13 @@ int main ()
 		perFrameData.fillColor = vec3 ( 0.125f, 0.4f, 0.75f );
 		glNamedBufferSubData ( perFrameDataBuffer.getHandle (), 0, sizeof ( perFrameData ), &perFrameData );
 		glDrawElements ( GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr );
+
+		if ( g_DrawEyeball )
+		{
+			glBindTextureUnit ( 12, eyeBallTexture.getHandle () );
+			progRenderImg.useProgram ();
+			glDrawElements ( GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr );
+		}
 
 		glDisable ( GL_BLEND );		
 

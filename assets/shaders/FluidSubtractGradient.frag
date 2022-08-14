@@ -1,6 +1,6 @@
 #version 460 core 
 
-layout (location = 0) out vec4 out_FragColor;
+layout (location = 0) out vec2 out_FragColor;
 
 layout (std140, binding = 0) uniform PerFrameData 
 {
@@ -31,7 +31,7 @@ void main()
 	vec3 oC = texelFetch(ObstaclesTexture, T, 0).xyz;
 	if(oC.x > 0) 
 	{
-		out_FragColor = vec4(oC.yz, 0.0, 0.0);
+		out_FragColor = oC.yz;
 		return;
 	}
 
@@ -61,5 +61,5 @@ void main()
 	vec2 oldV = texelFetch(VelocityTexture, T, 0).xy;
 	vec2 grad = vec2(pE - pW, pN - pS) * gradientScale;
 	vec2 newV = oldV - grad;
-	out_FragColor = vec4((vMask * newV) + obstV, 0.0, 0.0);
+	out_FragColor = (vMask * newV) + obstV;
 }

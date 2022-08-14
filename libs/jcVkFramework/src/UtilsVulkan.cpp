@@ -2020,7 +2020,7 @@ VulkanContextCreator::VulkanContextCreator ( VulkanInstance& vk, VulkanRenderDev
 //	createInstanceWithDebugging ( &vk.instance );
 	createInstanceWithReportDebugging ( &vk.instance );
 
-	if ( !setupDebugMessengerAndReportCallbacks ( &vk.instance, &vk.messenger, &vk.reportCallback ) )
+	if ( !setupDebugMessengerAndReportCallbacks ( vk.instance, &vk.messenger, &vk.reportCallback ) )
 	{
 		exit ( 0 );
 	}
