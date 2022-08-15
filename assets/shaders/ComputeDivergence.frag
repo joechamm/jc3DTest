@@ -2,26 +2,10 @@
 
 layout (location = 0) out float out_FragColor;
 
-layout (std140, binding = 0) uniform PerFrameData 
-{
-	vec3 fillColor;
-	vec2 inverseSize;
-	vec2 scale;
-	vec2 point;
-	float timeStep;
-	float dissipation;
-	float alpha;
-	float inverseBeta;
-	float gradientScale;
-	float halfInverseCellSize;
-	float radius;
-	float ambientTemperature;
-	float sigma;
-	float kappa;
-};
+layout (binding = 0) uniform sampler2D VelocityTexture;
+layout (binding = 2) uniform sampler2D ObstaclesTexture;
 
-layout (binding = 5) uniform sampler2D VelocityTexture;
-layout (binding = 7) uniform sampler2D ObstaclesTexture;
+layout (location = 0) uniform float HalfInverseCellSize;
 
 void main()
 {
@@ -45,5 +29,5 @@ void main()
 	if(oE.x > 0) vE = oE.yz;
 	if(oW.x > 0) vW = oW.yz;
 
-	out_FragColor = halfInverseCellSize * (vE.x - vW.x + vN.y - vS.y);
+	out_FragColor = HalfInverseCellSize * (vE.x - vW.x + vN.y - vS.y);
 }	

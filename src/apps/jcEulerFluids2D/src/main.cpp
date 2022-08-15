@@ -55,23 +55,16 @@ constexpr float g_VelocityDissipation = 0.99f;
 constexpr float g_DensityDissipation = 0.9999f;
 constexpr vec2 g_ImpulsePosition = vec2 ( g_GridWidth / 2, -g_SplatRadius / 2 );
 
-struct PerFrameData
-{
-	vec3 fillColor = vec3(g_ImpulseTemperature);
-	vec2 inverseSize = vec2(1.0f / g_GridWidth, 1.0f / g_GridHeight);
-	vec2 scale = vec2(1.0f / g_ViewportWidth, 1.0f / g_ViewportHeight);
-	vec2 point = vec2(0.0f);
-	float timeStep = g_TimeStep;
-	float dissipation = g_VelocityDissipation;
-	float alpha = -g_CellSize * g_CellSize;
-	float inverseBeta = 0.25f;
-	float gradientScale = g_GradientScale;
-	float halfInverseCellSize = 0.5f / g_CellSize;
-	float radius = g_SplatRadius;
-	float ambientTemperature = g_AmbientTemperature;
-	float sigma = g_SmokeBuoyancy;
-	float kappa = g_SmokeWeight;
-} perFrameData;
+GLuint g_VisualizeHandle = 0;
+GLuint g_AdvectHandle = 0;
+GLuint g_BuoyancyHandle = 0;
+GLuint g_ComputeDivergenceHandle = 0;
+GLuint g_FillHandle = 0;
+GLuint g_JacobiHandle = 0;
+GLuint g_SubtractGradientHandle = 0;
+GLuint g_SplatHandle = 0;
+
+GLuint g_QuadVAO = 0;
 
 struct MouseState
 {
@@ -84,6 +77,35 @@ struct Slab
 	std::unique_ptr<GLFramebuffer> ping_;
 	std::unique_ptr<GLFramebuffer> pong_;
 };
+
+GLuint CreateQuad ()
+{
+	short positions [] = {
+		-1, -1,
+		1, -1,
+		-1, 1,
+		1, 1
+	};
+
+	// Create the vao
+	GLuint vao;
+	glGenVertexArrays ( 1, &vao );
+	glBindVertexArray ( vao );
+
+	// Create the vbo 
+	GLuint vbo;
+	GLsizeiptr size = sizeof ( positions );
+	glGenBuffers ( 1, &vbo );
+	glBindBuffer ( GL_ARRAY_BUFFER, vbo );
+	glBufferData ( GL_ARRAY_BUFFER, size, positions, GL_STATIC_DRAW );
+
+	// Set up the vertex layout:
+	GLsizeiptr stride = 2 * sizeof ( positions [ 0 ] );
+	glEnableVertexAttribArray ( 0 );
+	glVertexAttribPointer ( 0, 2, GL_SHORT, GL_FALSE, stride, 0 );
+	
+	return vao;
+}
 
 Slab CreateSlab ( uint32_t width, uint32_t height, uint32_t numComponents )
 {
@@ -148,70 +170,6 @@ void SwapSurfaces ( Slab* slab )
 	std::swap ( slab->ping_, slab->pong_ );
 }
 
-//
-//bool CreateObstacles ( uint32_t width, uint32_t height, GLProgram* fillProgram, GLFramebuffer* fillFramebuffer )
-//{
-//	if(fillProgram == nullptr || fillFramebuffer == nullptr)
-//		return false;
-//
-//	glClearNamedFramebufferfv ( fillFramebuffer->getHandle (), GL_COLOR, 0, glm::value_ptr ( vec4(0.0f, 0.0f, 0.0f, 0.0f )) );
-//
-//	fillFramebuffer->bind ();
-//
-//	GLuint fillVAO;
-//	glCreateVertexArrays ( 1, &fillVAO );
-//	glEnableVertexArrayAttrib ( fillVAO, 0 );
-//	glVertexArrayAttribFormat ( fillVAO, 0, 4, GL_FLOAT, GL_FALSE, 0 );
-//	glVertexArrayAttribBinding ( fillVAO, 0, 0 );
-//
-//	if ( g_DrawBorder )
-//	{		
-//		const vec4 positions [ 5 ] = {
-//			vec4 ( -g_BorderTrim, -g_BorderTrim, 0.0f, 1.0f ),
-//			vec4 ( g_BorderTrim, -g_BorderTrim, 0.0f, 1.0f ),
-//			vec4 ( g_BorderTrim, g_BorderTrim, 0.0f, 1.0f ),
-//			vec4 ( -g_BorderTrim, g_BorderTrim, 0.0f, 1.0f ),
-//			vec4 ( -g_BorderTrim, -g_BorderTrim, 0.0f, 1.0f )
-//		};
-//
-//		const GLsizeiptr posBufSize = sizeof ( positions );
-//		GLBuffer trimFillBuffer(posBufSize, glm::value_ptr(positions[0]), GL_STATIC_DRAW);
-//		glVertexArrayVertexBuffer(fillVAO, 0, trimFillBuffer.getHandle(), 0, sizeof(vec4));
-//		
-//		glBindVertexArray ( fillVAO );
-//		fillProgram->useProgram ();
-//		glDrawArrays ( GL_LINE_STRIP, 0, 5 );		
-//	}
-//	
-//	if ( g_DrawCircle )
-//	{
-//		const int slices = 64;
-//		vec4 positions [ slices * 3 ];
-//		float twopi = 8 * atanf ( 1.0f );
-//		float theta = 0.0f;
-//		float dtheta = twopi / ( float ) ( slices - 1 );		
-//		for ( int i = 0; i < slices; i++ )
-//		{
-//			positions[i * 3 + 0] = vec4 ( 0.0f, 0.0f, 0.0f, 1.0f );
-//			positions[i * 3 + 1] = vec4(0.25f * cosf(theta) * height / width, 0.25f * sinf(theta), 0.0f, 1.0f);
-//			positions [ i * 3 + 2 ] = vec4 ( 0.25f * cosf ( theta ) * height / width, 0.25f * sinf ( theta ), 0.0f, 1.0f );		
-//		}
-//
-//		const GLsizeiptr posBufSize = sizeof ( positions );
-//		GLBuffer circleFillBuffer ( posBufSize, glm::value_ptr(positions[0]), GL_STATIC_DRAW);
-//		glVertexArrayVertexBuffer(fillVAO, 0, circleFillBuffer.getHandle(), 0, sizeof(vec4));
-//		
-//		glBindVertexArray ( fillVAO );
-//		fillProgram->useProgram ();
-//		glDrawArrays ( GL_TRIANGLES, 0, slices * 3 );
-//	}
-//	
-//	fillFramebuffer->unbind ();
-//	glDeleteVertexArrays ( 1, &fillVAO );	
-//	
-//	return true;
-//}
-
 bool CreateObstacles ( GLuint prog, uint32_t width, uint32_t height, GLFramebuffer* dest )
 {
 	if(dest == nullptr)
@@ -222,9 +180,6 @@ bool CreateObstacles ( GLuint prog, uint32_t width, uint32_t height, GLFramebuff
 	glClearColor ( 0.0f, 0.0f, 0.0f, 0.0f );
 	glClear ( GL_COLOR_BUFFER_BIT );
 
-//	glClearNamedFramebufferfv(dest->getHandle(), GL_COLOR, 0, glm::value_ptr(vec4(0.0f, 0.0f, 0.0f, 0.0f)));
-//	dest->bind ();
-
 	glUseProgram ( prog );
 
 	GLuint vao;
@@ -233,21 +188,18 @@ bool CreateObstacles ( GLuint prog, uint32_t width, uint32_t height, GLFramebuff
 
 	if ( g_DrawBorder )
 	{
-		std::vector<vec4> positions = {
-			vec4 ( -g_BorderTrim, -g_BorderTrim, 0.0f, 1.0f ),
-			vec4 ( g_BorderTrim, -g_BorderTrim, 0.0f, 1.0f ),
-			vec4 ( g_BorderTrim,  g_BorderTrim, 0.0f, 1.0f ),
-			vec4 ( -g_BorderTrim,  g_BorderTrim, 0.0f, 1.0f ),
-			vec4 ( -g_BorderTrim, -g_BorderTrim, 0.0f, 1.0f )
-		};
+#define T 0.9999f
+		float positions [] = { -T, -T, T, -T, T, T, -T, T, -T, -T };
+#undef T
 
-		const GLsizeiptr posBufSize = sizeof ( vec4 ) * positions.size ();
 		GLuint vbo;
+		GLsizeiptr size = sizeof ( positions );
 		glGenBuffers ( 1, &vbo );
 		glBindBuffer ( GL_ARRAY_BUFFER, vbo );
-		glBufferData ( GL_ARRAY_BUFFER, posBufSize, positions.data (), GL_STATIC_DRAW );
+		glBufferData ( GL_ARRAY_BUFFER, size, positions, GL_STATIC_DRAW );
+		GLsizeiptr stride = 2 * sizeof ( positions [ 0 ] );
 		glEnableVertexAttribArray ( 0 );
-		glVertexAttribPointer ( 0, 4, GL_FLOAT, GL_FALSE, sizeof ( vec4 ), nullptr );
+		glVertexAttribPointer ( 0, 2, GL_FLOAT, GL_FALSE, stride, 0 );
 		glDrawArrays ( GL_LINE_STRIP, 0, 5 );
 		glDeleteBuffers ( 1, &vbo );
 	}
@@ -255,25 +207,32 @@ bool CreateObstacles ( GLuint prog, uint32_t width, uint32_t height, GLFramebuff
 	if ( g_DrawCircle )
 	{
 		const int slices = 64;
-		std::vector<vec4> positions ( slices * 3 );
-		constexpr float twopi = 2.0f * glm::pi<float> ();
+		float positions [ slices * 2 * 3 ];
+		float twopi = 8 * atanf ( 1.0f );
 		float theta = 0.0f;
-		float dtheta = twopi / static_cast< float >( slices - 1 );
+		float dtheta = twopi / ( float ) ( slices - 1 );
+		float* pPositions = &positions [ 0 ];
 		for ( int i = 0; i < slices; i++ )
 		{
-			positions [ 3 * i + 0 ] = vec4 ( 0.0f, 0.0f, 0.0f, 1.0f );
-			positions [ 3 * i + 1 ] = vec4 ( 0.25f * cosf ( theta ) * height / width, 0.25f * sinf ( theta ), 0.0f, 1.0f );
+			*pPositions++ = 0;
+			*pPositions++ = 0;
+			
+			*pPositions++ = 0.25f * cosf ( theta ) * height / width;
+			*pPositions++ = 0.25f * sinf ( theta );
 			theta += dtheta;
-			positions [ 3 * i + 2 ] = vec4 ( 0.25f * cosf ( theta ) * height / width, 0.25f * sinf ( theta ), 0.0f, 1.0f );
-		}
 
-		const GLsizeiptr posBufSize = sizeof ( vec4 ) * positions.size ();
+			*pPositions++ = 0.25f * cosf ( theta ) * height / width;
+			*pPositions++ = 0.25f * sinf ( theta );
+		}
+		
 		GLuint vbo;
+		GLsizeiptr size = sizeof ( positions );
 		glGenBuffers ( 1, &vbo );
 		glBindBuffer ( GL_ARRAY_BUFFER, vbo );
-		glBufferData ( GL_ARRAY_BUFFER, posBufSize, positions.data (), GL_STATIC_DRAW );
+		glBufferData ( GL_ARRAY_BUFFER, size, positions, GL_STATIC_DRAW );
+		GLsizeiptr stride = 2 * sizeof(positions[0]);
 		glEnableVertexAttribArray ( 0 );
-		glVertexAttribPointer ( 0, 4, GL_FLOAT, GL_FALSE, sizeof ( vec4 ), nullptr );
+		glVertexAttribPointer ( 0, 2, GL_FLOAT, GL_FALSE, stride, nullptr );
 		glDrawArrays ( GL_TRIANGLES, 0, slices * 3 );
 		glDeleteBuffers ( 1, &vbo );		
 	}
@@ -295,96 +254,167 @@ bool ClearSurface ( GLFramebuffer* surfaceFramebuffer, float v )
 	return true;
 }
 
-void Advect ( GLuint prog, GLuint ubo, GLuint velocityTex, GLuint sourceTex, GLuint obstaclesTex, GLFramebuffer* destFramebuffer, float dissipation )
+void Advect ( GLuint prog, GLuint quadVAO, GLuint velocityTex, GLuint sourceTex, GLuint obstaclesTex, GLFramebuffer* destFramebuffer, float dissipation )
 {
-	perFrameData.dissipation = dissipation;
-	glNamedBufferSubData ( ubo, 0, sizeof ( perFrameData ), &perFrameData );	
+	glBindVertexArray ( quadVAO );
 
 	glUseProgram ( prog );
 
-	destFramebuffer->bind ();
-	glBindTextureUnit ( 5, velocityTex );
-	glBindTextureUnit ( 6, sourceTex );
-	glBindTextureUnit ( 7, obstaclesTex );
+	glUniform2f ( 0, 1.0f / g_GridWidth, 1.0f / g_GridHeight ); // inverse size
+	glUniform1f ( 1, g_TimeStep );  // time step
+	glUniform1f ( 2, dissipation ); // dissipation
 
-	// we assume that the global vertex array has been bound here
-	glDrawElements ( GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr );
+	destFramebuffer->bind ();
+	glBindTextureUnit ( 0, velocityTex );
+	glBindTextureUnit ( 1, sourceTex );
+	glBindTextureUnit ( 2, obstaclesTex );
+
+	glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
+
+	glBindTextureUnit ( 0, 0 );
+	glBindTextureUnit ( 1, 0 );
+	glBindTextureUnit ( 2, 0 );
 	destFramebuffer->unbind ();
 	glDisable ( GL_BLEND );
 }
 
-void Jacobi ( GLuint prog, GLuint pressureTex, GLuint divergenceTex, GLuint obstaclesTex, GLFramebuffer* destFramebuffer )
+void Jacobi ( GLuint prog, GLuint quadVAO, GLuint pressureTex, GLuint divergenceTex, GLuint obstaclesTex, GLFramebuffer* destFramebuffer )
 {
+	glBindVertexArray ( quadVAO );
+
 	glUseProgram ( prog );
 	
-	destFramebuffer->bind ();
-	glBindTextureUnit ( 8, pressureTex );
-	glBindTextureUnit ( 9, divergenceTex );
-	glBindTextureUnit ( 7, obstaclesTex );
-
-	// we assume that the global vertex array has been bound here
-	glDrawElements ( GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr );
-	destFramebuffer->unbind ();
-	glDisable ( GL_BLEND );
-}
-
-void SubtractGradient ( GLuint prog, GLuint velocityTex, GLuint pressureTex, GLuint obstaclesTex, GLFramebuffer* destFramebuffer )
-{
-	glUseProgram ( prog );
+	glUniform1f ( 0, -g_CellSize * g_CellSize ); // alpha
+	glUniform1f ( 1, 0.25f ); // inverse beta
 	
 	destFramebuffer->bind ();
-	glBindTextureUnit ( 5, velocityTex );
-	glBindTextureUnit ( 8, pressureTex );
-	glBindTextureUnit ( 7, obstaclesTex );
+	glBindTextureUnit ( 5, pressureTex );
+	glBindTextureUnit ( 6, divergenceTex );
+	glBindTextureUnit ( 2, obstaclesTex );
 
-	// we assume that the global vertex array has been bound here
-	glDrawElements ( GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr );
+	glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
+
+	glBindTextureUnit ( 5, 0 );
+	glBindTextureUnit ( 6, 0 );
+	glBindTextureUnit ( 2, 0 );
 	destFramebuffer->unbind ();
 	glDisable ( GL_BLEND );
 }
 
-void ComputeDivergence(GLuint prog, GLuint velocityTex, GLuint obstaclesTex, GLFramebuffer* destFramebuffer)
+void SubtractGradient ( GLuint prog, GLuint quadVAO, GLuint velocityTex, GLuint pressureTex, GLuint obstaclesTex, GLFramebuffer* destFramebuffer )
 {
+	glBindVertexArray ( quadVAO );
+
 	glUseProgram ( prog );
+
+	glUniform1f ( 0, g_GradientScale ); // gradient scale
 	
 	destFramebuffer->bind ();
-	glBindTextureUnit ( 5, velocityTex );
-	glBindTextureUnit ( 7, obstaclesTex );
+	glBindTextureUnit ( 0, velocityTex );
+	glBindTextureUnit ( 5, pressureTex );
+	glBindTextureUnit ( 2, obstaclesTex );
 
-	// we assume that the global vertex array has been bound here
-	glDrawElements ( GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr );
+	glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
+
+	glBindTextureUnit ( 0, 0 );
+	glBindTextureUnit ( 5, 0 );
+	glBindTextureUnit ( 2, 0 );
+
 	destFramebuffer->unbind ();
 	glDisable ( GL_BLEND );
 }
 
-void ApplyImpulse ( GLuint prog, GLuint ubo, const vec2& position, float value, GLFramebuffer* destFramebuffer )
+void ComputeDivergence(GLuint prog, GLuint quadVAO, GLuint velocityTex, GLuint obstaclesTex, GLFramebuffer* destFramebuffer)
 {
-	perFrameData.point = position;
-	perFrameData.fillColor = vec3 ( value, value, value );
+	glBindVertexArray ( quadVAO );
+	
+	glUseProgram ( prog );
 
-	glNamedBufferSubData(ubo, 0, sizeof(perFrameData), &perFrameData);
+	glUniform1f(0, 0.5f / g_CellSize); // half inverse cell size
+	
+	destFramebuffer->bind ();
+	glBindTextureUnit ( 0, velocityTex );
+	glBindTextureUnit ( 2, obstaclesTex );
+
+	glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
+
+	glBindTextureUnit ( 0, 0 );
+	glBindTextureUnit ( 2, 0 );
+
+	destFramebuffer->unbind ();
+	glDisable ( GL_BLEND );
+}
+
+void ApplyImpulse ( GLuint prog, GLuint quadVAO, const vec2& position, float value, GLFramebuffer* destFramebuffer )
+{
+	glBindVertexArray ( quadVAO );
 
 	glUseProgram ( prog );
+
+	glUniform2f ( 0, position.x, position.y ); // Point
+	glUniform1f ( 1, g_SplatRadius ); // Radius
+	glUniform3f ( 2, value, value, value );  // Fill Color
 
 	destFramebuffer->bind ();
 	glEnable ( GL_BLEND );
-	glDrawElements ( GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr );
+	
+	glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
+
 	destFramebuffer->unbind ();
 	glDisable ( GL_BLEND );	
 }
 
-void ApplyBuoyancy(GLuint prog, GLuint velocityTex, GLuint temperatureTex, GLuint densityTex, GLFramebuffer* destFramebuffer)
+void ApplyBuoyancy(GLuint prog, GLuint quadVAO, GLuint velocityTex, GLuint temperatureTex, GLuint densityTex, GLFramebuffer* destFramebuffer)
 {
+	glBindVertexArray ( quadVAO );
+
 	glUseProgram ( prog );
+
+	glUniform1f ( 0, g_AmbientTemperature ); // Ambient Temperature
+	glUniform1f ( 1, g_TimeStep ); // Time Step
+	glUniform1f ( 2, g_SmokeBuoyancy ); // Sigma
+	glUniform1f ( 3, g_SmokeWeight ); // Kappa 
 	
 	destFramebuffer->bind ();
-	glBindTextureUnit ( 5, velocityTex );
-	glBindTextureUnit ( 10, temperatureTex );
-	glBindTextureUnit ( 11, densityTex );
+	glBindTextureUnit ( 0, velocityTex );
+	glBindTextureUnit ( 3, temperatureTex );
+	glBindTextureUnit ( 4, densityTex );
 
-	// we assume that the global vertex array has been bound here
-	glDrawElements ( GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr );
+	glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
+
+	glBindTextureUnit ( 0, 0 );
+	glBindTextureUnit ( 3, 0 );
+	glBindTextureUnit ( 4, 0 );
+
 	destFramebuffer->unbind ();
+	glDisable ( GL_BLEND );
+}
+
+void RenderQuad ( GLuint prog, GLuint quadVAO, GLuint densityTex, GLuint hiresObsTex )
+{
+	glBindVertexArray ( quadVAO );
+	
+	glUseProgram ( prog );
+
+	glEnable ( GL_BLEND );
+
+	glViewport ( 0, 0, g_ViewportWidth, g_ViewportHeight );
+	glBindFramebuffer ( GL_FRAMEBUFFER, 0 );
+	glClearColor ( 0.0f, 0.0f, 0.0f, 1.0f );
+	glClear ( GL_COLOR_BUFFER_BIT );
+
+	// Draw ink;
+	glBindTextureUnit ( 7, densityTex );
+	glUniform2f ( 0, 1.0f / g_ViewportWidth, 1.0f / g_ViewportHeight ); // Scale 
+	glUniform3f(1, 1.0f, 1.0f, 1.0f); // Fill Color
+	glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
+
+	// Draw obstacles;
+	glBindTextureUnit ( 7, hiresObsTex );
+	glUniform3f(1, 0.125f, 0.4f, 0.75f); // Fill Color
+	glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
+
+	// disable blending
 	glDisable ( GL_BLEND );
 }
 
@@ -427,38 +457,49 @@ int main ()
 		}
 	);
 	
-	GLShader shdVert ( appendToRoot ( "assets/shaders/FluidRender.vert" ).c_str () );
-	GLShader shdFrag ( appendToRoot ( "assets/shaders/FluidRender.frag" ).c_str () );
+	GLShader shdVert ( appendToRoot ( "assets/shaders/Visualize.vert" ).c_str () );
+	GLShader shdFrag ( appendToRoot ( "assets/shaders/Visualize.frag" ).c_str () );
 	GLProgram progRender ( shdVert, shdFrag );
 
-	GLShader shdAdvect ( appendToRoot ( "assets/shaders/FluidAdvect.frag" ).c_str () );
+	g_VisualizeHandle = progRender.getHandle ();
+
+	GLShader shdAdvect ( appendToRoot ( "assets/shaders/Advect.frag" ).c_str () );
 	GLProgram progAdvect ( shdVert, shdAdvect );
 
-	GLShader shdDivergence ( appendToRoot ( "assets/shaders/FluidDivergence.frag" ).c_str () );
+	g_AdvectHandle = progAdvect.getHandle ();
+
+	GLShader shdDivergence ( appendToRoot ( "assets/shaders/ComputeDivergence.frag" ).c_str () );
 	GLProgram progDivergence ( shdVert, shdDivergence );
 
-	GLShader shdGradient ( appendToRoot ( "assets/shaders/FluidSubtractGradient.frag" ).c_str () );
+	g_ComputeDivergenceHandle = progDivergence.getHandle ();
+
+	GLShader shdGradient ( appendToRoot ( "assets/shaders/SubtractGradient.frag" ).c_str () );
 	GLProgram progGradient ( shdVert, shdGradient );
 
-	GLShader shdJacobi( appendToRoot ( "assets/shaders/FluidJacobi.frag" ).c_str () );
+	g_SubtractGradientHandle = progGradient.getHandle ();
+
+	GLShader shdJacobi( appendToRoot ( "assets/shaders/Jacobi.frag" ).c_str () );
 	GLProgram progJacobi ( shdVert, shdJacobi );
+
+	g_JacobiHandle = progJacobi.getHandle ();
 	
-	GLShader shdImpulse ( appendToRoot ( "assets/shaders/FluidImpulse.frag" ).c_str () );
+	GLShader shdImpulse ( appendToRoot ( "assets/shaders/Splat.frag" ).c_str () );
 	GLProgram progImpulse ( shdVert, shdImpulse );
 
-	GLShader shdBouyancy ( appendToRoot ( "assets/shaders/FluidBouyancy.frag" ).c_str () );
-	GLProgram progBouyancy ( shdVert, shdBouyancy );
+	g_SplatHandle = progImpulse.getHandle ();
 
-	GLShader shdSetup ( appendToRoot ( "assets/shaders/FluidSetup.frag" ).c_str () );
+	GLShader shdBuoyancy ( appendToRoot ( "assets/shaders/Buoyancy.frag" ).c_str () );
+	GLProgram progBuoyancy ( shdVert, shdBuoyancy );
+
+	g_BuoyancyHandle = progBuoyancy.getHandle ();
+
+	GLShader shdSetup ( appendToRoot ( "assets/shaders/Fill.frag" ).c_str () );
 	GLProgram progSetup ( shdVert, shdSetup );
 
-	GLShader shdRendImg ( appendToRoot ( "assets/shaders/FluidRenderImage.frag" ).c_str () );
-	GLProgram progRenderImg ( shdVert, shdRendImg );
+	g_FillHandle = progSetup.getHandle ();
 
-	const GLsizeiptr kUniformBufferSize = sizeof ( PerFrameData );
-	
-	GLBuffer perFrameDataBuffer ( kUniformBufferSize, nullptr, GL_DYNAMIC_STORAGE_BIT );
-	glBindBufferRange ( GL_UNIFORM_BUFFER, 0, perFrameDataBuffer.getHandle (), 0, kUniformBufferSize );
+//	GLShader shdRendImg ( appendToRoot ( "assets/shaders/FluidRenderImage.frag" ).c_str () );
+//	GLProgram progRenderImg ( shdVert, shdRendImg );
 
 	Slab velocitySlab = CreateSlab ( g_GridWidth, g_GridHeight, 2 );
 	Slab densitySlab = CreateSlab ( g_GridWidth, g_GridHeight, 1 );
@@ -468,147 +509,86 @@ int main ()
 	GLFramebuffer divergenceFramebuffer ( g_GridWidth, g_GridHeight, g_UseHalfFloats ? GL_RGB16F : GL_RGB32F, 0 );
 	GLFramebuffer obstaclesFramebuffer ( g_GridWidth, g_GridHeight, g_UseHalfFloats ? GL_RGB16F : GL_RGB32F, 0 );
 
-	CreateObstacles ( progSetup.getHandle(), g_GridWidth, g_GridHeight, &obstaclesFramebuffer );
+	CreateObstacles ( g_FillHandle, g_GridWidth, g_GridHeight, &obstaclesFramebuffer );
 
 	GLFramebuffer hiresObstaclesFramebuffer ( g_HiresViewportWidth, g_HiresViewportHeight, g_UseHalfFloats ? GL_R16F : GL_R32F, 0 );
 
-	CreateObstacles ( progSetup.getHandle(), g_HiresViewportWidth, g_HiresViewportHeight, &hiresObstaclesFramebuffer );
+	CreateObstacles ( g_FillHandle, g_HiresViewportWidth, g_HiresViewportHeight, &hiresObstaclesFramebuffer );
+
+	g_QuadVAO = CreateQuad ();
+	
+	glBlendFunc ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
 	ClearSurface ( temperatureSlab.ping_.get(), g_AmbientTemperature);
 
-	std::vector<vec4> squarePositions = {
-		vec4 ( -1.0f, -1.0f, 0.0f, 1.0f ),
-		vec4 ( 1.0f, -1.0f, 0.0f, 1.0f ),
-		vec4 ( -1.0f, 1.0f, 0.0f, 1.0f ),
-		vec4 ( 1.0f, 1.0f, 0.0f, 1.0f )
-	};
-
-	std::vector<GLuint> indices = {
-		0, 1, 3, 3, 2, 0
-	};
-	
-	const GLsizeiptr sqPosBufSize = squarePositions.size() * sizeof (vec4);
-	const GLsizeiptr sqIndBufSize = indices.size() * sizeof (GLuint);
-
-	GLBuffer squarePositionsBuffer ( sqPosBufSize, squarePositions.data(), 0);
-	GLBuffer squareIndicesBuffer ( sqIndBufSize, indices.data(), 0);
-
-	GLTexture eyeBallTexture ( GL_TEXTURE_2D, appendToRoot ( "assets/images/eyeball.bmp" ) );
+//	GLTexture eyeBallTexture ( GL_TEXTURE_2D, appendToRoot ( "assets/images/eyeball.bmp" ) );
 			
-	GLuint vao;
-	glCreateVertexArrays ( 1, &vao );
-
-	glBindVertexArray ( vao );
-	glVertexArrayElementBuffer ( vao, squareIndicesBuffer.getHandle () );
-
-	glVertexArrayVertexBuffer ( vao, 0, squarePositionsBuffer.getHandle (), 0, 4 * sizeof ( vec4 ) );
-	
-	glEnableVertexArrayAttrib ( vao, 0 );
-	glVertexArrayAttribFormat ( vao, 0, 4, GL_FLOAT, GL_FALSE, 0 );
-	glVertexArrayAttribBinding ( vao, 0, 0 );
-
-	glBlendFunc ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-
 	while ( !glfwWindowShouldClose ( app.getWindow () ) )
 	{
 		// Update
 
-		if ( mouseState.pressedLeft )
-		{
-			perFrameData.point = mouseState.pos;
-			glNamedBufferSubData ( perFrameDataBuffer.getHandle (), 0, sizeof ( perFrameData ), &perFrameData );
-		}
-		
 		glViewport ( 0, 0, g_GridWidth, g_GridHeight );
 
-		glBindVertexArray ( vao );
-				
-		Advect ( progAdvect.getHandle (), perFrameDataBuffer.getHandle (),
-			velocitySlab.ping_->getTextureColor ().getHandle (),
-			velocitySlab.ping_->getTextureColor ().getHandle (),
-			obstaclesFramebuffer.getTextureColor ().getHandle (),
-			velocitySlab.pong_.get (),
-			g_VelocityDissipation );
+		GLuint velPingTex = velocitySlab.ping_->getTextureColor ().getHandle ();
+		GLuint obsTex = obstaclesFramebuffer.getTextureColor ().getHandle ();
+		GLuint tempPingTex = temperatureSlab.ping_->getTextureColor ().getHandle ();
+		GLuint densPingTex = densitySlab.ping_->getTextureColor ().getHandle ();
+		GLuint pressPingTex = pressureSlab.ping_->getTextureColor ().getHandle ();
+		GLuint divTex = divergenceFramebuffer.getTextureColor ().getHandle ();
+		GLuint hiresObsTex = hiresObstaclesFramebuffer.getTextureColor ().getHandle ();
+
+		// Advect velocity
+		Advect ( g_AdvectHandle, g_QuadVAO, velPingTex, velPingTex, obsTex, velocitySlab.pong_.get (), g_VelocityDissipation );						
 		SwapSurfaces ( &velocitySlab );
+		velPingTex = velocitySlab.ping_->getTextureColor ().getHandle ();
 		
-		Advect ( progAdvect.getHandle (), perFrameDataBuffer.getHandle (),
-			velocitySlab.ping_->getTextureColor ().getHandle (),
-			temperatureSlab.ping_->getTextureColor ().getHandle (),
-			obstaclesFramebuffer.getTextureColor ().getHandle (),
-			temperatureSlab.pong_.get (),
-			g_TemperatureDissipation );
+		// Advect temperature
+		Advect(g_AdvectHandle, g_QuadVAO, velPingTex, tempPingTex, obsTex, temperatureSlab.pong_.get (), g_TemperatureDissipation );
 		SwapSurfaces ( &temperatureSlab );
+		tempPingTex = temperatureSlab.ping_->getTextureColor ().getHandle ();
 
-		Advect ( progAdvect.getHandle (), perFrameDataBuffer.getHandle (),
-			velocitySlab.ping_->getTextureColor().getHandle(),
-			densitySlab.ping_->getTextureColor ().getHandle (),
-			obstaclesFramebuffer.getTextureColor ().getHandle (),
-			densitySlab.pong_.get (),
-			g_DensityDissipation );
+		// Advect density
+		Advect(g_AdvectHandle, g_QuadVAO, velPingTex, densPingTex, obsTex, densitySlab.pong_.get(), g_DensityDissipation );
 		SwapSurfaces ( &densitySlab );
-
-		ApplyBuoyancy ( progBouyancy.getHandle (), velocitySlab.ping_->getTextureColor ().getHandle (),
-			temperatureSlab.ping_->getTextureColor ().getHandle (),
-			densitySlab.ping_->getTextureColor ().getHandle (),
-			velocitySlab.pong_.get () );
-		SwapSurfaces ( &velocitySlab );
-
-		ApplyImpulse ( progImpulse.getHandle (), perFrameDataBuffer.getHandle (),
-			g_ImpulsePosition,
-			g_ImpulseTemperature,
-			temperatureSlab.ping_.get () );
-		ApplyImpulse ( progImpulse.getHandle (), perFrameDataBuffer.getHandle (),
-			g_ImpulsePosition,
-			g_ImpulseDensity,
-			densitySlab.ping_.get () );
-
-		ComputeDivergence ( progDivergence.getHandle (), velocitySlab.ping_->getTextureColor ().getHandle (), obstaclesFramebuffer.getTextureColor ().getHandle (), &divergenceFramebuffer );
-		ClearSurface ( pressureSlab.ping_.get (), 0.0f );
-
-		for ( int i = 0; i < g_NumJacobiIterations; ++i )
-		{
-			Jacobi(progJacobi.getHandle(), pressureSlab.ping_->getTextureColor().getHandle(), divergenceFramebuffer.getTextureColor().getHandle(), obstaclesFramebuffer.getTextureColor().getHandle(), pressureSlab.pong_.get());
-			SwapSurfaces ( &pressureSlab );
-		}
-
-		SubtractGradient(progGradient.getHandle(), velocitySlab.ping_->getTextureColor().getHandle(), pressureSlab.ping_->getTextureColor().getHandle(), obstaclesFramebuffer.getTextureColor().getHandle(), velocitySlab.pong_.get());
-		SwapSurfaces ( &velocitySlab );		
+		densPingTex = densitySlab.ping_->getTextureColor ().getHandle ();
 		
-		// Render
+		// Apply buoyancy
+		ApplyBuoyancy ( g_BuoyancyHandle, g_QuadVAO, velPingTex, tempPingTex, densPingTex, velocitySlab.pong_.get () );
+		SwapSurfaces ( &velocitySlab );
+		velPingTex = velocitySlab.ping_->getTextureColor ().getHandle ();
 
-		glViewport ( 0, 0, g_ViewportWidth, g_ViewportHeight );
-		progRender.useProgram ();
-		glEnable ( GL_BLEND );
-		glBindFramebuffer ( GL_FRAMEBUFFER, 0 );
-		glClearColor ( 0.0f, 0.0f, 0.0f, 1.0f );
-		glClear ( GL_COLOR_BUFFER_BIT );
+		// Apply impulse
+		ApplyImpulse ( g_SplatHandle, g_QuadVAO, g_ImpulsePosition, g_ImpulseTemperature, temperatureSlab.ping_.get () );
+		ApplyImpulse ( g_SplatHandle, g_QuadVAO, g_ImpulsePosition, g_ImpulseDensity, densitySlab.ping_.get () );
 
-		// draw ink
-		glBindTextureUnit ( 12, densitySlab.ping_->getTextureColor ().getHandle () );
-
-		perFrameData.fillColor = vec3 ( 1.0f, 1.0f, 1.0f );
-		perFrameData.scale = vec2 ( 1.0f / g_ViewportWidth, 1.0f / g_ViewportHeight );
-		glNamedBufferSubData ( perFrameDataBuffer.getHandle (), 0, sizeof ( perFrameData ), &perFrameData );
-		glDrawElements ( GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr );
-
-		glBindTextureUnit ( 12, hiresObstaclesFramebuffer.getTextureColor ().getHandle () );
-		perFrameData.fillColor = vec3 ( 0.125f, 0.4f, 0.75f );
-		glNamedBufferSubData ( perFrameDataBuffer.getHandle (), 0, sizeof ( perFrameData ), &perFrameData );
-		glDrawElements ( GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr );
-
-		if ( g_DrawEyeball )
+		// Compute divergence
+		ComputeDivergence ( g_ComputeDivergenceHandle, g_QuadVAO, velPingTex, obsTex, &divergenceFramebuffer );
+		divTex = divergenceFramebuffer.getTextureColor ().getHandle ();
+		
+		// Clear pressure
+		ClearSurface ( pressureSlab.ping_.get (), 0.0f );
+		pressPingTex = pressureSlab.ping_->getTextureColor ().getHandle ();
+		
+		// Jacobi iterations
+		for ( int i = 0; i < g_NumJacobiIterations; i++ )
 		{
-			glBindTextureUnit ( 12, eyeBallTexture.getHandle () );
-			progRenderImg.useProgram ();
-			glDrawElements ( GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr );
+			Jacobi ( g_JacobiHandle, g_QuadVAO, pressPingTex, divTex, obsTex, pressureSlab.pong_.get () );
+			SwapSurfaces ( &pressureSlab );
+			pressPingTex = pressureSlab.ping_->getTextureColor ().getHandle ();
 		}
 
-		glDisable ( GL_BLEND );		
+		// Subtract Gradient
+		SubtractGradient ( g_SubtractGradientHandle, g_QuadVAO, velPingTex, pressPingTex, obsTex, velocitySlab.pong_.get () );
+		SwapSurfaces ( &velocitySlab );
+		
+		densPingTex = densitySlab.ping_->getTextureColor ().getHandle ();
+		
+		RenderQuad ( g_VisualizeHandle, g_QuadVAO, densPingTex, hiresObsTex );
 
 		app.swapBuffers ();
 	}
 
-	glDeleteVertexArrays ( 1, &vao );
+	glDeleteVertexArrays ( 1, &g_QuadVAO );
 	
 	velocitySlab.ping_ = nullptr;
 	velocitySlab.pong_ = nullptr;
