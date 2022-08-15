@@ -55,6 +55,9 @@ float g_VelocityDissipation = 0.99f;
 float g_DensityDissipation = 0.9999f;
 vec2 g_ImpulsePosition = vec2 ( g_GridWidth / 2, -g_SplatRadius / 2 );
 
+bool g_DisplayTemp = false;
+bool g_DisplayVelocity = false;
+
 GLuint g_VisualizeHandle = 0;
 GLuint g_AdvectHandle = 0;
 GLuint g_BuoyancyHandle = 0;
@@ -454,6 +457,22 @@ int main ()
 			}
 			if ( key == GLFW_KEY_ESCAPE && pressed )
 				glfwSetWindowShouldClose ( window, GLFW_TRUE );
+			if ( key == GLFW_KEY_R && pressed )
+			{
+				g_SplatRadius = ( float ) g_GridWidth / 8.0f;
+				g_CellSize = 1.25f;
+				g_TimeStep = 0.125f;
+				g_AmbientTemperature = 0.0f;
+				g_ImpulseTemperature = 10.0f;
+				g_ImpulseDensity = 1.0f;
+				g_SmokeBuoyancy = 1.0f;
+				g_SmokeWeight = 0.05f;
+				g_GradientScale = 1.125f / g_CellSize;
+				g_TemperatureDissipation = 0.99f;
+				g_VelocityDissipation = 0.99f;
+				g_DensityDissipation = 0.9999f;
+				g_ImpulsePosition = vec2 ( g_GridWidth / 2, -g_SplatRadius / 2 );
+			}
 		}
 	);
 	
@@ -528,8 +547,11 @@ int main ()
 	while ( !glfwWindowShouldClose ( app.getWindow () ) )
 	{
 		// Update
-
-		glViewport ( 0, 0, g_GridWidth, g_GridHeight );
+		int width, height;
+		glfwGetFramebufferSize ( app.getWindow (), &width, &height );
+		
+//		glViewport ( 0, 0, g_GridWidth, g_GridHeight );
+		glViewport ( 0, 0, width, height );
 
 		GLuint velPingTex = velocitySlab.ping_->getTextureColor ().getHandle ();
 		GLuint obsTex = obstaclesFramebuffer.getTextureColor ().getHandle ();
@@ -587,30 +609,61 @@ int main ()
 		
 		RenderQuad ( g_VisualizeHandle, g_QuadVAO, densPingTex, hiresObsTex );
 
+		const float indentSize = 16.0f;
 		ImGuiIO& io = ImGui::GetIO ();
-		io.DisplaySize = ImVec2 ( ( float ) g_ViewportWidth, ( float ) g_ViewportHeight );
+		io.DisplaySize = ImVec2 ( ( float ) width, ( float ) height );
 		ImGui::NewFrame ();
 		ImGui::Begin ( "Control", nullptr );
+		ImGui::Text ( "Display:" );
+		ImGui::Indent ( indentSize );
+		ImGui::Checkbox ( "Display Temperature", &g_DisplayTemp );
+		ImGui::Checkbox ( "Display Velocity", &g_DisplayVelocity );
+		ImGui::Unindent ( indentSize );
+		ImGui::Separator ();
 		ImGui::Text ( "Jacobi Iterations:" );
+		ImGui::Indent ( indentSize );
 		ImGui::SliderInt ( "Count", &g_NumJacobiIterations, 10, 80 );
+		ImGui::Unindent ( indentSize );
+		ImGui::Separator ();
 		ImGui::Text ( "Temperatures:" );
+		ImGui::Indent ( indentSize );
 		ImGui::SliderFloat ( "Ambient Temperature", & g_AmbientTemperature, -10.0f, 10.0f );
-		ImGui::SliderFloat ( "Impulse Temperature", &g_ImpulseTemperature, 0.0f, 40.0f );		
+		ImGui::SliderFloat ( "Impulse Temperature", &g_ImpulseTemperature, 0.0f, 40.0f );
+		ImGui::Unindent ( indentSize );
+		ImGui::Separator ();
 		ImGui::Text ( "Smoke:" );
+		ImGui::Indent ( indentSize );
 		ImGui::SliderFloat ( "Smoke Buoyancy", &g_SmokeBuoyancy, 0.1f, 1.5f );
 		ImGui::SliderFloat ( "Smoke Weight", &g_SmokeWeight, 0.001f, 0.9f );
 		ImGui::SliderFloat ( "Impulse density", &g_ImpulseDensity, 0.1f, 9.9f );
+		ImGui::Unindent ( indentSize );
+		ImGui::Separator ();
 		ImGui::Text ( "Radius:" );
+		ImGui::Indent ( indentSize );
 		ImGui::SliderFloat ( "Splat radius:", &g_SplatRadius, 32.0f, 512.0f );
 		ImGui::SliderFloat ( "Gradient Scale", &g_GradientScale, 0.1f, 1.9f );
+		ImGui::Unindent ( indentSize );
+		ImGui::Separator ();
 		ImGui::Text ( "Dissipation" );
+		ImGui::Indent ( indentSize );
 		ImGui::SliderFloat ( "Temperature Dissipation", &g_TemperatureDissipation, 0.1f, 0.999999f );
 		ImGui::SliderFloat ( "Density Dissipation", &g_DensityDissipation, 0.1f, 0.999999f );
 		ImGui::SliderFloat ( "Velocity Dissipation", &g_VelocityDissipation, 0.1f, 0.999999f );
-		ImGui::SliderFloat2 ( "Impulse Position", glm::value_ptr ( g_ImpulsePosition ), -1024.0f, 1024.0f );
+//		ImGui::SliderFloat2 ( "Impulse Position", glm::value_ptr ( g_ImpulsePosition ), -1024.0f, 1024.0f );
+		ImGui::Unindent ( indentSize );
+		ImGui::Separator ();
 		ImGui::End ();
+		if ( g_DisplayTemp )
+		{
+			imguiTextureWindowGL ( "Temperature", temperatureSlab.ping_->getTextureColor ().getHandle () );
+		}
+		if ( g_DisplayVelocity )
+		{
+			imguiTextureWindowGL ( "Velocity", velocitySlab.ping_->getTextureColor ().getHandle () );
+		}
 		ImGui::Render ();
-		rendererUI.render ( g_ViewportWidth, g_ViewportHeight, ImGui::GetDrawData () );
+		rendererUI.render ( width, height, ImGui::GetDrawData () );
+	//	rendererUI.render ( g_ViewportWidth, g_ViewportHeight, ImGui::GetDrawData () );
 		
 
 		app.swapBuffers ();
