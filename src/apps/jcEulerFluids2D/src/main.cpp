@@ -32,7 +32,7 @@ constexpr uint32_t g_GridHeight = g_ViewportHeight / 2;
 constexpr uint32_t g_HiresViewportWidth = 2 * g_ViewportWidth;
 constexpr uint32_t g_HiresViewportHeight = 2 * g_ViewportHeight;
 
-constexpr uint32_t g_NumJacobiIterations = 40;
+int32_t g_NumJacobiIterations = 40;
 
 constexpr bool g_UseHalfFloats = true;
 
@@ -41,19 +41,19 @@ constexpr bool g_DrawCircle = true;
 
 constexpr float g_BorderTrim = 0.9999f;
 
-constexpr float g_SplatRadius = ( float ) g_GridWidth / 8.0f;
-constexpr float g_CellSize = 1.25f;
-constexpr float g_TimeStep = 0.125f;
-constexpr float g_AmbientTemperature = 0.0f;
-constexpr float g_ImpulseTemperature = 10.0f;
-constexpr float g_ImpulseDensity = 1.0f;
-constexpr float g_SmokeBuoyancy = 1.0f;
-constexpr float g_SmokeWeight = 0.05f;
-constexpr float g_GradientScale = 1.125f / g_CellSize;
-constexpr float g_TemperatureDissipation = 0.99f;
-constexpr float g_VelocityDissipation = 0.99f;
-constexpr float g_DensityDissipation = 0.9999f;
-constexpr vec2 g_ImpulsePosition = vec2 ( g_GridWidth / 2, -g_SplatRadius / 2 );
+float g_SplatRadius = ( float ) g_GridWidth / 8.0f;
+float g_CellSize = 1.25f;
+float g_TimeStep = 0.125f;
+float g_AmbientTemperature = 0.0f;
+float g_ImpulseTemperature = 10.0f;
+float g_ImpulseDensity = 1.0f;
+float g_SmokeBuoyancy = 1.0f;
+float g_SmokeWeight = 0.05f;
+float g_GradientScale = 1.125f / g_CellSize;
+float g_TemperatureDissipation = 0.99f;
+float g_VelocityDissipation = 0.99f;
+float g_DensityDissipation = 0.9999f;
+vec2 g_ImpulsePosition = vec2 ( g_GridWidth / 2, -g_SplatRadius / 2 );
 
 GLuint g_VisualizeHandle = 0;
 GLuint g_AdvectHandle = 0;
@@ -522,6 +522,8 @@ int main ()
 	ClearSurface ( temperatureSlab.ping_.get(), g_AmbientTemperature);
 
 //	GLTexture eyeBallTexture ( GL_TEXTURE_2D, appendToRoot ( "assets/images/eyeball.bmp" ) );
+	ImGuiGLRenderer rendererUI;
+	CanvasGL canvas;
 			
 	while ( !glfwWindowShouldClose ( app.getWindow () ) )
 	{
@@ -584,6 +586,32 @@ int main ()
 		densPingTex = densitySlab.ping_->getTextureColor ().getHandle ();
 		
 		RenderQuad ( g_VisualizeHandle, g_QuadVAO, densPingTex, hiresObsTex );
+
+		ImGuiIO& io = ImGui::GetIO ();
+		io.DisplaySize = ImVec2 ( ( float ) g_ViewportWidth, ( float ) g_ViewportHeight );
+		ImGui::NewFrame ();
+		ImGui::Begin ( "Control", nullptr );
+		ImGui::Text ( "Jacobi Iterations:" );
+		ImGui::SliderInt ( "Count", &g_NumJacobiIterations, 10, 80 );
+		ImGui::Text ( "Temperatures:" );
+		ImGui::SliderFloat ( "Ambient Temperature", & g_AmbientTemperature, -10.0f, 10.0f );
+		ImGui::SliderFloat ( "Impulse Temperature", &g_ImpulseTemperature, 0.0f, 40.0f );		
+		ImGui::Text ( "Smoke:" );
+		ImGui::SliderFloat ( "Smoke Buoyancy", &g_SmokeBuoyancy, 0.1f, 1.5f );
+		ImGui::SliderFloat ( "Smoke Weight", &g_SmokeWeight, 0.001f, 0.9f );
+		ImGui::SliderFloat ( "Impulse density", &g_ImpulseDensity, 0.1f, 9.9f );
+		ImGui::Text ( "Radius:" );
+		ImGui::SliderFloat ( "Splat radius:", &g_SplatRadius, 32.0f, 512.0f );
+		ImGui::SliderFloat ( "Gradient Scale", &g_GradientScale, 0.1f, 1.9f );
+		ImGui::Text ( "Dissipation" );
+		ImGui::SliderFloat ( "Temperature Dissipation", &g_TemperatureDissipation, 0.1f, 0.999999f );
+		ImGui::SliderFloat ( "Density Dissipation", &g_DensityDissipation, 0.1f, 0.999999f );
+		ImGui::SliderFloat ( "Velocity Dissipation", &g_VelocityDissipation, 0.1f, 0.999999f );
+		ImGui::SliderFloat2 ( "Impulse Position", glm::value_ptr ( g_ImpulsePosition ), -1024.0f, 1024.0f );
+		ImGui::End ();
+		ImGui::Render ();
+		rendererUI.render ( g_ViewportWidth, g_ViewportHeight, ImGui::GetDrawData () );
+		
 
 		app.swapBuffers ();
 	}
