@@ -154,9 +154,10 @@ public:
 			mouseState_.leftButtonPressed = pressed;
 	}
 
-	virtual void handleMouseMove ( float x, float y )
+	virtual void handleMouseMove ( float mx, float my )
 	{
-		mouseState_.pos = glm::vec2 ( x, y );
+		mouseState_.pos.x = mx;
+		mouseState_.pos.y = my;
 	}
 
 	inline float getFPS() const { return fpsCounter_.getFPS(); }
@@ -173,8 +174,8 @@ protected:
 	Camera camera_;
 
 public:
-	CameraApp ( int screenWidth, int screenHeight)
-		: VulkanApp ( screenWidth, screenHeight )
+	CameraApp ( int screenWidth, int screenHeight, const VulkanContextFeatures& ctxFeatures = VulkanContextFeatures())
+		: VulkanApp ( screenWidth, screenHeight, ctxFeatures )
 		, positioner_ ( vec3(0.0f, 5.0f, 10.0f), vec3(0.0f, 0.0f, - 1.0f), vec3(0.0f, -1.0f, 0.0f))
 		, camera_(positioner_)
 	{
@@ -182,7 +183,7 @@ public:
 		
 	virtual void update ( float dt ) override
 	{
-		positioner_.update ( dt, mouseState_.pos, shouldHandleMouse() && mouseState_.leftButtonPressed );
+		positioner_.update ( dt, mouseState_.pos, shouldHandleMouse() ? mouseState_.leftButtonPressed : false );
 	}
 	
 	virtual void handleKey ( int key, bool pressed ) override
@@ -195,10 +196,10 @@ public:
 		if ( key == GLFW_KEY_E ) positioner_.movement_.down_ = pressed;
 	}
 	
-	glm::mat4 getDefaultProjection() const
+	mat4 getDefaultProjection() const
 	{
 		const float ratio = ctx_.vkDev_.framebufferWidth / (float)ctx_.vkDev_.framebufferHeight;
-		return glm::perspective ( glm::pi<float> () / 4.0f, ratio, 0.1f, 1000.0f );
+		return glm::perspective ( 45.0f, ratio, 0.1f, 1000.0f );		
 	}
 };
 

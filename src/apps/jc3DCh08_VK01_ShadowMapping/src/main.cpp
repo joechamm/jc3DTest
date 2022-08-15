@@ -3,7 +3,6 @@
 #include <jcVkFramework/vkFramework/QuadRenderer.h>
 #include <jcVkFramework/vkFramework/GuiRenderer.h>
 #include <jcVkFramework/vkFramework/VulkanShaderProcessor.h>
-#include <jcVkFramework/vkFramework/InfinitePlaneRenderer.h>
 
 #include <jcCommonFramework/ResourceString.h>
 
