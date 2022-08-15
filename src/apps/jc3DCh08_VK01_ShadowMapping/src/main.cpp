@@ -161,7 +161,7 @@ public:
 		const mat4 lightProj = glm::perspective ( glm::radians ( g_LightAngle ), 1.0f, g_LightNear, g_LightFar );
 		const mat4 lightView = glm::lookAt ( vec3 ( lightPos ), vec3 ( 0.0f ), vec3 ( 0.0f, 1.0f, 0.0f ) );
 
-		renderCameraFrustrum ( canvas_, lightView, lightProj, vec4 ( 0.0f, 1.0f, 0.0f, 1.0f ) );
+		renderCameraFrustum ( canvas_, lightView, lightProj, vec4 ( 0.0f, 1.0f, 0.0f, 1.0f ) );
 		
 		const Uniforms uniDepth = {
 			.mvp = lightProj * lightView * m1,

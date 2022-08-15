@@ -188,8 +188,8 @@ int main ()
 			.numShapesToCull = g_EnableGPUCulling ? ( uint32_t ) sceneData.shapes_.size () : 0u
 		};
 
-		getFrustrumPlanes ( proj* g_CullingView, perFrameData.frustumPlanes );
-		getFrustrumCorners ( proj* g_CullingView, perFrameData.frustumCorners );
+		getFrustumPlanes ( proj* g_CullingView, perFrameData.frustumPlanes );
+		getFrustumCorners ( proj* g_CullingView, perFrameData.frustumCorners );
 
 		glNamedBufferSubData ( perFrameDataBuffer.getHandle (), 0, kUniformBufferSize, &perFrameData );
 
@@ -226,7 +226,7 @@ int main ()
 
 		if ( g_FreezeCullingView )
 		{
-			renderCameraFrustrumGL ( canvas, g_CullingView, proj, vec4 ( 1, 1, 0, 1 ), 100 );
+			renderCameraFrustumGL ( canvas, g_CullingView, proj, vec4 ( 1, 1, 0, 1 ), 100 );
 		}
 
 		canvas.flush ();

@@ -141,7 +141,7 @@ void drawBox3d(LineCanvas& canvas, const glm::mat4& m, const BoundingBox& box, c
 	drawBox3d_internal ( canvas, m * glm::translate ( glm::mat4 ( 1.0f ), 0.5f * (box.min_ + box.max_) ), 0.5f * vec3 ( box.max_ - box.min_ ), color );
 }
 
-void renderCameraFrustrum ( LineCanvas& C, const mat4& camView, const mat4& camProj, const vec4& camColor )
+void renderCameraFrustum ( LineCanvas& C, const mat4& camView, const mat4& camProj, const vec4& camColor )
 {
 	const vec3 corners[] = {
 		vec3 ( +1, -1, -1 ), vec3 ( +1, -1, +1 ),

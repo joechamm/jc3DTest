@@ -243,7 +243,7 @@ int main ()
 		progGrid.useProgram ();
 		glDrawArraysInstancedBaseInstance ( GL_TRIANGLES, 0, 6, 1, 0 );
 
-		renderCameraFrustrumGL ( canvas, lightView, lightProj, vec4 ( 0.0f, 1.0f, 0.0f, 1.0f ) );
+		renderCameraFrustumGL ( canvas, lightView, lightProj, vec4 ( 0.0f, 1.0f, 0.0f, 1.0f ) );
 		canvas.flush ();
 
 		ImGuiIO& io = ImGui::GetIO ();

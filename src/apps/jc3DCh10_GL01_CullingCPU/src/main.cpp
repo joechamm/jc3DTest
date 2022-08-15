@@ -158,10 +158,10 @@ int main ()
 		if ( !g_FreezeCullingView )
 			g_CullingView = camera.getViewMatrix ();
 
-		vec4 frustrumPlanes [ 6 ];
-		getFrustrumPlanes ( proj * g_CullingView, frustrumPlanes );
-		vec4 frustrumCorners [ 8 ];
-		getFrustrumCorners ( proj * g_CullingView, frustrumCorners );
+		vec4 frustumPlanes [ 6 ];
+		getFrustumPlanes ( proj * g_CullingView, frustumPlanes );
+		vec4 frustumCorners [ 8 ];
+		getFrustumCorners ( proj * g_CullingView, frustumCorners );
 
 		// cull
 		int numVisibleMeshes = 0;
@@ -169,7 +169,7 @@ int main ()
 			DrawElementsIndirectCommand* cmd = mesh.bufferIndirect_.drawCommands_.data ();
 			for ( const auto& c : sceneData.shapes_ )
 			{
-				cmd->instanceCount_ = isBoxInFrustrum ( frustrumPlanes, frustrumCorners, sceneData.meshData_.boxes_ [ c.meshIndex ] ) ? 1 : 0;
+				cmd->instanceCount_ = isBoxInFrustum ( frustumPlanes, frustumCorners, sceneData.meshData_.boxes_ [ c.meshIndex ] ) ? 1 : 0;
 				numVisibleMeshes += ( cmd++ )->instanceCount_;
 			}
 
@@ -208,7 +208,7 @@ int main ()
 
 		if ( g_FreezeCullingView )
 		{
-			renderCameraFrustrumGL ( canvas, g_CullingView, proj, vec4 ( 1, 1, 0, 1 ), 100 );
+			renderCameraFrustumGL ( canvas, g_CullingView, proj, vec4 ( 1, 1, 0, 1 ), 100 );
 		}
 
 		canvas.flush ();
@@ -222,7 +222,7 @@ int main ()
 		ImGui::Checkbox ( "Boxes", &g_DrawBoxes );
 		ImGui::Checkbox("Grid", &g_DrawGrid );
 		ImGui::Separator ();
-		ImGui::Checkbox ( "Freeze culling frustrum (P)", &g_FreezeCullingView );
+		ImGui::Checkbox ( "Freeze culling frustum (P)", &g_FreezeCullingView );
 		ImGui::Separator ();
 		ImGui::Text ( "Visible meshes: %i", numVisibleMeshes );
 		ImGui::End ();

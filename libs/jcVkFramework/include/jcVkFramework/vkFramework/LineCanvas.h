@@ -55,5 +55,5 @@ public:
 };
 
 void drawBox3d(LineCanvas& canvas, const glm::mat4& m, const BoundingBox& box, const glm::vec4& color);
-void renderCameraFrustrum(LineCanvas& canvas, const glm::mat4& camView, const glm::mat4& camProj, const glm::vec4& camColor);
+void renderCameraFrustum(LineCanvas& canvas, const glm::mat4& camView, const glm::mat4& camProj, const glm::vec4& camColor);
 #endif // !__LINE_CANVAS_H__

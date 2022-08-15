@@ -149,7 +149,7 @@ public:
 	}
 };
 
-inline void renderCameraFrustrumGL ( CanvasGL& canvas, const mat4& camView, const mat4& camProj, const vec4& color, int numSegments = 1 )
+inline void renderCameraFrustumGL ( CanvasGL& canvas, const mat4& camView, const mat4& camProj, const vec4& color, int numSegments = 1 )
 {
 	using glm::normalize;
 
