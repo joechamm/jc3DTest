@@ -15,7 +15,9 @@ target_compile_features(jc3DCh10_VK02_Final PUBLIC cxx_std_20)
 
 target_sources(jc3DCh10_VK02_Final 
 	PUBLIC
+	${CMAKE_CURRENT_SOURCE_DIR}/src/FinalRenderer.h
 	PRIVATE
+	${CMAKE_CURRENT_SOURCE_DIR}/src/FinalRenderer.cpp 
 	${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
 target_include_directories(jc3DCh10_VK02_Final PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
