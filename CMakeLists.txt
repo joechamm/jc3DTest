@@ -172,3 +172,4 @@ add_subdirectory(src/apps/jc3DCh10_VK02_Final)
 # Fluid sim 
 add_subdirectory(src/apps/jcEigenFluids)
 add_subdirectory(src/apps/jcEulerFluids2D)
+add_subdirectory(src/apps/jcEulerFluids3D)
