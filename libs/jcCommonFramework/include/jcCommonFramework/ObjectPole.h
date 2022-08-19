@@ -19,19 +19,6 @@ class MousePole;
 class ObjectPole
 {
 public:
-	/*enum class eActionButtons : uint8_t
-	{
-		eActionButton_Left = 0x01,
-		eActionButton_Middle = 0x02,
-		eActionButton_Right = 0x04
-	};*/
-
-	enum class eButtonState : uint8_t
-	{
-		eButtonState_Up = 0x01,
-		eButtonState_Down = 0x02
-	};
-
 	enum eAxis : uint8_t
 	{
 		eAxis_X = 0,
@@ -42,9 +29,11 @@ public:
 
 	enum class eRotateMode : uint8_t
 	{
-		eRotateMode_Dual_Axis = 0x01,
-		eRotateMode_Biaxial = 0x02,
-		eRotateMode_Spin = 0x04
+		eRotateMode_None = 0,
+		eRotateMode_Dual_Axis = 1,
+		eRotateMode_Biaxial = 2,
+		eRotateMode_Spin = 3,
+		eRotateMode_Count = 4
 	};
 protected:
 	std::shared_ptr<MousePole> pMousePole_;
@@ -52,24 +41,22 @@ protected:
 	quat orientation_;
 	vec3 position_;
 
-//	eActionButtons actionButton_;
-	uint32_t actionButton_;
+	int32_t actionButton_;
 
 	eRotateMode rotateMode_;
 
 	bool isDragging_;
 
-	ivec2 previousPosition_;
-	ivec2 initialPosition_;
+	vec2 previousPosition_;
+	vec2 initialPosition_;
 	quat initialOrientation_;
 
-	float xConversionFactor_;
-	float yConversionFactor_;
-	float spinConversionFactor_;
+	static float sXconversionFactor_;
+	static float sYconversionFactor_;
+	static float sSpinConversionFactor_;
 
 public:
-//	ObjectPole ( const vec3& initialPosition, const MousePole* pView = nullptr, eActionButtons actionButton = eActionButtons::eActionButton_Right );
-	ObjectPole ( const vec3& initialPosition, MousePole* pView = nullptr, uint32_t actionButton = 1 /* Right Mouse Button */ );
+	ObjectPole ( const vec3& initialPosition, MousePole* pView = nullptr, int32_t actionButton = 1 /* Right Mouse Button */ );
 	~ObjectPole ();
 
 	mat4 getMatrix () const;
@@ -78,19 +65,18 @@ public:
 	void rotateLocal ( const quat& rot, bool bFromInitial = false );
 	void rotateView ( const quat& rot, bool bFromInitial = false );
 
-	void mouseMove ( const ivec2& position );
-	void mouseButton ( int button, eButtonState btnState, const ivec2& position );
-	void mouseWheel ( int direction, const ivec2& position );
+	void mouseMove ( float x, float y );
+	void mouseButton ( int button, int action, int mods, float x, float y );
 
-	bool isDragging () const { return isDragging;  }
+	inline bool isDragging () const { return isDragging_;  }
 
-	inline float	xConversionFactor () const { return xConversionFactor_; }
-	inline float	yConversionFactor () const { return yConversionFactor_; }
-	inline float	spinConversionFactor () const { return spinConversionFactor_; }
+	static float	getXConversionFactor () { return sXconversionFactor_; }
+	static float	getYConversionFactor ()  { return sYconversionFactor_; }
+	static float	getSpinConversionFactor () { return sSpinConversionFactor_; }
 
-	inline void setXConversionFactor ( float convFactor ) { xConversionFactor_ = convFactor; }
-	inline void setYConversionFactor ( float convFactor ) { yConversionFactor_ = convFactor; }
-	inline void setSpinConversionFactor ( float convFactor ) { spinConversionFactor_ = convFactor; }
+	static void setXConversionFactor ( float convFactor ) { sXconversionFactor_ = convFactor; }
+	static void setYConversionFactor ( float convFactor ) { sYconversionFactor_ = convFactor; }
+	static void setSpinConversionFactor ( float convFactor ) { sSpinConversionFactor_ = convFactor; }
 };
 
 #endif // !__OBJECT_POLE_H__

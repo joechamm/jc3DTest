@@ -58,7 +58,7 @@ public:
 
 		glfwMakeContextCurrent ( window_ );
 		gladLoadGL ( glfwGetProcAddress );
-		glfwSwapInterval ( 0 );
+		glfwSwapInterval ( 1 );
 
 #ifndef NDEBUG
 		initDebug ();

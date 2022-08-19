@@ -1,3 +1,5 @@
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
 #include <jcCommonFramework/ObjectPole.h>
 #include <jcCommonFramework/MousePole.h>
 #include <cmath>
@@ -6,6 +8,10 @@ static constexpr float twopi = 2.0f * glm::pi<float> ();
 static constexpr float pi = glm::pi<float> ();
 static constexpr float piovertwo = 0.5f * glm::pi<float> ();
 static constexpr float pioverfour = 0.25f * glm::pi<float> ();
+
+float ObjectPole::sXconversionFactor_ = piovertwo / 4.0f;
+float ObjectPole::sYconversionFactor_ = piovertwo / 4.0f;
+float ObjectPole::sSpinConversionFactor_ = piovertwo / 4.0f;
 
 static constexpr vec3 sBasis [] = {
 	vec3 ( 1.0f, 0.0f, 0.0f ),
@@ -17,22 +23,34 @@ static quat CalculateRotation ( ObjectPole::eAxis axis, float rads )
 {
 	return glm::angleAxis ( rads, sBasis [ axis ] );
 }
+//
+//ObjectPole::ObjectPole ( const vec3& initialPosition, MousePole* pView, uint32_t actionButton )
+//	: pMousePole_ ( pView )
+//	, position_ ( initialPosition )
+//	, isDragging_ ( false )
+//	, actionButton_ ( actionButton )
+//	, rotateMode_ ( ObjectPole::eRotateMode::eRotateMode_Dual_Axis )
+//	, previousPosition_ ( 0 )
+//	, initialPosition_ ( 0 )
+//	, initialOrientation_ ( mat3 ( 1.0f ) )
+//	, orientation_ ( mat3 ( 1.0f ) )
+//	, xConversionFactor_(piovertwo / 4.0f)
+//	, yConversionFactor_(piovertwo / 4.0f)
+//	, spinConversionFactor_(piovertwo / 4.0f)
+//{
+//}
 
-ObjectPole::ObjectPole ( const vec3& initialPosition, MousePole* pView, uint32_t actionButton )
-	: pMousePole_ ( pView )
-	, position_ ( initialPosition )
+ObjectPole::ObjectPole ( const vec3& initialPosition, MousePole* pView, int32_t actionButton )
+	: pMousePole_(pView)
+	, position_(initialPosition)
 	, isDragging_ ( false )
 	, actionButton_ ( actionButton )
 	, rotateMode_ ( ObjectPole::eRotateMode::eRotateMode_Dual_Axis )
-	, previousPosition_ ( 0 )
-	, initialPosition_ ( 0 )
+	, previousPosition_(initialPosition)
+	, initialPosition_ ( initialPosition )
 	, initialOrientation_ ( mat3 ( 1.0f ) )
-	, orientation_ ( mat3 ( 1.0f ) )
-	, xConversionFactor_(piovertwo / 4.0f)
-	, yConversionFactor_(piovertwo / 4.0f)
-	, spinConversionFactor_(piovertwo / 4.0f)
-{
-}
+	, orientation_ ( mat3 ( 1.0f ) )	
+{}
 
 ObjectPole::~ObjectPole ()
 {
@@ -75,44 +93,51 @@ void ObjectPole::rotateView ( const quat& rot, bool bFromInitial )
 	}
 }
 
-void ObjectPole::mouseMove ( const ivec2& position )
+void ObjectPole::mouseMove ( float x, float y )
 {
 	if ( isDragging_ )
 	{
-		ivec2 iDiff = position - previousPosition_;
-
+		const vec2 pos = vec2 ( x, y );
+		
+		vec2 diff;
+		quat rotation;
+		
 		switch ( rotateMode_ )
 		{
-		case ObjectPole::eRotateMode::eRotateMode_Dual_Axis:
-			quat rotation = CalculateRotation ( eAxis_Y, iDiff.x * xConversionFactor_ );
-			rotation = glm::normalize ( CalculateRotation ( eAxis_X, iDiff.y * yConversionFactor_ ) * rotation );
+		case eRotateMode::eRotateMode_Dual_Axis:
+			diff = pos - previousPosition_;
+			rotation = CalculateRotation ( eAxis_Y, diff.x * sXconversionFactor_ );
+			rotation = glm::normalize ( CalculateRotation ( eAxis_X, diff.y * sYconversionFactor_ ) * rotation );
 			rotateView ( rotation );
 			break;
-		case ObjectPole::eRotateMode::eRotateMode_Biaxial:
-			ivec2 initialDifference = position - initialPosition_;
-			bool xDiffGTyDiff = abs ( initialDifference.x ) > abs ( initialDifference.y );
-			quat rotation = xDiffGTyDiff ? CalculateRotation ( eAxis_Y, initialDifference.x * xConversionFactor_ ) : CalculateRotation ( eAxis_X, initialDifference.y * yConversionFactor_ );
+		case eRotateMode::eRotateMode_Biaxial:
+			diff = pos - initialPosition_;
+			rotation = ( abs ( diff.x ) > abs ( diff.y ) ) ? CalculateRotation ( eAxis_Y, diff.x * sXconversionFactor_ ) : CalculateRotation ( eAxis_X, diff.y * sYconversionFactor_ );			
 			rotateView ( rotation );
 			break;
-		case ObjectPole::eRotateMode::eRotateMode_Spin:
-			rotateView ( CalculateRotation ( eAxis_Z, -iDiff.x * spinConversionFactor_ ) );
+		case eRotateMode::eRotateMode_Spin:
+			diff = pos - previousPosition_;
+			rotateView ( CalculateRotation ( eAxis_Z, -diff.x * sSpinConversionFactor_ ) );
 			break;
 		default:
 			break;
 		}
 
-		previousPosition_ = position;
+		previousPosition_ = pos;
 	}
 }
-void ObjectPole::mouseButton ( int button, eButtonState btnState, const ivec2& position )
+
+void ObjectPole::mouseButton ( int button, int action, int mods, float x, float y )
 {
-	if ( btnState == eButtonState::eButtonState_Down )
+	if (action == GLFW_PRESS)
 	{
-		// Ignore button presses when dragging
+		// ignore button presses when dragging
 		if ( button == actionButton_ )
 		{
-			previousPosition_ = position;
-			initialPosition_ = position;
+			previousPosition_.x = x;
+			previousPosition_.y = y;
+			initialPosition_.x = x;
+			initialPosition_.y = y;
 			initialOrientation_ = orientation_;
 			isDragging_ = true;
 		}
@@ -124,13 +149,9 @@ void ObjectPole::mouseButton ( int button, eButtonState btnState, const ivec2& p
 		{
 			if ( button == actionButton_ )
 			{
-				mouseMove ( position );
+				mouseMove ( x, y );
 				isDragging_ = false;
 			}
 		}
 	}
-}
-void ObjectPole::mouseWheel ( int direction, const ivec2& position )
-{
-
 }

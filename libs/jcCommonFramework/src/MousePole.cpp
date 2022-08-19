@@ -1,3 +1,5 @@
+#define GLFW_INCLUDE_NONE
+#include <glfw/glfw3.h>
 #include <jcCommonFramework/MousePole.h>
 #include <cmath>
 
@@ -16,6 +18,10 @@ static constexpr float pi = glm::pi<float> ();
 static constexpr float piovertwo = 0.5f * glm::pi<float> ();
 static constexpr float pioverfour = 0.25f * glm::pi<float> ();
 
+float MousePole::sXconversionFactor_ = piovertwo / 250.0f;
+float MousePole::sYconversionFactor_ = piovertwo / 250.0f;
+float MousePole::sSpinConversionFactor_ = piovertwo / 250.0f;
+
 MousePole::MousePole ( const vec3& target, const RadiusDef& radiusDef, uint32_t actionButton )
 	: lookAt_ ( target )
 	, radCurrXZAngle_ ( 0.0f )
@@ -24,19 +30,49 @@ MousePole::MousePole ( const vec3& target, const RadiusDef& radiusDef, uint32_t 
 	, radInitSpin_(0.0f)
 	, radInitXZAngle_(0.0f)
 	, radInitYAngle_(0.0f)
-	, xConversionFactor_(piovertwo / 250.0f)
-	, yConversionFactor_(piovertwo / 250.0f)
-	, spinConversionFactor_(piovertwo / 250.0f)
 	, fRadius_ ( 20.0f )
 	, radiusDef_ ( radiusDef )
 	, actionButton_(actionButton)
 	, isDragging_ ( false )
+	, buttonMods_(0)
 	, rotateMode_(eRotateMode::eRotateMode_Dual_Axis)
 	, initialPoint_(0)
 {
 }
 
 MousePole::~MousePole() {}
+
+void MousePole::getCurrentState ( vec3& pos, vec3& lookAt, vec3& upVec )
+{
+	// Compute the position vector along the xz plane
+	float cosxz = cosf ( radCurrXZAngle_ );
+	float sinxz = sinf ( radCurrXZAngle_ );
+
+	vec3 currentPosition ( -sinxz, 0.0f, cosxz );
+
+	// Compute the "up" rotation axis
+	// This axis is a 90 degree rotation around the y axis. Just a component-swap and negate.
+	vec3 upRotationAxis ( currentPosition.z, currentPosition.y, -currentPosition.x );
+
+	mat4 transform = glm::rotate ( mat4 ( 1.0f ), radCurrYAngle_, upRotationAxis );
+	currentPosition = vec3 ( transform * vec4 ( currentPosition, 0.0f ) );
+
+	// Set the position of the camera
+	vec3 tempVec = currentPosition * radiusDef_.fCurrRadius_;
+	vec3 cameraPosition = tempVec + lookAt_;
+
+	// Now compute the up-vector as the cross product of currentPosition and upRotationAxis
+	// Rotate this vector around the currentPosition axis given currSpin_
+	vec3 up = glm::cross ( currentPosition, upRotationAxis );
+
+	transform = glm::rotate ( mat4 ( 1.0f ), radCurrSpin_, currentPosition );
+
+	up = vec3 ( transform * vec4 ( up, 0.0f ) );
+
+	pos = cameraPosition;
+	lookAt = lookAt_;
+	upVec = glm::normalize ( up );	
+}
 
 mat4 MousePole::getMatrix () const
 {
@@ -68,7 +104,7 @@ mat4 MousePole::getMatrix () const
 	return glm::lookAt ( cameraPosition, lookAt_, upVec );
 }
 
-void MousePole::beginDragRotate ( const ivec2& ptStart, eRotateMode rotateMode )
+void MousePole::beginDragRotate ( const vec2& ptStart, eRotateMode rotateMode )
 {
 	rotateMode_ = rotateMode;
 
@@ -81,56 +117,56 @@ void MousePole::beginDragRotate ( const ivec2& ptStart, eRotateMode rotateMode )
 	isDragging_ = true;
 }
 
-void MousePole::onDragRotate ( const ivec2& ptCurr )
+void MousePole::onDragRotate ( const vec2& ptCurr )
 {
-	ivec2 iDiff = ptCurr - initialPoint_;
+	vec2 diff = ptCurr - initialPoint_;
 
 	switch ( rotateMode_ )
 	{
 	case MousePole::eRotateMode::eRotateMode_Dual_Axis:
-		processXChange ( iDiff.x );
-		processYChange ( iDiff.y );
+		processXChange ( diff.x );
+		processYChange ( diff.y );
 		break;
 	case MousePole::eRotateMode::eRotateMode_Bi_Axial:
-		if ( abs ( iDiff.x ) > abs ( iDiff.y ) )
-			processXChange ( iDiff.x, true );
+		if ( abs ( diff.x ) > abs ( diff.y ) )
+			processXChange ( diff.x, true );
 		else
-			processYChange ( iDiff.y, true );
+			processYChange ( diff.y, true );
 		break;
 	case MousePole::eRotateMode::eRotateMode_XZ_Axis:
-		processXChange ( iDiff.x );
+		processXChange ( diff.x );
 		break;
 	case MousePole::eRotateMode::eRotateMode_Y_Axis:
-		processYChange ( iDiff.y );
+		processYChange ( diff.y );
 		break;
 	case MousePole::eRotateMode::eRotateMode_Spin_View:
-		processSpinAxis ( iDiff.x, iDiff.y );
+		processSpinAxis ( diff.x, diff.y );
 		break;
 	default:
 		break;
 	}
 }
 
-void MousePole::processXChange ( int iXDiff, bool bClearY )
+void MousePole::processXChange ( float xDiff, bool bClearY )
 {
-	radCurrXZAngle_ = static_cast< float >( iXDiff ) * xConversionFactor_ + radInitXZAngle_;
+	radCurrXZAngle_ = xDiff * sXconversionFactor_ + radInitXZAngle_;
 	if ( bClearY )
 		radCurrYAngle_ = radInitYAngle_;
 }
 
-void MousePole::processYChange ( int iYDiff, bool bClearXZ )
+void MousePole::processYChange ( float yDiff, bool bClearXZ )
 {
-	radCurrYAngle_ = radInitYAngle_ - static_cast< float >( iYDiff ) * yConversionFactor_;
+	radCurrYAngle_ = radInitYAngle_ - yDiff * sYconversionFactor_;
 	if ( bClearXZ )
 		radCurrXZAngle_ = radInitXZAngle_;
 }
 
-void MousePole::processSpinAxis ( int iXDiff, int iYDiff )
+void MousePole::processSpinAxis ( float xDiff, float yDiff )
 {
-	radCurrSpin_ = static_cast< float >( iXDiff ) * spinConversionFactor_ + radInitSpin_;
+	radCurrSpin_ = xDiff * sSpinConversionFactor_ + radInitSpin_;
 }
 
-void MousePole::endDragRotate ( const ivec2& endPoint, bool bKeepResults )
+void MousePole::endDragRotate ( const vec2& endPoint, bool bKeepResults )
 {
 	if ( bKeepResults )
 	{
@@ -145,100 +181,92 @@ void MousePole::endDragRotate ( const ivec2& endPoint, bool bKeepResults )
 	isDragging_ = false;
 }
 
-void MousePole::moveCloser ( bool bLargeStep )
+void MousePole::moveForward ( bool bLargeStep )
 {
 	radiusDef_.fCurrRadius_ -= bLargeStep ? radiusDef_.fLargeDelta_ : radiusDef_.fSmallDelta_;
 	radiusDef_.fCurrRadius_ = glm::max ( radiusDef_.fCurrRadius_, radiusDef_.fMinRadius_ );
 }
 
-void MousePole::moveAway ( bool bLargeStep )
+void MousePole::moveBackward ( bool bLargeStep )
 {
 	radiusDef_.fCurrRadius_ += bLargeStep ? radiusDef_.fLargeDelta_ : radiusDef_.fSmallDelta_;
 	radiusDef_.fCurrRadius_ = glm::min ( radiusDef_.fCurrRadius_, radiusDef_.fMaxRadius_ );
 }
 
-void MousePole::mouseMove ( const ivec2& position )
+void MousePole::moveRight ( bool bLargeStep )
+{
+	offsetTargetPos ( eTargetOffsetDirection_Right, bLargeStep ? radiusDef_.fLargeDelta_ : radiusDef_.fSmallDelta_ );
+}
+
+void MousePole::moveLeft ( bool bLargeStep )
+{
+	offsetTargetPos ( eTargetOffsetDirection_Left, bLargeStep ? radiusDef_.fLargeDelta_ : radiusDef_.fSmallDelta_ );
+}
+
+void MousePole::moveUp ( bool bLargeStep )
+{
+	offsetTargetPos ( eTargetOffsetDirection_Up, bLargeStep ? radiusDef_.fLargeDelta_ : radiusDef_.fSmallDelta_ );
+}
+
+void MousePole::moveDown ( bool bLargeStep )
+{
+	offsetTargetPos ( eTargetOffsetDirection_Down, bLargeStep ? radiusDef_.fLargeDelta_ : radiusDef_.fSmallDelta_ );
+}
+
+void MousePole::mouseMove ( float x, float y )
 {
 	if ( isDragging_ )
-		onDragRotate ( position );
+		onDragRotate (vec2(x, y));
 }
 
-void MousePole::mouseButton ( int button, eButtonState btnState, const ivec2& pos )
+void MousePole::mouseButton ( int button, int action, int mods, float x, float y )
 {
-	if ( btnState == eButtonState::eButtonState_Down )
+	buttonMods_ = mods;
+	if ( button == actionButton_ )
 	{
-		// Ignore all other button presses when dragging
-		if ( !isDragging_ )
+		if ( action == GLFW_PRESS )
 		{
-			if ( button == actionButton_ )
-			{
-				beginDragRotate ( pos, rotateMode_ );
-			}
+			beginDragRotate ( vec2 (  x,  y  ), ( mods & GLFW_MOD_SHIFT ) ? eRotateMode::eRotateMode_Spin_View : eRotateMode::eRotateMode_Dual_Axis );
 		}
-	}
-	else
-	{
-		if ( isDragging_ )
+		else if ( action == GLFW_RELEASE )
 		{
-			if ( button == actionButton_ )
-			{
-				endDragRotate ( pos );
-			}
+			endDragRotate ( vec2 (  x , y  ), (mods & GLFW_MOD_ALT) ? false : true );
 		}
 	}
 }
 
-void MousePole::mouseWheel ( int direction, const ivec2& position )
+void MousePole::mouseWheel ( float xoffset, float yoffset )
 {
-	if ( direction > 0 )
-	{
-		moveCloser ( false );
-	}
-	else
-	{
-		moveAway ( false );
-	}
+	offsetTargetPos ( MousePole::eTargetOffsetDirection_Forward, yoffset );
 }
 
-void MousePole::keyOffset ( char key, float largeIncrement, float smallIncrement )
+void MousePole::key ( int key, int scancode, int action, int mods )
 {
 	switch ( key )
 	{
-	case 'w':
-		offsetTargetPos ( MousePole::eTargetOffsetDirection::eTargetOffsetDirection_Forward, largeIncrement );
+	case GLFW_KEY_W:
+		if ( action == GLFW_PRESS )
+			moveForward ( ( mods & GLFW_MOD_SHIFT ) != 0 );
 		break;
-	case 's':
-		offsetTargetPos ( MousePole::eTargetOffsetDirection::eTargetOffsetDirection_Backwards, largeIncrement );
+	case GLFW_KEY_S:
+		if ( action == GLFW_PRESS )
+			moveBackward ( ( mods & GLFW_MOD_SHIFT ) != 0 );
 		break;
-	case 'd':
-		offsetTargetPos ( MousePole::eTargetOffsetDirection::eTargetOffsetDirection_Right, largeIncrement );
+	case GLFW_KEY_A:
+		if ( action == GLFW_PRESS )
+			moveLeft ( ( mods & GLFW_MOD_SHIFT ) != 0 );
 		break;
-	case 'a':
-		offsetTargetPos ( MousePole::eTargetOffsetDirection::eTargetOffsetDirection_Left, largeIncrement );
+	case GLFW_KEY_D:
+		if ( action == GLFW_PRESS )
+			moveRight ( ( mods & GLFW_MOD_SHIFT ) != 0 );
 		break;
-	case 'e':
-		offsetTargetPos ( MousePole::eTargetOffsetDirection::eTargetOffsetDirection_Up, largeIncrement );
+	case GLFW_KEY_Q:
+		if ( action == GLFW_PRESS )
+			moveUp ( ( mods & GLFW_MOD_SHIFT ) != 0 );
 		break;
-	case 'q':
-		offsetTargetPos ( MousePole::eTargetOffsetDirection::eTargetOffsetDirection_Down, largeIncrement );
-		break;
-	case 'W':
-		offsetTargetPos ( MousePole::eTargetOffsetDirection::eTargetOffsetDirection_Forward, smallIncrement );
-		break;
-	case 'S':
-		offsetTargetPos ( MousePole::eTargetOffsetDirection::eTargetOffsetDirection_Backwards, smallIncrement );
-		break;
-	case 'D':
-		offsetTargetPos ( MousePole::eTargetOffsetDirection::eTargetOffsetDirection_Right, smallIncrement );
-		break;
-	case 'A':
-		offsetTargetPos ( MousePole::eTargetOffsetDirection::eTargetOffsetDirection_Left, smallIncrement );
-		break;
-	case 'E':
-		offsetTargetPos ( MousePole::eTargetOffsetDirection::eTargetOffsetDirection_Up, smallIncrement );
-		break;
-	case 'Q':
-		offsetTargetPos ( MousePole::eTargetOffsetDirection::eTargetOffsetDirection_Down, smallIncrement );
+	case GLFW_KEY_E:
+		if ( action == GLFW_PRESS )
+			moveDown ( ( mods & GLFW_MOD_SHIFT ) != 0 );
 		break;
 	default:
 		break;

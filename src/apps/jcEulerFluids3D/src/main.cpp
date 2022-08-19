@@ -12,6 +12,9 @@
 #include <jcCommonFramework/UtilsFPS.h>
 #include <jcCommonFramework/ResourceString.h>
 
+#include <jcCommonFramework/MousePole.h>
+#include <jcCommonFramework/ObjectPole.h>
+
 using glm::mat4;
 using glm::mat3;
 using glm::mat2;
@@ -110,7 +113,7 @@ constexpr bool g_DrawBorder = true;
 constexpr bool g_DrawCircle = true;
 constexpr bool g_DrawSphere = false;
 
-constexpr bool g_BlurAndBrighten = true;
+bool g_BlurAndBrighten = true;
 constexpr bool g_CacheLights = true;
 
 
@@ -169,6 +172,9 @@ struct MouseState
 	vec2 pos = vec2 ( 0.0f );
 	bool pressedLeft = false;
 } mouseState;
+
+std::shared_ptr<MousePole> g_pMousePole;
+std::unique_ptr<ObjectPole> g_pObjectPole;
 
 int getNumMipMapLevels3D ( int w, int h, int d )
 {
@@ -1105,6 +1111,16 @@ int main ()
 {
 	GLFWApp app ( g_ViewportWidth, g_ViewportHeight, "Euler Fluid 3D Sim" );
 
+	MousePole::RadiusDef initRadiusDef;
+	initRadiusDef.fCurrRadius_ = glm::length ( g_EyePosition );
+	initRadiusDef.fMinRadius_ = 0.5f;
+	initRadiusDef.fMaxRadius_ = 50.0f;
+	initRadiusDef.fSmallDelta_ = 0.001f;
+	initRadiusDef.fLargeDelta_ = 0.01f;
+
+	g_pMousePole = std::make_shared<MousePole> ( vec3 ( 0.0f, 0.0f, 0.0f ), initRadiusDef, GLFW_MOUSE_BUTTON_LEFT );
+	g_pObjectPole = std::make_unique<ObjectPole> ( vec3 ( 0.0f, 0.0f, 0.0f ), g_pMousePole, GLFW_MOUSE_BUTTON_RIGHT );
+
 	glfwSetCursorPosCallback (
 		app.getWindow (),
 		[] ( auto* window, double x, double y )
@@ -1113,6 +1129,8 @@ int main ()
 			glfwGetFramebufferSize ( window, &width, &height );
 			mouseState.pos.x = static_cast< float >( x / width );
 			mouseState.pos.y = static_cast< float >( y / height );
+			g_pMousePole->mouseMove ( mouseState.pos.x, mouseState.pos.y );
+			g_pObjectPole->mouseMove ( mouseState.pos.x, mouseState.pos.y );
 		}
 	);
 
@@ -1123,6 +1141,9 @@ int main ()
 			const int idx = button == GLFW_MOUSE_BUTTON_LEFT ? 0 : button == GLFW_MOUSE_BUTTON_RIGHT ? 2 : 1;
 			if ( button == GLFW_MOUSE_BUTTON_LEFT )
 				mouseState.pressedLeft = action == GLFW_PRESS;
+
+			g_pMousePole->mouseButton ( button, action, mods, mouseState.pos.x, mouseState.pos.y );
+			g_pObjectPole->mouseButton ( button, action, mods, mouseState.pos.x, mouseState.pos.y );
 		}
 	);
 
@@ -1141,6 +1162,10 @@ int main ()
 			{
 				g_SimulateFluid = !g_SimulateFluid;
 			}
+			if ( key == GLFW_KEY_B && pressed )
+			{
+				g_BlurAndBrighten = !g_BlurAndBrighten;
+			}
 			if ( key == GLFW_KEY_R && pressed )
 			{
 				g_SplatRadius = ( float ) g_GridWidth / 8.0f;
@@ -1157,7 +1182,16 @@ int main ()
 				g_DensityDissipation = 0.9999f;
 				g_ImpulsePosition = vec3 ( g_GridWidth / 2.0f, g_GridHeight - g_SplatRadius / 2.0f, g_GridDepth / 2.0f );
 			}
+			g_pMousePole->key ( key, scancode, action, mods );
 		}
+	);
+
+	glfwSetScrollCallback ( 
+		app.getWindow (), 
+		[] ( GLFWwindow* window, double xoffset, double yoffset )
+		{
+			g_pMousePole->mouseWheel ( static_cast< float >( xoffset ), static_cast< float >( yoffset ) );
+		} 
 	);
 
 	GLShader shdRaycastVert ( appendToRoot ( "assets/shaders/Raycast3D.vert" ).c_str () );
@@ -1354,10 +1388,15 @@ int main ()
 		app.swapBuffers ();
 	}
 
+	g_pObjectPole = nullptr;
+	g_pMousePole.reset ();
+	g_pMousePole = nullptr;
+	
 	glDeleteVertexArrays ( 1, &g_QuadVAO );
 	glDeleteVertexArrays ( 1, &g_CubeCenterVAO );
 	glDeleteBuffers ( 1, &g_QuadVBO );
 	glDeleteBuffers ( 1, &g_PointVBO );
 	
+
 	return 0;
 }

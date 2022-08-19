@@ -26,20 +26,7 @@ public:
 		float fSmallDelta_;
 	};
 
-	//enum class eActionButton : uint32_t
-	//{
-	//	eActionButton_Left = 1,		
-	//	eActionButton_Right = 2,
-	//	eActionButton_Middle = 3
-	//};
-
-	enum class eButtonState : uint8_t
-	{
-		eButtonState_Up = 0x01,
-		eButtonState_Down = 0x02
-	};
-
-	enum eTargetOffsetDirection : uint32_t
+	enum eTargetOffsetDirection : uint8_t
 	{
 		eTargetOffsetDirection_Up = 0,
 		eTargetOffsetDirection_Down = 1,
@@ -52,11 +39,13 @@ public:
 protected:
 	enum class eRotateMode : uint8_t
 	{
-		eRotateMode_Dual_Axis = 0x01,
-		eRotateMode_Bi_Axial = 0x02,
-		eRotateMode_XZ_Axis = 0x04,
-		eRotateMode_Y_Axis = 0x08,
-		eRotateMode_Spin_View = 0x10
+		eRotateMode_None = 0,
+		eRotateMode_Dual_Axis = 1,
+		eRotateMode_Bi_Axial = 2,
+		eRotateMode_XZ_Axis = 3,
+		eRotateMode_Y_Axis = 4,
+		eRotateMode_Spin_View = 5,
+		eRotateMode_Count = 6
 	};
 
 	vec3				lookAt_;
@@ -70,21 +59,22 @@ protected:
 
 	eRotateMode			rotateMode_;
 
-//	eActionButton		actionButton_;
-	uint32_t			actionButton_;
+	int32_t				actionButton_;
+	int32_t				buttonMods_;
+
 	bool				isDragging_;
 
-	ivec2				initialPoint_;
+	vec2				initialPoint_;
 
 	float				radInitXZAngle_;
 	float				radInitYAngle_;
 	float				radInitSpin_;
 
-	float				xConversionFactor_;
-	float				yConversionFactor_;
-	float				spinConversionFactor_;
+	static float		sXconversionFactor_;
+	static float		sYconversionFactor_;
+	static float		sSpinConversionFactor_;
+	
 public:
-//	MousePole ( const vec3& target, const RadiusDef& radiusDef, eActionButton eButton = eActionButton::eActionButton_Left );
 	MousePole ( const vec3& target, const RadiusDef& radiusDef, uint32_t actionButton = 0 );
 	~MousePole ();
 
@@ -94,34 +84,37 @@ public:
 	vec3	getLookAtPos () const { return lookAt_; }
 	float	getLookAtDistance () const { return radiusDef_.fCurrRadius_; }
 
-	void	mouseMove ( const ivec2& pos );
-	void	mouseButton ( int button, eButtonState btnState, const ivec2& pos );
-	void	mouseWheel ( int direction, const ivec2& position );
-	void	keyOffset ( char key, float largeIncrement, float smallIncrement );
+	void	mouseMove ( float x, float y );
+	void	mouseButton ( int button, int action, int mods, float x, float y );
+	void	mouseWheel ( float xoffset, float yoffset );
+	void	key ( int key, int scancode, int action, int mods );
 
 	bool	isDragging () const { return isDragging_;  }
 
-	inline float	xConversionFactor () const { return xConversionFactor_; }
-	inline float	yConversionFactor () const { return yConversionFactor_; }
-	inline float	spinConversionFactor () const { return spinConversionFactor_; }
-
-	inline void setXConversionFactor ( float convFactor ) { xConversionFactor_ = convFactor; }
-	inline void setYConversionFactor ( float convFactor ) { yConversionFactor_ = convFactor; }
-	inline void setSpinConversionFactor ( float convFactor ) { spinConversionFactor_ = convFactor; }
-
 	void	offsetTargetPos ( eTargetOffsetDirection eDir, float worldDistance );
 	void	offsetTargetPos ( const vec3& cameraOffset );
-protected:
-	void				processXChange ( int iXDiff, bool bClearY = false );
-	void				processYChange ( int iYDiff, bool bClearXZ = false );
-	void				processSpinAxis ( int iXDiff, int iYDiff );
-	void				beginDragRotate ( const ivec2& ptStart, eRotateMode rotMode = eRotateMode::eRotateMode_Dual_Axis );
-	void				onDragRotate ( const ivec2& ptCurr );
-	void				endDragRotate ( const ivec2& ptEnd, bool bKeepResults = true );
-	bool				isDragging () { return isDragging_; }
 
-	void				moveCloser ( bool bLargeStep = true );
-	void				moveAway ( bool bLargeStep = true );
+	static float getXConversionFactor () { return sXconversionFactor_; }
+	static float getYConversionFactor () { return sYconversionFactor_; }
+	static float getSpinConversionFactor () { return sSpinConversionFactor_; }
+	static void setXConversionFactor ( float convFactor ) { sXconversionFactor_ = convFactor; }
+	static void setYConversionFactor ( float convFactor ) { sYconversionFactor_ = convFactor; }
+	static void setSpinConversionFactor ( float convFactor ) { sSpinConversionFactor_ = convFactor; }
+	
+protected:
+	void				processXChange ( float xDiff, bool bClearY = false );
+	void				processYChange ( float yDiff, bool bClearXZ = false );
+	void				processSpinAxis ( float xDiff, float yDiff );
+	void				beginDragRotate ( const vec2& ptStart, eRotateMode rotMode = eRotateMode::eRotateMode_Dual_Axis );
+	void				onDragRotate ( const vec2& ptCurr );
+	void				endDragRotate ( const vec2& ptEnd, bool bKeepResults = true );
+
+	void  				moveForward ( bool bLargeStep = true );	
+	void  				moveBackward ( bool bLargeStep = true );
+	void  				moveRight ( bool bLargeStep = true );
+	void				moveLeft ( bool bLargeStep = true );
+	void				moveUp ( bool bLargeStep = true );
+	void				moveDown ( bool bLargeStep = true );
 };
 
 #endif // !__MOUSE_POLE_H__
