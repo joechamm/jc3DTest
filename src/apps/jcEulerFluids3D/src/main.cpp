@@ -111,11 +111,10 @@ constexpr bool g_UseHalfFloats = true;
 
 constexpr bool g_DrawBorder = true;
 constexpr bool g_DrawCircle = true;
-constexpr bool g_DrawSphere = false;
+constexpr bool g_DrawSphere = true;
 
 bool g_BlurAndBrighten = true;
-constexpr bool g_CacheLights = true;
-
+bool g_CacheLights = true;
 
 constexpr float g_BorderTrim = 0.9999f;
 constexpr float g_DefaultThetaX = 0.0f;
@@ -173,8 +172,8 @@ struct MouseState
 	bool pressedLeft = false;
 } mouseState;
 
-std::shared_ptr<MousePole> g_pMousePole;
-std::unique_ptr<ObjectPole> g_pObjectPole;
+MousePole* g_pMousePole = nullptr;
+ObjectPole* g_pObjectPole = nullptr;
 
 int getNumMipMapLevels3D ( int w, int h, int d )
 {
@@ -523,78 +522,6 @@ void SwapPods ( SlabPod* slabPod )
 	std::swap ( slabPod->ping_, slabPod->pong_ );
 }
 
-bool CreateObstacles ( GLuint prog, uint32_t width, uint32_t height, GLFramebuffer* dest )
-{
-	if ( dest == nullptr )
-		return false;
-
-	glBindFramebuffer ( GL_FRAMEBUFFER, dest->getHandle () );
-	glViewport ( 0, 0, width, height );
-	glClearColor ( 0.0f, 0.0f, 0.0f, 0.0f );
-	glClear ( GL_COLOR_BUFFER_BIT );
-
-	glUseProgram ( prog );
-
-	GLuint vao;
-	glGenVertexArrays ( 1, &vao );
-	glBindVertexArray ( vao );
-
-	if ( g_DrawBorder )
-	{
-#define T 0.9999f
-		float positions [] = { -T, -T, T, -T, T, T, -T, T, -T, -T };
-#undef T
-
-		GLuint vbo;
-		GLsizeiptr size = sizeof ( positions );
-		glGenBuffers ( 1, &vbo );
-		glBindBuffer ( GL_ARRAY_BUFFER, vbo );
-		glBufferData ( GL_ARRAY_BUFFER, size, positions, GL_STATIC_DRAW );
-		GLsizeiptr stride = 2 * sizeof ( positions [ 0 ] );
-		glEnableVertexAttribArray ( 0 );
-		glVertexAttribPointer ( 0, 2, GL_FLOAT, GL_FALSE, stride, 0 );
-		glDrawArrays ( GL_LINE_STRIP, 0, 5 );
-		glDeleteBuffers ( 1, &vbo );
-	}
-
-	if ( g_DrawCircle )
-	{
-		const int slices = 64;
-		float positions [ slices * 2 * 3 ];
-		float twopi = 8 * atanf ( 1.0f );
-		float theta = 0.0f;
-		float dtheta = twopi / ( float ) ( slices - 1 );
-		float* pPositions = &positions [ 0 ];
-		for ( int i = 0; i < slices; i++ )
-		{
-			*pPositions++ = 0;
-			*pPositions++ = 0;
-
-			*pPositions++ = 0.25f * cosf ( theta ) * height / width;
-			*pPositions++ = 0.25f * sinf ( theta );
-			theta += dtheta;
-
-			*pPositions++ = 0.25f * cosf ( theta ) * height / width;
-			*pPositions++ = 0.25f * sinf ( theta );
-		}
-
-		GLuint vbo;
-		GLsizeiptr size = sizeof ( positions );
-		glGenBuffers ( 1, &vbo );
-		glBindBuffer ( GL_ARRAY_BUFFER, vbo );
-		glBufferData ( GL_ARRAY_BUFFER, size, positions, GL_STATIC_DRAW );
-		GLsizeiptr stride = 2 * sizeof ( positions [ 0 ] );
-		glEnableVertexAttribArray ( 0 );
-		glVertexAttribPointer ( 0, 2, GL_FLOAT, GL_FALSE, stride, nullptr );
-		glDrawArrays ( GL_TRIANGLES, 0, slices * 3 );
-		glDeleteBuffers ( 1, &vbo );
-	}
-
-	glDeleteVertexArrays ( 1, &vao );
-
-	return true;
-}
-
 bool CreateObstacles3D ( GLuint prog, GLFramebuffer3D* dest )
 {
 	if ( dest == nullptr )
@@ -686,18 +613,6 @@ bool CreateObstacles3D ( GLuint prog, GLFramebuffer3D* dest )
 	return true;
 }
 
-bool ClearSurface ( GLFramebuffer* surfaceFramebuffer, float v )
-{
-	if ( surfaceFramebuffer == nullptr ) return false;
-
-	//	glClearNamedFramebufferfv ( surfaceFramebuffer->getHandle (), GL_COLOR, 0, glm::value_ptr ( vec4(v, v, v, v )) );
-	glBindFramebuffer ( GL_FRAMEBUFFER, surfaceFramebuffer->getHandle () );
-	glClearColor ( v, v, v, v );
-	glClear ( GL_COLOR_BUFFER_BIT );
-
-	return true;
-}
-
 bool ClearVolume ( GLFramebuffer3D* volumeFramebuffer, float v )
 {
 	if ( volumeFramebuffer == nullptr ) return false;
@@ -705,30 +620,6 @@ bool ClearVolume ( GLFramebuffer3D* volumeFramebuffer, float v )
 	glClearColor ( v, v, v, v );
 	glClear ( GL_COLOR_BUFFER_BIT );
 	return true;
-}
-
-void Advect ( GLuint prog, GLuint quadVAO, GLuint velocityTex, GLuint sourceTex, GLuint obstaclesTex, GLFramebuffer* destFramebuffer, float dissipation )
-{
-	glBindVertexArray ( quadVAO );
-
-	glUseProgram ( prog );
-
-	glUniform2f ( 0, 1.0f / g_GridWidth, 1.0f / g_GridHeight ); // inverse size
-	glUniform1f ( 1, g_TimeStep );  // time step
-	glUniform1f ( 2, dissipation ); // dissipation
-
-	destFramebuffer->bind ();
-	glBindTextureUnit ( 0, velocityTex );
-	glBindTextureUnit ( 1, sourceTex );
-	glBindTextureUnit ( 2, obstaclesTex );
-
-	glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
-
-	glBindTextureUnit ( 0, 0 );
-	glBindTextureUnit ( 1, 0 );
-	glBindTextureUnit ( 2, 0 );
-	destFramebuffer->unbind ();
-	glDisable ( GL_BLEND );
 }
 
 void Advect3D ( GLuint prog, GLuint vao, GLuint velocityTex, GLuint sourceTex, GLuint obstaclesTex, GLFramebuffer3D* destFramebuffer, float dissipation)
@@ -751,29 +642,6 @@ void Advect3D ( GLuint prog, GLuint vao, GLuint velocityTex, GLuint sourceTex, G
 	glBindTextureUnit ( kIndexTexBindVelocity, 0 );
 	glBindTextureUnit ( kIndexTexBindSourceTexture, 0 );
 	glBindTextureUnit ( kIndexTexBindObstacles, 0 );
-	destFramebuffer->unbind ();
-	glDisable ( GL_BLEND );
-}
-
-void Jacobi ( GLuint prog, GLuint quadVAO, GLuint pressureTex, GLuint divergenceTex, GLuint obstaclesTex, GLFramebuffer* destFramebuffer )
-{
-	glBindVertexArray ( quadVAO );
-
-	glUseProgram ( prog );
-
-	glUniform1f ( 0, -g_CellSize * g_CellSize ); // alpha
-	glUniform1f ( 1, 0.25f ); // inverse beta
-
-	destFramebuffer->bind ();
-	glBindTextureUnit ( 5, pressureTex );
-	glBindTextureUnit ( 6, divergenceTex );
-	glBindTextureUnit ( 2, obstaclesTex );
-
-	glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
-
-	glBindTextureUnit ( 5, 0 );
-	glBindTextureUnit ( 6, 0 );
-	glBindTextureUnit ( 2, 0 );
 	destFramebuffer->unbind ();
 	glDisable ( GL_BLEND );
 }
@@ -801,29 +669,6 @@ void Jacobi3D ( GLuint prog, GLuint vao, GLuint pressureTex, GLuint divergenceTe
 	glDisable ( GL_BLEND );
 }
 
-void SubtractGradient ( GLuint prog, GLuint quadVAO, GLuint velocityTex, GLuint pressureTex, GLuint obstaclesTex, GLFramebuffer* destFramebuffer )
-{
-	glBindVertexArray ( quadVAO );
-
-	glUseProgram ( prog );
-
-	glUniform1f ( 0, g_GradientScale ); // gradient scale
-
-	destFramebuffer->bind ();
-	glBindTextureUnit ( 0, velocityTex );
-	glBindTextureUnit ( 5, pressureTex );
-	glBindTextureUnit ( 2, obstaclesTex );
-
-	glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
-
-	glBindTextureUnit ( 0, 0 );
-	glBindTextureUnit ( 5, 0 );
-	glBindTextureUnit ( 2, 0 );
-
-	destFramebuffer->unbind ();
-	glDisable ( GL_BLEND );
-}
-
 void SubtractGradient3D ( GLuint prog, GLuint vao, GLuint velocityTex, GLuint pressureTex, GLuint obstaclesTex, GLFramebuffer3D* destFramebuffer )
 {
 	glBindVertexArray ( vao );
@@ -842,27 +687,6 @@ void SubtractGradient3D ( GLuint prog, GLuint vao, GLuint velocityTex, GLuint pr
 	glBindTextureUnit ( kIndexTexBindVelocity, 0 );
 	glBindTextureUnit ( kIndexTexBindPressure, 0 );
 	glBindTextureUnit ( kIndexTexBindObstacles, 0 );
-
-	destFramebuffer->unbind ();
-	glDisable ( GL_BLEND );
-}
-
-void ComputeDivergence ( GLuint prog, GLuint quadVAO, GLuint velocityTex, GLuint obstaclesTex, GLFramebuffer* destFramebuffer )
-{
-	glBindVertexArray ( quadVAO );
-
-	glUseProgram ( prog );
-
-	glUniform1f ( 0, 0.5f / g_CellSize ); // half inverse cell size
-
-	destFramebuffer->bind ();
-	glBindTextureUnit ( 0, velocityTex );
-	glBindTextureUnit ( 2, obstaclesTex );
-
-	glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
-
-	glBindTextureUnit ( 0, 0 );
-	glBindTextureUnit ( 2, 0 );
 
 	destFramebuffer->unbind ();
 	glDisable ( GL_BLEND );
@@ -888,25 +712,6 @@ void ComputeDivergence3D ( GLuint prog, GLuint vao, GLuint velocityTex, GLuint o
 	glDisable ( GL_BLEND );
 }
 
-void ApplyImpulse ( GLuint prog, GLuint quadVAO, const vec2& position, float value, GLFramebuffer* destFramebuffer )
-{
-	glBindVertexArray ( quadVAO );
-
-	glUseProgram ( prog );
-
-	glUniform2f ( 0, position.x, position.y ); // Point
-	glUniform1f ( 1, g_SplatRadius ); // Radius
-	glUniform3f ( 2, value, value, value );  // Fill Color
-
-	destFramebuffer->bind ();
-	glEnable ( GL_BLEND );
-
-	glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
-
-	destFramebuffer->unbind ();
-	glDisable ( GL_BLEND );
-}
-
 void ApplyImpulse3D ( GLuint prog, GLuint vao, const vec3& position, float value, GLFramebuffer3D* destFramebuffer )
 {
 	glBindVertexArray ( vao );
@@ -921,32 +726,6 @@ void ApplyImpulse3D ( GLuint prog, GLuint vao, const vec3& position, float value
 	glEnable ( GL_BLEND );
 
 	glDrawArraysInstanced ( GL_TRIANGLE_STRIP, 0, 4, destFramebuffer->depth() );
-
-	destFramebuffer->unbind ();
-	glDisable ( GL_BLEND );
-}
-
-void ApplyBuoyancy ( GLuint prog, GLuint quadVAO, GLuint velocityTex, GLuint temperatureTex, GLuint densityTex, GLFramebuffer* destFramebuffer )
-{
-	glBindVertexArray ( quadVAO );
-
-	glUseProgram ( prog );
-
-	glUniform1f ( 0, g_AmbientTemperature ); // Ambient Temperature
-	glUniform1f ( 1, g_TimeStep ); // Time Step
-	glUniform1f ( 2, g_SmokeBuoyancy ); // Sigma
-	glUniform1f ( 3, g_SmokeWeight ); // Kappa 
-
-	destFramebuffer->bind ();
-	glBindTextureUnit ( 0, velocityTex );
-	glBindTextureUnit ( 3, temperatureTex );
-	glBindTextureUnit ( 4, densityTex );
-
-	glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
-
-	glBindTextureUnit ( 0, 0 );
-	glBindTextureUnit ( 3, 0 );
-	glBindTextureUnit ( 4, 0 );
 
 	destFramebuffer->unbind ();
 	glDisable ( GL_BLEND );
@@ -975,34 +754,6 @@ void ApplyBuoyancy3D ( GLuint prog, GLuint vao, GLuint velocityTex, GLuint tempe
 	glBindTextureUnit ( kIndexTexBindDensity, 0 );
 
 	destFramebuffer->unbind ();
-	glDisable ( GL_BLEND );
-}
-
-void RenderQuad ( GLuint prog, GLuint quadVAO, GLuint densityTex, GLuint hiresObsTex )
-{
-	glBindVertexArray ( quadVAO );
-
-	glUseProgram ( prog );
-
-	glEnable ( GL_BLEND );
-
-	glViewport ( 0, 0, g_ViewportWidth, g_ViewportHeight );
-	glBindFramebuffer ( GL_FRAMEBUFFER, 0 );
-	glClearColor ( 0.0f, 0.0f, 0.0f, 1.0f );
-	glClear ( GL_COLOR_BUFFER_BIT );
-
-	// Draw ink;
-	glBindTextureUnit ( 7, densityTex );
-	glUniform2f ( 0, 1.0f / g_ViewportWidth, 1.0f / g_ViewportHeight ); // Scale 
-	glUniform3f ( 1, 1.0f, 1.0f, 1.0f ); // Fill Color
-	glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
-
-	// Draw obstacles;
-	glBindTextureUnit ( 7, hiresObsTex );
-	glUniform3f ( 1, 0.125f, 0.4f, 0.75f ); // Fill Color
-	glDrawArrays ( GL_TRIANGLE_STRIP, 0, 4 );
-
-	// disable blending
 	glDisable ( GL_BLEND );
 }
 
@@ -1085,13 +836,24 @@ void RenderRaycasting ( GLuint prog, GLuint vao, GLuint densTex, GLuint lightTex
 	
 	glUseProgram ( prog );
 
-	mat4 modelViewTrans = glm::transpose ( g_ModelViewMatrix );
-	vec3 rayOrigin = vec3 ( modelViewTrans * vec4 ( g_EyePosition, 1.0f ) );
+//	mat4 modelViewTrans = glm::transpose ( g_ModelViewMatrix );
+//	vec3 rayOrigin = vec3 ( modelViewTrans * vec4 ( g_EyePosition, 1.0f ) );
 
-	glUniformMatrix4fv ( kIndexLocUniformModelViewProjection, 1, GL_FALSE, glm::value_ptr ( g_ModelViewProjection ) );
+	mat4 viewMatrix = g_pMousePole->getMatrix ();
+	mat4 modelMatrix = g_pObjectPole->getMatrix ();
+	mat4 viewProjectionMatrix = g_ProjectionMatrix * viewMatrix;
+	mat4 modelViewMatrix = viewMatrix * modelMatrix;
+	mat4 mvp = viewProjectionMatrix * modelMatrix;
+	vec3 rayOrigin = vec3 ( glm::transpose(modelViewMatrix) * vec4 ( g_EyePosition, 1.0f ) );
+
+//	glUniformMatrix4fv ( kIndexLocUniformModelViewProjection, 1, GL_FALSE, glm::value_ptr ( g_ModelViewProjection ) );
+	
+//	glUniformMatrix4fv ( kIndexLocUniformViewMatrix, 1, GL_FALSE, glm::value_ptr ( g_ViewMatrix ) );
+//	glUniformMatrix4fv ( kIndexLocUniformModelView, 1, GL_FALSE, glm::value_ptr ( g_ModelViewMatrix ) );
 	glUniformMatrix4fv ( kIndexLocUniformProjectionMatrix, 1, GL_FALSE, glm::value_ptr ( g_ProjectionMatrix ) );
-	glUniformMatrix4fv ( kIndexLocUniformViewMatrix, 1, GL_FALSE, glm::value_ptr ( g_ViewMatrix ) );
-	glUniformMatrix4fv ( kIndexLocUniformModelView, 1, GL_FALSE, glm::value_ptr ( g_ModelViewMatrix ) );
+	glUniformMatrix4fv ( kIndexLocUniformModelViewProjection, 1, GL_FALSE, glm::value_ptr ( mvp ) );
+	glUniformMatrix4fv ( kIndexLocUniformViewMatrix, 1, GL_FALSE, glm::value_ptr ( viewMatrix ) );
+	glUniformMatrix4fv ( kIndexLocUniformModelView, 1, GL_FALSE, glm::value_ptr ( modelViewMatrix ) );
 	glUniform1i ( kIndexLocUniformViewSamples, g_ViewSamples );
 	glUniform1f ( kIndexLocUniformFocalLength, 1.0f / std::tanf ( g_FieldOfView / 2.0f ) );
 	glUniform3fv ( kIndexLocUniformRayOrigin, 1, glm::value_ptr ( rayOrigin ) );
@@ -1118,8 +880,8 @@ int main ()
 	initRadiusDef.fSmallDelta_ = 0.001f;
 	initRadiusDef.fLargeDelta_ = 0.01f;
 
-	g_pMousePole = std::make_shared<MousePole> ( vec3 ( 0.0f, 0.0f, 0.0f ), initRadiusDef, GLFW_MOUSE_BUTTON_LEFT );
-	g_pObjectPole = std::make_unique<ObjectPole> ( vec3 ( 0.0f, 0.0f, 0.0f ), g_pMousePole, GLFW_MOUSE_BUTTON_RIGHT );
+	g_pMousePole = new MousePole ( vec3 ( 0.0f ), initRadiusDef, GLFW_MOUSE_BUTTON_LEFT );
+	g_pObjectPole = new ObjectPole ( vec3 ( 0.0f ), g_pMousePole, GLFW_MOUSE_BUTTON_RIGHT );
 
 	glfwSetCursorPosCallback (
 		app.getWindow (),
@@ -1161,10 +923,38 @@ int main ()
 			if ( key == GLFW_KEY_C && pressed )
 			{
 				g_SimulateFluid = !g_SimulateFluid;
+				if ( g_SimulateFluid )
+				{
+					printf ( "Simulating Fluid...\n" );
+				}
+				else
+				{
+					printf ( "NOT Simulating Fluid...\n" );
+				}
 			}
 			if ( key == GLFW_KEY_B && pressed )
 			{
 				g_BlurAndBrighten = !g_BlurAndBrighten;
+				if ( g_BlurAndBrighten )
+				{
+					printf ( "Blur and Brighten ON\n" );
+				}
+				else
+				{
+					printf ( "Blur and Brighten OFF\n" );
+				}
+			}
+			if ( key == GLFW_KEY_L && pressed )
+			{
+				g_CacheLights = !g_CacheLights;
+				if ( g_CacheLights )
+				{
+					printf ( "Cache Lights ON\n" );
+				}
+				else
+				{
+					printf ( "Cache Lights OFF\n" );
+				}
 			}
 			if ( key == GLFW_KEY_R && pressed )
 			{
@@ -1247,9 +1037,6 @@ int main ()
 	GLProgram progSetup ( shdFluid3DVert, shdSetup );
 
 	g_FillHandle = progSetup.getHandle ();
-
-	//	GLShader shdRendImg ( appendToRoot ( "assets/shaders/FluidRenderImage.frag" ).c_str () );
-	//	GLProgram progRenderImg ( shdVert, shdRendImg );
 
 	glGenVertexArrays ( 1, &g_CubeCenterVAO );
 	glBindVertexArray ( g_CubeCenterVAO );
@@ -1388,15 +1175,15 @@ int main ()
 		app.swapBuffers ();
 	}
 
+	delete g_pObjectPole;
 	g_pObjectPole = nullptr;
-	g_pMousePole.reset ();
+	delete g_pMousePole;
 	g_pMousePole = nullptr;
-	
+		
 	glDeleteVertexArrays ( 1, &g_QuadVAO );
 	glDeleteVertexArrays ( 1, &g_CubeCenterVAO );
 	glDeleteBuffers ( 1, &g_QuadVBO );
-	glDeleteBuffers ( 1, &g_PointVBO );
-	
+	glDeleteBuffers ( 1, &g_PointVBO );	
 
 	return 0;
 }
