@@ -1,0 +1,103 @@
+#version 450 core 
+
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+#define READ 0
+#define WRITE 1
+
+struct Wave1DVert 
+{
+	float height;
+	float velocity;
+};
+
+layout (std430, binding = READ) restrict readonly buffer WaveVerticesIn
+{
+	Wave1DVert in_Vertices[];
+};
+
+layout (std430, binding = WRITE) restrict writeonly buffer WaveVerticesOut 
+{
+	Wave1DVert out_Vertices[];
+};
+
+float getHeight(uint i)
+{
+	return in_Vertices[i].height;
+}
+
+float getVelocity(uint i)
+{
+	return in_Vertices[i].velocity;
+}
+
+layout (location = 0) uniform float C; // wave speed 
+layout (location = 1) uniform float dt; // time step
+
+// calculate dx by dividing the unit interval [0,1] by the number of vertices minus one 
+//const uint VertexCountMinOne = gl_NumWorkGroups.x - 1;
+//const float dx = 1.0 / float(VertexCountMinOne);
+//const float dxSq = dx * dx;
+//const float invDX = 1.0 / dx;
+//const float invDXSq = invDX * invDX;
+
+uint getVertexCountMinOne()
+{
+	return gl_NumWorkGroups.x - 1;
+}
+
+float getDx()
+{
+	uint vertCountMinOne = getVertexCountMinOne();
+	return 1.0 / float(vertCountMinOne);
+}
+
+// solve the wave equation d^2u/dt^2 = c^2 d^2u/dx^2 where u(x,t) is the height function at position x and time t 
+
+// start by finding the spacial laplacian d^2u/dx^2 = (u[i+1,t] - 2u[i,t] + u[i-1,t])/(dx^2) 
+float spacialLaplacian(uint i)
+{
+	float dx = getDx();
+	float invDXSq = 1.0 / (dx * dx);
+	float hCenter = getHeight(i);
+	float hLeft = getHeight(i - 1);
+	float hRight = getHeight(i + 1);
+	float lap = hLeft + hRight - 2.0 * hCenter;
+	return lap * invDXSq;
+}
+
+// get the new height and velocity as a vec2 with x = height and y = velocity
+Wave1DVert calculateNewVert(uint i)
+{
+	uint vertCountMinOne = getVertexCountMinOne();
+	Wave1DVert v;
+	if(i == 0 || i == vertCountMinOne)
+	{
+		v.height = 0.0;
+		v.velocity = 0.0;
+		return v;		
+	}
+	
+	const float Csq = C * C;
+	const float dtSq = dt * dt;
+
+	// calculate the new velocity as 'v_new = v_old + a * dt' where the acceleration a = d^2u/dt^2 = c^2 d^2u/dx^2
+	float a = Csq * spacialLaplacian(i);
+	float v_old = getVelocity(i);
+	v.velocity = v_old + a * dt;
+		
+	// calculate the height as 'h_new = h_old + v * dt + 0.5 * a * dt^2
+	float h_old = getHeight(i);
+	v.height = h_old + v_old * dt + 0.5 * a * dtSq;
+	return v;
+}
+
+void main()
+{
+	// get the index current vertex we're working on 
+	uint idx = gl_GlobalInvocationID.x;
+	
+	Wave1DVert v = calculateNewVert(idx);
+	
+	out_Vertices[idx] = v;	
+}

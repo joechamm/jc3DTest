@@ -11,9 +11,10 @@
 #include <jcGLframework/debug.h>
 #include <jcCommonFramework/UtilsFPS.h>
 #include <jcCommonFramework/ResourceString.h>
+#include <jcCommonFramework/Trackball.h>
 
-#include <jcCommonFramework/MousePole.h>
-#include <jcCommonFramework/ObjectPole.h>
+//#include <jcCommonFramework/MousePole.h>
+//#include <jcCommonFramework/ObjectPole.h>
 
 using glm::mat4;
 using glm::mat3;
@@ -172,8 +173,10 @@ struct MouseState
 	bool pressedLeft = false;
 } mouseState;
 
-MousePole* g_pMousePole = nullptr;
-ObjectPole* g_pObjectPole = nullptr;
+//MousePole* g_pMousePole = nullptr;
+//ObjectPole* g_pObjectPole = nullptr;
+
+VirtualTrackball* g_pTrackball = nullptr;
 
 int getNumMipMapLevels3D ( int w, int h, int d )
 {
@@ -839,8 +842,10 @@ void RenderRaycasting ( GLuint prog, GLuint vao, GLuint densTex, GLuint lightTex
 //	mat4 modelViewTrans = glm::transpose ( g_ModelViewMatrix );
 //	vec3 rayOrigin = vec3 ( modelViewTrans * vec4 ( g_EyePosition, 1.0f ) );
 
-	mat4 viewMatrix = g_pMousePole->getMatrix ();
-	mat4 modelMatrix = g_pObjectPole->getMatrix ();
+//	mat4 viewMatrix = g_pMousePole->getMatrix ();
+//	mat4 modelMatrix = g_pObjectPole->getMatrix ();
+	mat4 viewMatrix = g_pTrackball->getRotationMatrix ();
+	mat4 modelMatrix = glm::translate ( mat4 ( 1.0f ), -g_EyePosition );
 	mat4 viewProjectionMatrix = g_ProjectionMatrix * viewMatrix;
 	mat4 modelViewMatrix = viewMatrix * modelMatrix;
 	mat4 mvp = viewProjectionMatrix * modelMatrix;
@@ -873,7 +878,7 @@ int main ()
 {
 	GLFWApp app ( g_ViewportWidth, g_ViewportHeight, "Euler Fluid 3D Sim" );
 
-	MousePole::RadiusDef initRadiusDef;
+	/*MousePole::RadiusDef initRadiusDef;
 	initRadiusDef.fCurrRadius_ = glm::length ( g_EyePosition );
 	initRadiusDef.fMinRadius_ = 0.5f;
 	initRadiusDef.fMaxRadius_ = 50.0f;
@@ -881,7 +886,9 @@ int main ()
 	initRadiusDef.fLargeDelta_ = 0.01f;
 
 	g_pMousePole = new MousePole ( vec3 ( 0.0f ), initRadiusDef, GLFW_MOUSE_BUTTON_LEFT );
-	g_pObjectPole = new ObjectPole ( vec3 ( 0.0f ), g_pMousePole, GLFW_MOUSE_BUTTON_RIGHT );
+	g_pObjectPole = new ObjectPole ( vec3 ( 0.0f ), g_pMousePole, GLFW_MOUSE_BUTTON_RIGHT );*/
+
+	g_pTrackball = new VirtualTrackball ();
 
 	glfwSetCursorPosCallback (
 		app.getWindow (),
@@ -891,8 +898,9 @@ int main ()
 			glfwGetFramebufferSize ( window, &width, &height );
 			mouseState.pos.x = static_cast< float >( x / width );
 			mouseState.pos.y = static_cast< float >( y / height );
-			g_pMousePole->mouseMove ( mouseState.pos.x, mouseState.pos.y );
-			g_pObjectPole->mouseMove ( mouseState.pos.x, mouseState.pos.y );
+			g_pTrackball->dragTo ( mouseState.pos, 1.0f, mouseState.pressedLeft );
+//			g_pMousePole->mouseMove ( mouseState.pos.x, mouseState.pos.y );
+//			g_pObjectPole->mouseMove ( mouseState.pos.x, mouseState.pos.y );
 		}
 	);
 
@@ -902,10 +910,20 @@ int main ()
 		{
 			const int idx = button == GLFW_MOUSE_BUTTON_LEFT ? 0 : button == GLFW_MOUSE_BUTTON_RIGHT ? 2 : 1;
 			if ( button == GLFW_MOUSE_BUTTON_LEFT )
-				mouseState.pressedLeft = action == GLFW_PRESS;
-
-			g_pMousePole->mouseButton ( button, action, mods, mouseState.pos.x, mouseState.pos.y );
-			g_pObjectPole->mouseButton ( button, action, mods, mouseState.pos.x, mouseState.pos.y );
+			{
+				if ( action == GLFW_PRESS )
+				{
+					mouseState.pressedLeft = true;
+					g_pTrackball->startDragging ( mouseState.pos );
+				} else
+				{
+					mouseState.pressedLeft = false;
+				}
+//				mouseState.pressedLeft = action == GLFW_PRESS;
+			}
+				
+//			g_pMousePole->mouseButton ( button, action, mods, mouseState.pos.x, mouseState.pos.y );
+//			g_pObjectPole->mouseButton ( button, action, mods, mouseState.pos.x, mouseState.pos.y );
 		}
 	);
 
@@ -972,7 +990,7 @@ int main ()
 				g_DensityDissipation = 0.9999f;
 				g_ImpulsePosition = vec3 ( g_GridWidth / 2.0f, g_GridHeight - g_SplatRadius / 2.0f, g_GridDepth / 2.0f );
 			}
-			g_pMousePole->key ( key, scancode, action, mods );
+	//		g_pMousePole->key ( key, scancode, action, mods );
 		}
 	);
 
@@ -980,7 +998,7 @@ int main ()
 		app.getWindow (), 
 		[] ( GLFWwindow* window, double xoffset, double yoffset )
 		{
-			g_pMousePole->mouseWheel ( static_cast< float >( xoffset ), static_cast< float >( yoffset ) );
+//			g_pMousePole->mouseWheel ( static_cast< float >( xoffset ), static_cast< float >( yoffset ) );
 		} 
 	);
 
@@ -1175,11 +1193,13 @@ int main ()
 		app.swapBuffers ();
 	}
 
-	delete g_pObjectPole;
-	g_pObjectPole = nullptr;
-	delete g_pMousePole;
-	g_pMousePole = nullptr;
+	//delete g_pObjectPole;
+	//g_pObjectPole = nullptr;
+	//delete g_pMousePole;
+	//g_pMousePole = nullptr;
 		
+	delete g_pTrackball;
+	g_pTrackball = nullptr;
 	glDeleteVertexArrays ( 1, &g_QuadVAO );
 	glDeleteVertexArrays ( 1, &g_CubeCenterVAO );
 	glDeleteBuffers ( 1, &g_QuadVBO );
