@@ -65,6 +65,10 @@ public:
 		return m_vertices_ssbo [ m_write_idx ];
 	}
 
+	const std::vector<Wave1DVert>& getInitialState () const { return m_initial_state; }
+
+	void clearInitialState () { m_initial_state.clear (); }
+
 private:
 	bool initBuffers ();
 	bool destroyBuffers ();
@@ -83,4 +87,41 @@ private:
 	uint32_t								m_write_idx;
 
 	GLuint									m_vertices_ssbo [ 2 ];  // GPU store for vertex data in a ping-pong paradigm
+};
+
+class WaveSystem1DCpu
+{
+
+public:
+	WaveSystem1DCpu ( float dt = 0.1, float c = 1.0, uint32_t n = 256 );
+	virtual ~WaveSystem1DCpu ();
+
+	// setters return false for invalid parameters
+	bool setN ( uint32_t n );
+	bool setTimeStep ( float dt );
+	bool setWaveSpeed ( float c );
+
+	uint32_t getN () const { return m_n; }
+	float getTimeStep () const { return m_dt; }
+	float getWaveSpeed () const { return m_wave_speed; }
+
+	/** @brief initializeVertices should take a function that accepts a properly sized QList<Vertex> reference (our initial state) and the size of the list to fill */
+	bool initializeVertices ( const std::function<void ( std::vector<Wave1DVert>&, uint32_t )>& initVerticesFunc );
+
+	void updateSystem ();
+
+	const std::vector<Wave1DVert>& getReadState () const { return m_wave_state[(m_write_idx + 1) % 2]; }
+	const std::vector<Wave1DVert>& getWriteState () const { return m_wave_state [ m_write_idx ]; }
+
+private:
+	float spacialLaplacian ( uint32_t i );
+	Wave1DVert calculateNewVert ( uint32_t i );
+
+	float									m_dt;				// time step  'dt'
+	float									m_wave_speed;		// wave speed 'c'
+	uint32_t								m_n;				// number of points 'n' to sample in our space
+
+	std::vector<Wave1DVert>					m_wave_state[2]; // use tightly packed data here
+
+	uint32_t								m_write_idx;
 };

@@ -176,3 +176,6 @@ add_subdirectory(src/apps/jcEulerFluids3D)
 
 # Wave experiment
 add_subdirectory(src/apps/jcWaveSystem1D)
+
+# instancing experiment 
+add_subdirectory(src/apps/jcInstancedCube)

@@ -1,10 +1,19 @@
 #include <jcGLframework/GLFWApp.h>
 #include <jcGLframework/GLShader.h>
-//#include <jcGLframework/debug.h>
+#include <jcGLframework/LineCanvasGL.h>
+#include <jcGLframework/UtilsGLImGui.h>
 #include <jcCommonFramework/ResourceString.h>
+#include <jcCommonFramework/Camera.h>
+#include <jcCommonFramework/UtilsFPS.h>
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include "WaveSystem1D.h"
+
+#include <iostream>
+#include <istream>
+#include <fstream>
+#include <sstream>
+#include <iomanip>
 
 using glm::mat4;
 using glm::mat3;
@@ -16,14 +25,34 @@ using glm::vec2;
 constexpr GLuint kIdxBind_UpdateRead = 0;
 constexpr GLuint kIdxBind_UpdateWrite = 1;
 constexpr GLuint kIdxBind_WaveVerticesIn = 1;
-constexpr GLint kIdxUniLoc_uProjectionMatrix = 0;
-constexpr GLint kIdxUniLoc_uViewMatrix = 1;
-constexpr GLint kIdxUniLoc_uModelMatrix = 2;
-constexpr GLint kIdxuniLoc_uBoxPercentage = 3;
+constexpr GLuint kIdxBind_VBO = 0;
+constexpr GLuint kIdxBind_PerFrameData = 7;
+constexpr GLuint kIdxAttrib_aHeightVelocity = 0;
 
 constexpr vec3 kLookAtVec = vec3 ( 0.0f, 0.0f, 0.0f );
 constexpr vec3 kEyePosVec = vec3 ( 0.0f, 0.0f, -2.0f );
 constexpr vec3 kUpVec = vec3 ( 0.0f, 1.0f, 0.0f );
+
+struct PerFrameData
+{
+	mat4 view;
+	mat4 proj;
+	mat4 model;
+	vec4 cameraPos;
+	GLuint vertCount;
+	float boxPercentage;
+};
+
+struct MouseState
+{
+	vec2 pos = vec2 ( 0.0f );
+	bool pressedLeft = false;
+} mouseState;
+
+CameraPositioner_FirstPerson positioner ( kEyePosVec, kLookAtVec, kUpVec );
+Camera camera ( positioner );
+
+FramesPerSecondCounter fpsCounter;
 
 enum class eProjectMode : uint8_t
 {
@@ -41,21 +70,29 @@ enum class eViewMode : uint8_t
 } eViewMode_current;
 
 bool g_paused = true;
+bool g_copy_on_update = false;
 mat4 g_proj = mat4 ( 1.0f );
 mat4 g_view = mat4 ( 1.0f );
 mat4 g_model = mat4 ( 1.0f );
+mat4 g_frustum_view = mat4 ( 1.0f );
 float g_box_percentage = 0.9f;
 uint32_t g_num_points = 256;
 float g_dt = 0.1f;
 float g_wave_speed = 1.0f;
 
-WaveSystem1D* g_pWaveSystem = nullptr;
+GLuint g_vbo = 0;
+GLuint g_ubo = 0;
 
-struct MouseState
+enum class eDumpBuffer : uint8_t
 {
-	vec2 pos = vec2 ( 0.0f );
-	bool pressedLeft = false;
-} mouseState;
+	eDumpBuffer_None = 0x00,
+	eDumpBuffer_WaveSSBO = 0x01,
+	eDumpBuffer_VBO = 0x02,
+	eDumpBuffer_UBO = 0x03,
+	eDumpBuffer_Count = 0x04
+} eDumpBuffer_current;
+
+WaveSystem1D* g_pWaveSystem = nullptr;
 
 void initVerticesTriangleWave ( std::vector<Wave1DVert>& initialState, uint32_t vertCount )
 {
@@ -82,37 +119,130 @@ void initVerticesTriangleWave ( std::vector<Wave1DVert>& initialState, uint32_t 
 	}
 }
 
+std::vector<float> initVerticesBuffer ( const std::vector<Wave1DVert>& initialState )
+{
+	const size_t vertCount = initialState.size ();
+	std::vector<float> bufferData;
+	bufferData.resize ( vertCount * 2 );
+	for ( size_t i = 0; i < vertCount; i++ )
+	{
+		bufferData [ 2 * i + 0] = initialState [ i ].height;
+		bufferData [ 2 * i + 1 ] = initialState [ i ].velocity;
+	}
+	return bufferData;
+}
+
+void copyBuffers ( GLuint readBuffer, GLuint writeBuffer, GLsizeiptr size )
+{
+	glCopyNamedBufferSubData ( readBuffer, writeBuffer, 0, 0, size );
+}
+
+void dumpBuffer ( std::ostream& os, GLuint buff, GLsizeiptr size )
+{
+	GLuint tmpBuff;
+	glCreateBuffers ( 1, &tmpBuff );
+	glNamedBufferStorage ( tmpBuff, size, nullptr, GL_DYNAMIC_STORAGE_BIT | GL_MAP_READ_BIT );
+	copyBuffers ( buff, tmpBuff, size );
+	float* ptr = (float *)glMapNamedBuffer ( tmpBuff, GL_READ_ONLY );
+	const GLsizeiptr count = static_cast< GLsizeiptr >( size / sizeof ( float ) );
+
+	GLchar objBuff [ 64 ];
+	GLsizei buffLen;
+	glGetObjectLabel ( GL_BUFFER, buff, 64, &buffLen, objBuff );
+	std::string objName ( objBuff, buffLen );
+	os << "Dumping Buffer " << objName << " size " << size << std::endl;
+	os << std::setprecision ( 5 );
+	for ( GLsizeiptr i = 0; i < count; ++i )
+	{
+		os << ( *ptr++ );
+		if ( i % 60 )  // new line every 60 values
+		{
+			os << std::endl;
+		}
+		else
+		{
+			os << ",";
+		}
+	}
+
+	os << std::endl << "Done." << std::endl;
+	glDeleteBuffers ( 1, &tmpBuff );
+}
+
 int main ( int argc, char** argv )
 {
 	GLFWApp app;
 
 	eProjectMode_current = eProjectMode::eProjectMode_Ortho;
 	eViewMode_current = eViewMode::eViewMode_None;
+	eDumpBuffer_current = eDumpBuffer::eDumpBuffer_VBO;
 
-	GLShader shdRenderVert ( appendToRoot ( "assets/shaders/wave_system1D_render.vert" ).c_str () );
-	GLShader shdRenderGeom ( appendToRoot ( "assets/shaders/wave_system1D_render.geom" ).c_str () );
-	GLShader shdRenderFrag ( appendToRoot ( "assets/shaders/wave_system1D_render.frag" ).c_str () );
+	GLShader shdRenderVert ( appendToRoot ( "assets/shaders/wave_system1D_render_alt.vert" ).c_str () );
+	GLShader shdRenderGeom ( appendToRoot ( "assets/shaders/wave_system1D_render_alt.geom" ).c_str () );
+	GLShader shdRenderFrag ( appendToRoot ( "assets/shaders/wave_system1D_render_alt.frag" ).c_str () );
 	GLProgram progRender ( shdRenderVert, shdRenderGeom, shdRenderFrag );
 
-	GLuint dummy_vao;
-	glCreateVertexArrays ( 1, &dummy_vao );
-	glBindVertexArray ( dummy_vao );
+	GLShader shdGridVert ( appendToRoot ( "assets/shaders/GL10_grid.vert" ).c_str () );
+	GLShader shdGridFrag ( appendToRoot ( "assets/shaders/GL10_grid.frag" ).c_str () );
+	GLProgram progGrid ( shdGridVert, shdGridFrag );
 
 	GLuint renderHandle = progRender.getHandle ();
+	GLuint gridHandle = progGrid.getHandle ();
 
 #ifndef NDEBUG
 	const GLchar* kLabelRenderProg = "WaveSystemRenderProgram";
+	const GLchar* kLabelGridProg = "GridRenderProgram";
 	glObjectLabel ( GL_PROGRAM, renderHandle, 0, kLabelRenderProg );
-
+	glObjectLabel ( GL_PROGRAM, gridHandle, 0, kLabelGridProg );
 #endif
+
+	const GLsizeiptr kUniformBufferSize = sizeof ( PerFrameData );
+	GLBuffer perFrameDataBuffer ( kUniformBufferSize, nullptr, GL_DYNAMIC_STORAGE_BIT );
+	g_ubo = perFrameDataBuffer.getHandle ();
+
+#ifndef NDEBUG
+	
+	const GLchar* kLabelUBO = "PerFrameDataBuffer";
+	glObjectLabel ( GL_BUFFER, g_ubo, 0, kLabelUBO );
+#endif
+	glBindBufferRange ( GL_UNIFORM_BUFFER, kIdxBind_PerFrameData, perFrameDataBuffer.getHandle (), 0, kUniformBufferSize );
 
 	g_pWaveSystem = new WaveSystem1D ( g_dt, g_wave_speed, g_num_points );
 	g_pWaveSystem->initializeVertices ( initVerticesTriangleWave );
-	g_pWaveSystem->updateSystem ();
 
-	glEnable ( GL_CULL_FACE );
+	const std::vector<Wave1DVert>& waveSystemInitialState = g_pWaveSystem->getInitialState ();
+	std::vector<float> bufferData = initVerticesBuffer ( waveSystemInitialState );
+
+	const GLsizei kVertexBufferSize = 2 * g_num_points * sizeof ( float );
+	const GLsizei kVertexBufferStride = 2 * sizeof ( float );
+	
+	GLuint vao, vbo;
+	glCreateVertexArrays ( 1, &vao );
+
+#ifndef NDEBUG
+	const GLchar* kLabelVAO = "VAO";
+	glObjectLabel ( GL_VERTEX_ARRAY, vao, 0, kLabelVAO );
+#endif
+
+	glBindVertexArray ( vao );
+
+	glCreateBuffers ( 1, &vbo );
+
+	g_vbo = vbo;
+
+#ifndef NDEBUG
+	const GLchar* kLabelVBO = "VBO";
+	glObjectLabel ( GL_BUFFER, vbo, 0, kLabelVBO );
+#endif
+
+	glNamedBufferStorage ( vbo, kVertexBufferSize, bufferData.data (), GL_DYNAMIC_STORAGE_BIT );
+
+	glVertexArrayAttribBinding ( vao, kIdxAttrib_aHeightVelocity, kIdxBind_VBO );
+	glVertexArrayVertexBuffer ( vao, kIdxBind_VBO, vbo, 0, kVertexBufferStride );
+	glVertexArrayAttribFormat ( vao, kIdxAttrib_aHeightVelocity, 2, GL_FLOAT, GL_FALSE, 0 );
+	glEnableVertexArrayAttrib ( vao, kIdxAttrib_aHeightVelocity );
+
 	glEnable ( GL_DEPTH_TEST );
-	glEnable ( GL_BLEND );
 	glBlendFunc ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 	glClearColor ( 0.0f, 0.0f, 0.0f, 0.0f );
 
@@ -124,6 +254,7 @@ int main ( int argc, char** argv )
 			glfwGetFramebufferSize ( window, &width, &height );
 			mouseState.pos.x = static_cast< float >( x / width );
 			mouseState.pos.y = static_cast< float >( y / height );
+			ImGui::GetIO ().MousePos = ImVec2 ( ( float ) x, ( float ) y );
 		}
 	);
 
@@ -131,10 +262,17 @@ int main ( int argc, char** argv )
 		app.getWindow (),
 		[] ( auto* window, int button, int action, int mods )
 		{
-			if ( button == GLFW_MOUSE_BUTTON_LEFT )
+			auto& io = ImGui::GetIO ();
+			const int idx = button == GLFW_MOUSE_BUTTON_LEFT ? 0 : button == GLFW_MOUSE_BUTTON_RIGHT ? 2 : 1;
+			io.MouseDown [ idx ] = action == GLFW_PRESS;
+			if ( !io.WantCaptureMouse )
 			{
-				mouseState.pressedLeft = action == GLFW_PRESS;
+				if ( button == GLFW_MOUSE_BUTTON_LEFT )
+				{
+					mouseState.pressedLeft = action == GLFW_PRESS;
+				}
 			}
+			
 		}
 	);
 
@@ -206,73 +344,176 @@ int main ( int argc, char** argv )
 					g_pWaveSystem->updateSystem ();
 				}
 			}
+			if ( key == GLFW_KEY_C )
+			{
+				g_copy_on_update = !g_copy_on_update;
+			}
+			if ( key == GLFW_KEY_W )
+				positioner.movement_.forward_ = pressed;
+			if ( key == GLFW_KEY_S )
+				positioner.movement_.backward_ = pressed;
+			if ( key == GLFW_KEY_A )
+				positioner.movement_.left_ = pressed;
+			if ( key == GLFW_KEY_D )
+				positioner.movement_.right_ = pressed;
+			if ( key == GLFW_KEY_Q )
+				positioner.movement_.up_ = pressed;
+			if ( key == GLFW_KEY_Z )
+				positioner.movement_.down_ = pressed;
+			if ( key == GLFW_KEY_SPACE )
+				positioner.setUpVector ( vec3 ( 0.0f, 1.0f, 0.0f ) );
+			if ( key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT )
+				positioner.movement_.fastSpeed_ = pressed;		
+			if ( key == GLFW_KEY_O && pressed )
+			{
+				GLuint handle;
+				switch ( eDumpBuffer_current )
+				{
+				case eDumpBuffer::eDumpBuffer_None:
+					break;
+				case eDumpBuffer::eDumpBuffer_WaveSSBO:
+					handle = g_pWaveSystem->getReadBufferHandle ();
+					dumpBuffer ( std::cout, handle, g_num_points * sizeof ( Wave1DVert ) );
+					break;
+				case eDumpBuffer::eDumpBuffer_VBO:
+					handle = g_vbo;
+					dumpBuffer ( std::cout, handle, g_num_points * 2 * sizeof ( float ) );
+					break;
+				case eDumpBuffer::eDumpBuffer_UBO:
+					handle = g_ubo;
+					dumpBuffer ( std::cout, handle, sizeof ( PerFrameData ) );
+					break;
+				case eDumpBuffer::eDumpBuffer_Count:
+					break;
+				default:
+					break;
+				}
+			}
+			if ( key == GLFW_KEY_I && pressed )
+			{
+				switch ( eDumpBuffer_current )
+				{
+				case eDumpBuffer::eDumpBuffer_None:
+					eDumpBuffer_current = eDumpBuffer::eDumpBuffer_WaveSSBO;
+					break;
+				case eDumpBuffer::eDumpBuffer_WaveSSBO:
+					eDumpBuffer_current = eDumpBuffer::eDumpBuffer_VBO;
+					break;
+				case eDumpBuffer::eDumpBuffer_VBO:
+					eDumpBuffer_current = eDumpBuffer::eDumpBuffer_UBO;
+					break;
+				case eDumpBuffer::eDumpBuffer_UBO:
+					eDumpBuffer_current = eDumpBuffer::eDumpBuffer_None;
+					break;
+				case eDumpBuffer::eDumpBuffer_Count:
+					eDumpBuffer_current = eDumpBuffer::eDumpBuffer_None;
+					break;
+				default:
+					eDumpBuffer_current = eDumpBuffer::eDumpBuffer_None;
+					break;
+				}
+			}
 		}
 	);
+
+
+	fpsCounter.printFPS_ = false;
+
+	positioner.maxSpeed_ = 1.0f;
+
+	ImGuiGLRenderer rendererUI;
+	CanvasGL canvas;
 
 	int width, height;
 	glfwGetFramebufferSize ( app.getWindow (), &width, &height );
 	g_proj = glm::ortho ( 0, width, 0, height );
 	g_view = mat4 ( 1.0f );
 	g_model = mat4 ( 1.0f );
+	
+	g_pWaveSystem->updateSystem ();
 
 	while ( !glfwWindowShouldClose ( app.getWindow () ) )
 	{
-		glfwGetFramebufferSize ( app.getWindow (), &width, &height );
+		fpsCounter.tick ( app.getDeltaSeconds () );
+		positioner.update ( app.getDeltaSeconds (), mouseState.pos, mouseState.pressedLeft );
 
-		const float aspect = width / static_cast< float >( height );
+		glfwGetFramebufferSize ( app.getWindow (), &width, &height );
 
 		glBindFramebuffer ( GL_FRAMEBUFFER, 0 );
 		glViewport ( 0, 0, width, height );
 		glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+		const float aspect = width / static_cast< float >( height );
+		const float scaleFactor = 0.25f * static_cast< float >( std::max ( width, height ) );
+
+		const mat4 proj = glm::perspective ( 45.0f, aspect, 0.1f, 100.0f );
+		const mat4 view = camera.getViewMatrix ();
+		const vec3 camPosition = camera.getPosition ();
+		const mat4 model = glm::scale ( mat4 ( 1.0f ), vec3 ( scaleFactor, scaleFactor, scaleFactor ) );
+
+		const PerFrameData perFrameData = {
+			.view = view,
+			.proj = proj,
+			.model = model,
+			.cameraPos = vec4 ( camPosition, 1.0f ),
+			.vertCount = g_num_points,
+			.boxPercentage = g_box_percentage
+		};
+
+		glNamedBufferSubData ( perFrameDataBuffer.getHandle (), 0, kUniformBufferSize, &perFrameData );
+
+		g_frustum_view = camera.getViewMatrix ();
+
+		vec4 frustumPlanes [ 6 ];
+		getFrustumPlanes ( proj* g_frustum_view, frustumPlanes );
+		vec4 frustumCorners [ 8 ];
+		getFrustumCorners ( proj* g_frustum_view, frustumCorners );
 
 		if ( !g_paused )
 		{
 			g_pWaveSystem->updateSystem ();
 		}
 
-		switch ( eProjectMode_current )
+		if ( g_copy_on_update )
 		{
-		case eProjectMode::eProjectMode_None:
-			g_proj = mat4 ( 1.0f );
-			break;
-		case eProjectMode::eProjectMode_Ortho:
-			g_proj = glm::ortho ( 0, width, 0, height );
-			break;
-		case eProjectMode::eProjectMode_Persp:
-			g_proj = glm::perspective ( 45.0f, aspect, 0.1f, 100.0f );
-			break;
-		default:
-			break;
+			GLuint readHandle = g_pWaveSystem->getReadBufferHandle ();
+			copyBuffers ( readHandle, vbo, ( GLsizeiptr ) ( g_num_points * sizeof ( Wave1DVert ) ) );
 		}
 
-		switch ( eViewMode_current )
-		{
-		case eViewMode::eViewMode_None:
-			g_view = mat4 ( 1.0f );
-			break;
-		case eViewMode::eViewMode_LookAt:
-			g_view = glm::lookAt ( kEyePosVec, kLookAtVec, kUpVec );
-			break;
-		default:
-			break;
-		}
+		glDisable ( GL_BLEND );
+		glEnable ( GL_DEPTH_TEST );
 
 		progRender.useProgram ();
 
-		GLuint readHandle = g_pWaveSystem->getReadBufferHandle ();
-
-		glBindBufferBase ( GL_SHADER_STORAGE_BUFFER, kIdxBind_WaveVerticesIn, readHandle );
-
-		glUniform1f ( kIdxuniLoc_uBoxPercentage, g_box_percentage );
-		glUniformMatrix4fv ( kIdxUniLoc_uProjectionMatrix, 1, GL_FALSE, glm::value_ptr ( g_proj ) );
-		glUniformMatrix4fv ( kIdxUniLoc_uModelMatrix, 1, GL_FALSE, glm::value_ptr ( g_model ) );
-		glUniformMatrix4fv ( kIdxUniLoc_uViewMatrix, 1, GL_FALSE, glm::value_ptr ( g_view ) );
-
+		glBindVertexArray ( vao );
 		glDrawArrays ( GL_POINTS, 0, g_num_points );
 
-		glUseProgram ( 0 );
+//		glUseProgram ( 0 );
+//		glBindVertexArray ( 0 );
 
-		glBindBufferBase ( GL_SHADER_STORAGE_BUFFER, kIdxBind_WaveVerticesIn, 0 );
+		glEnable ( GL_BLEND );
+
+		progGrid.useProgram ();
+		glDrawArraysInstancedBaseInstance ( GL_TRIANGLES, 0, 6, 1, 0 );
+
+		renderCameraFrustumGL ( canvas, g_frustum_view, proj, vec4 ( 1.0f, 1.0f, 0.0f, 1.0f ), 100 );
+
+		canvas.flush ();
+
+		float fpsCurrent = fpsCounter.getFPS ();
+
+		ImGuiIO& io = ImGui::GetIO ();
+		io.DisplaySize = ImVec2 ( ( float ) width, ( float ) height );
+		ImGui::NewFrame ();
+		ImGui::Begin ( "Control", nullptr );
+		ImGui::Text ( "Draw:" );
+		ImGui::Checkbox ( "Pause", &g_paused );
+		ImGui::Checkbox ( "Copy On Update", &g_copy_on_update );
+		ImGui::Separator ();
+		ImGui::Text ( "FPS: %f", fpsCurrent );
+		ImGui::End ();
+		ImGui::Render ();
+		rendererUI.render ( width, height, ImGui::GetDrawData () );
 
 		app.swapBuffers ();
 	}

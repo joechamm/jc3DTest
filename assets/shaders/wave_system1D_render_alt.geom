@@ -13,18 +13,11 @@ layout (std140, binding = 7) uniform PerFrameData
 {
 	mat4 view;
 	mat4 proj;
+	mat4 model;
 	vec4 cameraPos;
+	uint vertCount;
+	float boxPercentage;
 };
-
-layout (location = 0) uniform mat4 uProjectionMatrix;
-layout (location = 1) uniform mat4 uViewMatrix;
-layout (location = 2) uniform mat4 uModelMatrix;
-layout (location = 3) uniform float uBoxPercentage;  // percentage of the dx space to make this box
-
-//const mat4 modelViewMatrix = uViewMatrix * uModelMatrix;
-//const mat4 mvpMatrix = uProjectionMatrix * modelViewMatrix;
-//const mat4 viewProjectionMatrix = uProjectionMatrix * uViewMatrix;
-//const mat3 normalMatrix = mat3(transpose(inverse(modelViewMatrix)));
 
 // unit cube
 const vec4 CubePoints[8] = 
@@ -56,7 +49,7 @@ layout (location = 0) out GS_FS_VERTEX
 
 mat4 getCubeTransformMatrix()
 {
-	float scaleXandZ = uBoxPercentage * vertex_in[0].dx; // scale the unit cube in x and z dimensions 
+	float scaleXandZ = boxPercentage * vertex_in[0].dx; // scale the unit cube in x and z dimensions 
 	float scaleY = gl_in[0].gl_Position.y; // scale in the y direction by the height of the wave 
 	float translateX = gl_in[0].gl_Position.x; // translation in the x direction 
 	vec4 col0 = vec4(scaleXandZ, 0.0, 0.0, 0.0);
@@ -134,9 +127,9 @@ CubeFace getRightFace(mat4 t)
 
 void main()
 {
-	mat4 modelViewMatrix = uViewMatrix * uModelMatrix;
+	mat4 modelViewMatrix = view * model;
 	mat3 normalMatrix = mat3(transpose(inverse(modelViewMatrix)));
-	mat4 viewProjectionMatrix = uProjectionMatrix * uViewMatrix;
+	mat4 viewProjectionMatrix = proj * view;
 
 	mat4 cubeTransform = getCubeTransformMatrix();
 	CubeFace faces[6];
@@ -151,7 +144,7 @@ void main()
 	{
 		for(int j = 0; j < 4; j++) 
 		{
-			vec4 position = uModelMatrix * faces[i].p[j];
+			vec4 position = model * faces[i].p[j];
 			vertex_out.worldPosition = position.xyz;
 			vertex_out.normal = normalMatrix * faces[i].n;
 			vertex_out.velocity = vertex_in[0].velocity;

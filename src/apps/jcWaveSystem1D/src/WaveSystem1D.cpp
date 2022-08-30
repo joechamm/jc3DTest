@@ -160,7 +160,7 @@ bool WaveSystem1D::fillBuffers ()
 #endif
 
 	// clear the initial state now
-	m_initial_state.clear ();
+//	m_initial_state.clear ();
 	return true;
 }
 
@@ -187,4 +187,102 @@ bool WaveSystem1D::initShaderProgram ()
 
 	//	success = m_update_program->link ();
 	return true;
+}
+
+WaveSystem1DCpu::WaveSystem1DCpu ( float dt, float c, uint32_t n )
+	: m_dt(dt)
+	, m_wave_speed(c)
+	, m_n(n)
+	, m_write_idx(1)
+{}
+
+WaveSystem1DCpu::~WaveSystem1DCpu ()
+{}
+
+bool WaveSystem1DCpu::setN ( uint32_t n )
+{
+	if ( n == m_n ) return true; // no need to change anything
+	if ( n < kWaveSystemMinN || n > kWaveSystemMaxN ) return false; // out of bounds
+	m_n = n;
+	m_wave_state [ 0 ].resize ( m_n );
+	m_wave_state [ 1 ].resize ( m_n );
+	m_write_idx = 1;
+	return true;
+}
+
+bool WaveSystem1DCpu::setTimeStep ( float dt )
+{
+	if ( dt < kWaveSystemMinTimeStep || dt > kWaveSystemMaxTimeStep ) return false;
+	m_dt = dt;
+	return true;
+}
+
+bool WaveSystem1DCpu::setWaveSpeed ( float c )
+{
+	if ( c < kWaveSystemMinWaveSpeed || c > kWaveSystemMaxWaveSpeed ) return false;
+	m_wave_speed = c;
+	return true;
+}
+
+bool WaveSystem1DCpu::initializeVertices ( const std::function<void ( std::vector<Wave1DVert>&, uint32_t )>& initVerticesFunc )
+{
+	m_wave_state [ 0 ].resize ( m_n );
+	m_wave_state [ 1 ].resize ( m_n );
+	initVerticesFunc ( m_wave_state [ 0 ], m_n );
+	initVerticesFunc ( m_wave_state [ 1 ], m_n );
+	m_write_idx = 1;
+	return true;
+}
+
+void WaveSystem1DCpu::updateSystem ()
+{
+	if ( m_wave_state [ 0 ].empty ())
+	{
+		printf ( "Error: WaveSystem1DCpu update system called before being initialized\n" );
+		exit ( 255 );
+	}
+	for ( uint32_t i = 0; i < m_n; ++i )
+	{
+		m_wave_state [ m_write_idx ][ i ] = calculateNewVert ( i );
+	}
+
+	m_write_idx = ( m_write_idx + 1 ) % 2;
+}
+
+float WaveSystem1DCpu::spacialLaplacian ( uint32_t i )
+{
+	uint32_t readIdx = ( m_write_idx + 1 ) % 2;
+	float dx = 1.0f / static_cast< float >( m_n - 1 );
+	float invDXSq = 1.0f / ( dx * dx );
+	float hCenter = m_wave_state [ readIdx ][ i ].height;
+	float hLeft = m_wave_state [ readIdx ][ i - 1 ].height;
+	float hRight = m_wave_state [ readIdx ][ i + 1 ].height;
+	float lap = hLeft + hRight - 2.0f * hCenter;
+	return lap * invDXSq;
+}
+
+Wave1DVert WaveSystem1DCpu::calculateNewVert ( uint32_t i )
+{
+	Wave1DVert v;
+	
+	if ( i == 0 || i == ( m_n - 1 ) )
+	{
+		v.height = 0.0f;
+		v.velocity = 0.0f;
+		return v;
+	}
+
+	uint32_t readIdx = ( m_write_idx + 1 ) % 2;
+
+	const float Csq = m_wave_speed * m_wave_speed;
+	const float dtSq = m_dt * m_dt;
+
+	float a = Csq * spacialLaplacian ( i );
+	float v_old = m_wave_state [ readIdx ][ i ].velocity;
+	v.velocity = v_old + a * m_dt;
+
+	float h_old = m_wave_state [ readIdx ][ i ].height;
+	v.height = h_old + v_old * m_dt + 0.5 * a * dtSq;
+
+	return v;
 }
