@@ -27,6 +27,8 @@ void message_callback ( GLenum source, GLenum type, GLuint id, GLenum severity, 
 		case GL_DEBUG_TYPE_PORTABILITY: return "PORTABILITY";
 		case GL_DEBUG_TYPE_PERFORMANCE: return "PERFORMANCE";
 		case GL_DEBUG_TYPE_MARKER: return "MARKER";
+		case GL_DEBUG_TYPE_PUSH_GROUP: return "PUSH_GROUP";
+		case GL_DEBUG_TYPE_POP_GROUP: return "POP_GROUP";
 		case GL_DEBUG_TYPE_OTHER: return "OTHER";
 		}
 		return "";

@@ -28,7 +28,7 @@ constexpr GLuint kIdxBind_CubeVBO = 0;
 constexpr GLint kIdxAttr_Cubein_vPosition = 0;
 constexpr GLint kIdxAttr_Cubein_vColor = 1;
 
-constexpr uint32_t kInstanceCount = 1;
+constexpr uint32_t kInstanceCount = 10;
 
 constexpr vec3 kLookAtVec = vec3 ( 0.0f, 0.0f, 0.0f );
 constexpr vec3 kEyePosVec = vec3 ( 0.0f, 0.0f, -2.0f );
@@ -240,7 +240,7 @@ struct PositionalLight
 	vec4 specular;
 } g_positionalLight;
 
-vec3 g_scaleFactor = vec3 ( 1.0f, 1.0f, 1.0f );
+vec3 g_scaleFactor = vec3 ( 10.0f, 10.0f, 10.0f );
 vec4 g_clearColor = vec4 ( 1.0f, 1.0f, 1.0f, 1.0f );
 
 GLuint g_ubo = 0;
@@ -806,7 +806,7 @@ int main ( int argc, char** argv )
 		progRender.useProgram ();
 		glDrawElementsInstanced ( GL_TRIANGLES, 36, GL_UNSIGNED_INT, nullptr, kInstanceCount );
 
-	/*	if ( g_enable_blend_grid )
+		if ( g_enable_blend_grid )
 		{
 			glEnable ( GL_BLEND );
 		}
@@ -824,7 +824,7 @@ int main ( int argc, char** argv )
 		}
 
 		progGrid.useProgram ();
-		glDrawArraysInstancedBaseInstance ( GL_TRIANGLES, 0, 6, 1, 0 );*/
+		glDrawArraysInstancedBaseInstance ( GL_TRIANGLES, 0, 6, 1, 0 );
 
 		primitivesQuery.endQuery ();
 		occlusionQuery.endQuery ();
