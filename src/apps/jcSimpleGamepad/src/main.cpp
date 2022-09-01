@@ -65,6 +65,224 @@ GLuint g_offsets_ubo = 0;
 
 GLuint g_prog_tri = 0;
 
+int g_joysticksPresent [ 16 ];
+
+class AbstractJoystick
+{
+protected:
+	int jid_;
+	const char* name_;
+public:
+	AbstractJoystick(int jid = GLFW_JOYSTICK_1);
+	AbstractJoystick ( const AbstractJoystick& ) = delete;
+	~AbstractJoystick ();
+
+protected:
+	virtual void init () = 0;
+};
+
+AbstractJoystick::AbstractJoystick ( int jid )
+	: jid_ ( jid )
+	, name_ ( nullptr )
+{
+}
+
+AbstractJoystick::~AbstractJoystick()
+{}
+
+class Joystick : public AbstractJoystick
+{
+private:
+	int axisCount_;
+	const float* pAxisValues_;
+	int buttonCount_;
+	const unsigned char* pButtonStates_;
+	int hatCount_;
+	const unsigned char* pHatStates_;
+public:
+	Joystick ( int jid = GLFW_JOYSTICK_1 );
+	Joystick ( const Joystick& ) = delete;
+	~Joystick ();
+
+protected:
+	virtual void init () override;
+};
+
+Joystick::Joystick ( int jid ) 
+	: AbstractJoystick ( jid )
+	, axisCount_ ( 0 )
+	, pAxisValues_ ( nullptr )
+	, buttonCount_ ( 0 )
+	, pButtonStates_ ( nullptr )
+	, hatCount_ ( 0 )
+	, pHatStates_ ( nullptr )
+{
+	if ( glfwJoystickPresent ( jid ) )
+	{
+		init ();
+	}
+}
+
+Joystick::~Joystick ()
+{
+}
+
+void Joystick::init ()
+{
+	pAxisValues_ = glfwGetJoystickAxes ( jid_, &axisCount_ );
+	pButtonStates_ = glfwGetJoystickButtons ( jid_, &buttonCount_ );
+	pHatStates_ = glfwGetJoystickHats ( jid_, &hatCount_ );
+	name_ = glfwGetJoystickName ( jid_ );
+	glfwSetJoystickUserPointer ( jid_, this );
+}
+
+class Gamepad : public AbstractJoystick
+{
+	GLFWgamepadstate state_;
+public:
+	Gamepad ( int jid = GLFW_JOYSTICK_1 );
+	Gamepad ( const Gamepad& ) = delete;
+	~Gamepad ();
+
+protected:
+	virtual void init () override;
+};
+
+Gamepad::Gamepad ( int jid )
+	: AbstractJoystick ( jid )
+{
+	if ( glfwJoystickIsGamepad ( jid ) )
+	{
+		init ();
+	}
+}
+
+Gamepad::~Gamepad ()
+{
+}
+
+void Gamepad::init ()
+{
+	name_ = glfwGetGamepadName ( jid_ );
+	if ( glfwGetGamepadState ( jid_, &state_ ) )
+	{
+		glfwSetJoystickUserPointer ( jid_, this );
+	}
+}
+
+//
+//struct Joystick
+//{
+//	int jid_;
+//	int axisCount_;
+//	const float* pAxisValues_;
+//	int buttonCount_;
+//	const unsigned char * pButtonStates_;
+//	int hatCount_;
+//	const unsigned char * pHatStates_;
+//	const char* name_;
+//	const char* guid_;
+//
+//public:
+//	Joystick ( int jid = GLFW_JOYSTICK_1 );
+//	~Joystick ();
+//
+//	bool init ();
+//};
+//
+//Joystick::Joystick ( int jid )
+//	: jid_ ( jid )
+//	, axisCount_ ( 0 )
+//	, pAxisValues_(nullptr)
+//	, buttonCount_ ( 0 )
+//	, pButtonStates_(nullptr)
+//	, hatCount_ ( 0 )
+//	, pHatStates_(nullptr)
+//	, name_ ( nullptr )
+//{
+//	if ( glfwJoystickPresent ( jid ) )
+//	{
+//		init ();
+//	}
+//}
+//
+//Joystick::~Joystick()
+//{}
+//
+//bool Joystick::init ()
+//{
+//	pAxisValues_ = glfwGetJoystickAxes ( jid_, &axisCount_ );
+//	pButtonStates_ = glfwGetJoystickButtons ( jid_, &buttonCount_ );
+//	pHatStates_ = glfwGetJoystickHats ( jid_, &hatCount_ );
+//	name_ = glfwGetJoystickName ( jid_ );
+//	glfwSetJoystickUserPointer ( jid_, this );
+//}
+//
+//struct Gamepad
+//{
+//	int jid_;
+//	const char* name_;
+//	GLFWgamepadstate state_;
+//
+//public:
+//	Gamepad ( int jid = GLFW_JOYSTICK_1 );
+//	~Gamepad ();
+//
+//	bool init ();
+//};
+//
+//Gamepad::Gamepad ( int jid )
+//	: jid_ ( jid )
+//	, name_ ( nullptr )
+//{
+//	if ( glfwJoystickIsGamepad ( jid ) )
+//	{
+//		init ();
+//	}
+//}
+//
+//Gamepad::~Gamepad ()
+//{}
+//
+//bool Gamepad::init ()
+//{
+//	name_ = glfwGetGamepadName ( jid_ );
+//	return glfwGetGamepadState ( jid_, &state_ );
+//	glfwSetJoystickUserPointer ( jid_, this );
+//}
+
+void queryJoysticksPresent ( int joysticks[], int count )
+{
+	for ( int i = 0; i < count; i++ )
+	{
+		joysticks [ i ] = glfwJoystickPresent ( GLFW_JOYSTICK_1 + i );
+	}
+}
+
+Joystick* getJoystickPtr ( int jid )
+{
+	if ( glfwJoystickPresent ( jid ) )
+	{
+		return new Joystick ( jid );		
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
+Gamepad* getGamepad ( int jid )
+{
+	if ( glfwJoystickPresent ( jid ) )
+	{
+		return new Gamepad ( jid );
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
 int main ( int argc, char** argv )
 {
 	GLFWApp app;
@@ -156,6 +374,35 @@ int main ( int argc, char** argv )
 
 	glBlendFunc ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 	glClearColor ( 0.0f, 0.0f, 0.0f, 0.0f );
+
+	queryJoysticksPresent ( g_joysticksPresent, 16 );
+
+	std::vector<int> toEnableIndices;
+
+	for ( int i = 0; i < 16; i++ )
+	{
+		if ( g_joysticksPresent [ i ] == GLFW_TRUE )
+		{
+			std::cout << "GLFW_JOYSTICK_" << g_joysticksPresent [ i ] << " is present\n";
+			toEnableIndices.push_back ( i );
+		}
+	}
+
+	std::cout << "NumJoysticksPresent: " << toEnableIndices.size () << std::endl;
+
+	AbstractJoystick* pAbstractJoystick = getJoystickPtr ( 1 );
+	Joystick* pJoystick = nullptr;
+	Gamepad* pGamepad = nullptr;
+	if ( glfwJoystickIsGamepad ( 1 ) )
+	{
+		pGamepad = reinterpret_cast< Gamepad* >( pAbstractJoystick );
+	}
+	else
+	{
+		pJoystick = reinterpret_cast< Joystick* >( pAbstractJoystick );
+	}
+
+
 
 	glfwSetCursorPosCallback (
 		app.getWindow (),
