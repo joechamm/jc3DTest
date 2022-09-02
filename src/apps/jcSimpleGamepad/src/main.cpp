@@ -5,12 +5,17 @@
 #include <jcGLframework/GLTimerQuery.h>
 
 #include <jcCommonFramework/ResourceString.h>
-#include <jcCommonFramework/Camera.h>
+//#include <jcCommonFramework/Camera.h>
+#include <jcCommonFramework/MyCamera.h>
 #include <jcCommonFramework/Utils.h>
 #include <jcCommonFramework/UtilsFPS.h>
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
+#include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/euler_angles.hpp>
+
+#include <map>
 
 using glm::mat4;
 using glm::mat3;
@@ -49,8 +54,11 @@ struct Vertex
 	float color [ 4 ];
 };
 
-CameraPositioner_FirstPerson positioner ( vec3 ( 0.f, 0.f, -2.f ), vec3 ( 0.f, 0.f, 0.f ), vec3 ( 0.f, 1.f, 0.f ) );
-Camera camera ( positioner );
+//CameraPositioner_FirstPerson positioner ( vec3 ( 0.f, 0.f, -2.f ), vec3 ( 0.f, 0.f, 0.f ), vec3 ( 0.f, 1.f, 0.f ) );
+//Camera camera ( positioner );
+
+MyCameraPositioner_FirstPerson positioner ( vec3 ( 0.f, 0.f, 2.f ), vec3 ( 0.f ), vec3 ( 0.f, 1.f, 0.f ) );
+MyCamera camera( positioner );
 
 FramesPerSecondCounter fpsCounter;
 
@@ -65,7 +73,181 @@ GLuint g_offsets_ubo = 0;
 
 GLuint g_prog_tri = 0;
 
+constexpr float kMaxPitchDegrees = 30.0f;
+constexpr float kMaxYawDegrees = 60.0f;
+constexpr float kMaxRollDegrees = 90.0f;
+constexpr float kMaxStrafe = 2.0f;
+
+float g_pitchDegrees = 0.0f;
+float g_yawDegrees = 0.0f;
+float g_rollDegrees = 0.0f;
+float g_strafe = 0.0f;
+
 int g_joysticksPresent [ 16 ];
+
+std::string getGlfwGamepadButtonName ( int btnId )
+{
+	auto const btn_str = [btnId] () {
+		switch ( btnId )
+		{
+		case GLFW_GAMEPAD_BUTTON_A:
+			return "GLFW_GAMEPAD_BUTTON_A";
+		case GLFW_GAMEPAD_BUTTON_B:
+			return "GLFW_GAMEPAD_BUTTON_B";
+		case GLFW_GAMEPAD_BUTTON_X:
+			return "GLFW_GAMEPAD_BUTTON_X";
+		case GLFW_GAMEPAD_BUTTON_Y:
+			return "GLFW_GAMEPAD_BUTTON_Y";
+		case GLFW_GAMEPAD_BUTTON_LEFT_BUMPER:
+			return "GLFW_GAMEPAD_BUTTON_LEFT_BUMPER";
+		case GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER:
+			return "GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER";
+		case GLFW_GAMEPAD_BUTTON_BACK:
+			return "GLFW_GAMEPAD_BUTTON_BACK";
+		case GLFW_GAMEPAD_BUTTON_START:
+			return "GLFW_GAMEPAD_BUTTON_START";
+		case GLFW_GAMEPAD_BUTTON_GUIDE:
+			return "GLFW_GAMEPAD_BUTTON_GUIDE";
+		case GLFW_GAMEPAD_BUTTON_LEFT_THUMB:
+			return "GLFW_GAMEPAD_BUTTON_LEFT_THUMB";
+		case GLFW_GAMEPAD_BUTTON_RIGHT_THUMB:
+			return "GLFW_GAMEPAD_BUTTON_RIGHT_THUMB";
+		case GLFW_GAMEPAD_BUTTON_DPAD_UP:
+			return "GLFW_GAMEPAD_BUTTON_DPAD_UP";
+		case GLFW_GAMEPAD_BUTTON_DPAD_RIGHT:
+			return "GLFW_GAMEPAD_BUTTON_DPAD_RIGHT";
+		case GLFW_GAMEPAD_BUTTON_DPAD_DOWN:
+			return "GLFW_GAMEPAD_BUTTON_DPAD_DOWN";
+		case GLFW_GAMEPAD_BUTTON_DPAD_LEFT:
+			return "GLFW_GAMEPAD_BUTTON_DPAD_LEFT";			
+		default:
+			return "UNKNOWN";
+			break;
+		}
+	}( );
+
+	return btn_str;
+}
+
+std::string getGlfwGamepadAxisName ( int axisId )
+{
+	auto const axis_str = [axisId] () {
+		switch ( axisId )
+		{
+		case GLFW_GAMEPAD_AXIS_LEFT_X:
+			return "GLFW_GAMEPAD_AXIS_LEFT_X";
+		case GLFW_GAMEPAD_AXIS_LEFT_Y:
+			return "GLFW_GAMEPAD_AXIS_LEFT_Y";
+		case GLFW_GAMEPAD_AXIS_RIGHT_X:
+			return "GLFW_GAMEPAD_AXIS_RIGHT_X";
+		case GLFW_GAMEPAD_AXIS_RIGHT_Y:
+			return "GLFW_GAMEPAD_AXIS_RIGHT_Y";
+		case GLFW_GAMEPAD_AXIS_LEFT_TRIGGER:
+			return "GLFW_GAMEPAD_AXIS_LEFT_TRIGGER";
+		case GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER:
+			return "GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER";
+		default:
+			return "UNKNOWN";
+			break;
+		}
+	}( );
+
+	return axis_str;
+}
+
+std::string getGlfwJoystickName ( int joyId )
+{
+	auto const joy_str = [joyId] () {
+		switch ( joyId )
+		{
+		case GLFW_JOYSTICK_1:
+			return "GLFW_JOYSTICK_1";
+		case GLFW_JOYSTICK_2:
+			return "GLFW_JOYSTICK_2";
+		case GLFW_JOYSTICK_3:
+			return "GLFW_JOYSTICK_3";
+		case GLFW_JOYSTICK_4:
+			return "GLFW_JOYSTICK_4";
+		case GLFW_JOYSTICK_5:
+			return "GLFW_JOYSTICK_5";
+		case GLFW_JOYSTICK_6:
+			return "GLFW_JOYSTICK_6";
+		case GLFW_JOYSTICK_7:
+			return "GLFW_JOYSTICK_7";
+		case GLFW_JOYSTICK_8:
+			return "GLFW_JOYSTICK_8";
+		case GLFW_JOYSTICK_9:
+			return "GLFW_JOYSTICK_9";
+		case GLFW_JOYSTICK_10:
+			return "GLFW_JOYSTICK_10";
+		case GLFW_JOYSTICK_11:
+			return "GLFW_JOYSTICK_11";
+		case GLFW_JOYSTICK_12:
+			return "GLFW_JOYSTICK_12";
+		case GLFW_JOYSTICK_13:
+			return "GLFW_JOYSTICK_13";
+		case GLFW_JOYSTICK_14:
+			return "GLFW_JOYSTICK_14";
+		case GLFW_JOYSTICK_15:
+			return "GLFW_JOYSTICK_15";
+		case GLFW_JOYSTICK_16:
+			return "GLFW_JOYSTICK_16";
+		default:
+			return "UNKNOWN";
+			break;
+		}
+	}( );
+
+	return joy_str;
+}
+
+std::string getGlfwJoystickHatName ( int hatId )
+{
+	auto const hat_str = [hatId] () {
+		switch ( hatId )
+		{
+		case GLFW_HAT_CENTERED:
+			return "GLFW_HAT_CENTERED";
+		case GLFW_HAT_UP:
+			return "GLFW_HAT_UP";
+		case GLFW_HAT_RIGHT:
+			return "GLFW_HAT_RIGHT";
+		case GLFW_HAT_DOWN:
+			return "GLFW_HAT_DOWN";
+		case GLFW_HAT_LEFT:
+			return "GLFW_HAT_LEFT";
+		case GLFW_HAT_RIGHT_UP:
+			return "GLFW_HAT_RIGHT_UP";
+		case GLFW_HAT_RIGHT_DOWN:
+			return "GLFW_HAT_RIGHT_DOWN";
+		case GLFW_HAT_LEFT_UP:
+			return "GLFW_HAT_LEFT_UP";
+		case GLFW_HAT_LEFT_DOWN:
+			return "GLFW_HAT_LEFT_DOWN";
+		default:
+			return "UNKNOWN";
+		}
+	}( );
+
+	return hat_str;
+}
+
+std::string getGlfwPressStateName ( int stateId )
+{
+	auto const press_str = [stateId] () {
+		switch ( stateId )
+		{
+		case GLFW_PRESS:
+			return "GLFW_PRESS";
+		case GLFW_RELEASE:
+			return "GLFW_RELEASE";
+		default:
+			return "UNKNOWN";
+		}		
+	}( );
+
+	return press_str;
+}
 
 class AbstractJoystick
 {
@@ -76,6 +258,11 @@ public:
 	AbstractJoystick(int jid = GLFW_JOYSTICK_1);
 	AbstractJoystick ( const AbstractJoystick& ) = delete;
 	~AbstractJoystick ();
+
+	virtual const char* getName () const
+	{
+		return name_;
+	}
 
 protected:
 	virtual void init () = 0;
@@ -92,7 +279,7 @@ AbstractJoystick::~AbstractJoystick()
 
 class Joystick : public AbstractJoystick
 {
-private:
+public:
 	int axisCount_;
 	const float* pAxisValues_;
 	int buttonCount_;
@@ -138,14 +325,35 @@ void Joystick::init ()
 
 class Gamepad : public AbstractJoystick
 {
+public:
 	GLFWgamepadstate state_;
 public:
 	Gamepad ( int jid = GLFW_JOYSTICK_1 );
 	Gamepad ( const Gamepad& ) = delete;
 	~Gamepad ();
 
+	bool updateState ()
+	{
+		return glfwGetGamepadState ( jid_, &state_ );
+	}
+
+	void printState () const
+	{
+		std::cout << "Printing gamepad " << name_ << " state" << std::endl;
+		std::cout << getGlfwGamepadAxisName ( GLFW_GAMEPAD_AXIS_LEFT_X ) << ": " << state_.axes [ GLFW_GAMEPAD_AXIS_LEFT_X ] << std::endl;
+		std::cout << getGlfwGamepadAxisName ( GLFW_GAMEPAD_AXIS_LEFT_Y ) << ": " << state_.axes [ GLFW_GAMEPAD_AXIS_LEFT_Y ] << std::endl;
+		std::cout << getGlfwGamepadAxisName ( GLFW_GAMEPAD_AXIS_RIGHT_X ) << ": " << state_.axes [ GLFW_GAMEPAD_AXIS_RIGHT_X ] << std::endl;
+		std::cout << getGlfwGamepadAxisName ( GLFW_GAMEPAD_AXIS_RIGHT_Y ) << ": " << state_.axes [ GLFW_GAMEPAD_AXIS_RIGHT_Y ] << std::endl;
+		std::cout << getGlfwGamepadAxisName ( GLFW_GAMEPAD_AXIS_LEFT_TRIGGER ) << ": " << state_.axes [ GLFW_GAMEPAD_AXIS_LEFT_TRIGGER ] << std::endl;
+		std::cout << getGlfwGamepadAxisName ( GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER ) << ": " << state_.axes [ GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER ] << std::endl;
+		for ( int i = 0; i < 15; i++ )
+		{
+			std::cout << getGlfwGamepadButtonName ( i ) << ": " << getGlfwPressStateName ( state_.buttons [ i ] ) << std::endl;
+		}
+	}
+
 protected:
-	virtual void init () override;
+	virtual void init () override;	
 };
 
 Gamepad::Gamepad ( int jid )
@@ -283,6 +491,17 @@ Gamepad* getGamepad ( int jid )
 	}
 }
 
+void updateGamepadValues ( int jid )
+{
+	GLFWgamepadstate state;
+	if ( glfwGetGamepadState ( jid, &state ) )
+	{
+		g_pitchDegrees = kMaxPitchDegrees * state.axes [ GLFW_GAMEPAD_AXIS_LEFT_Y ];
+		g_yawDegrees = kMaxYawDegrees * state.axes [ GLFW_GAMEPAD_AXIS_LEFT_X ];
+		g_rollDegrees = kMaxRollDegrees * state.axes [ GLFW_GAMEPAD_AXIS_RIGHT_X ];
+	}
+}
+
 int main ( int argc, char** argv )
 {
 	GLFWApp app;
@@ -390,19 +609,27 @@ int main ( int argc, char** argv )
 
 	std::cout << "NumJoysticksPresent: " << toEnableIndices.size () << std::endl;
 
-	AbstractJoystick* pAbstractJoystick = getJoystickPtr ( 1 );
-	Joystick* pJoystick = nullptr;
-	Gamepad* pGamepad = nullptr;
-	if ( glfwJoystickIsGamepad ( 1 ) )
+//	AbstractJoystick* pAbstractJoystick = getJoystickPtr ( 1 );
+//	Joystick* pJoystick = nullptr;
+//	Gamepad* pGamepad = nullptr;
+	AbstractJoystick* pAbstractJoystick = nullptr;
+
+	if ( glfwJoystickIsGamepad ( GLFW_JOYSTICK_1 ) )
 	{
-		pGamepad = reinterpret_cast< Gamepad* >( pAbstractJoystick );
+//		pGamepad = reinterpret_cast< Gamepad* >( pAbstractJoystick );
+		pAbstractJoystick = (AbstractJoystick *)getGamepad ( GLFW_JOYSTICK_1 );
+		std::cout << "Joystick is gamepad" << std::endl;
 	}
 	else
 	{
-		pJoystick = reinterpret_cast< Joystick* >( pAbstractJoystick );
+//		pJoystick = reinterpret_cast< Joystick* >( pAbstractJoystick );
+		pAbstractJoystick = ( AbstractJoystick* ) getJoystickPtr ( GLFW_JOYSTICK_1 );
+		std::cout << "Joystick is NOT gamepad" << std::endl;
 	}
 
+	std::cout << "Joystick name: " << pAbstractJoystick->getName () << std::endl;
 
+	reinterpret_cast< Gamepad* >( pAbstractJoystick )->printState ();
 
 	glfwSetCursorPosCallback (
 		app.getWindow (),
@@ -491,6 +718,10 @@ int main ( int argc, char** argv )
 
 		const float fps = fpsCounter.getFPS ();
 
+		updateGamepadValues ( GLFW_JOYSTICK_1 );
+
+		mat4 gamepadModel = glm::yawPitchRoll ( glm::radians ( g_yawDegrees ), glm::radians ( g_pitchDegrees ), glm::radians ( g_rollDegrees ) );
+
 		int width, height;
 		glfwGetFramebufferSize ( app.getWindow (), &width, &height );
 		const float ratio = width / ( float ) height;
@@ -504,7 +735,7 @@ int main ( int argc, char** argv )
 		const PerFrameData perFrameData = {
 			.proj = proj,
 			.view = view,
-			.model = model
+			.model = model * gamepadModel
 		};
 
 		glNamedBufferSubData ( g_per_frame_ubo, 0, kPerFrameBufferSize, &perFrameData );
