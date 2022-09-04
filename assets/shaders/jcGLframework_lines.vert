@@ -1,4 +1,3 @@
-//
 #version 460 core 
 
 layout (std140, binding = 7) uniform PerFrameData

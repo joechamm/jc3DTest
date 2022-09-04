@@ -1,7 +1,7 @@
 //
 #version 460 core
 
-layout(std140, binding = 0) uniform PerFrameData
+layout(std140, binding = 7) uniform PerFrameData
 {
 	uniform mat4 MVP;
 };

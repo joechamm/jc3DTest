@@ -1,4 +1,4 @@
-#include <jcGLframework/GLFWApp.h>
+//#include <jcGLframework/GLFWApp.h>
 #include <jcGLframework/GLShader.h>
 #include <jcGLframework/GLOcclusionQuery.h>
 #include <jcGLframework/GLPrimitivesQuery.h>
@@ -6,9 +6,11 @@
 
 #include <jcCommonFramework/ResourceString.h>
 //#include <jcCommonFramework/Camera.h>
-#include <jcCommonFramework/MyCamera.h>
+//#include <jcCommonFramework/MyCamera.h>
 #include <jcCommonFramework/Utils.h>
 #include <jcCommonFramework/UtilsFPS.h>
+
+#include "GamepadApp.h"
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
@@ -57,8 +59,8 @@ struct Vertex
 //CameraPositioner_FirstPerson positioner ( vec3 ( 0.f, 0.f, -2.f ), vec3 ( 0.f, 0.f, 0.f ), vec3 ( 0.f, 1.f, 0.f ) );
 //Camera camera ( positioner );
 
-MyCameraPositioner_FirstPerson positioner ( vec3 ( 0.f, 0.f, 2.f ), vec3 ( 0.f ), vec3 ( 0.f, 1.f, 0.f ) );
-MyCamera camera( positioner );
+//MyCameraPositioner_FirstPerson positioner ( vec3 ( 0.f, 0.f, 2.f ), vec3 ( 0.f ), vec3 ( 0.f, 1.f, 0.f ) );
+//MyCamera camera( positioner );
 
 FramesPerSecondCounter fpsCounter;
 
@@ -504,11 +506,11 @@ void updateGamepadValues ( int jid )
 
 int main ( int argc, char** argv )
 {
-	GLFWApp app;
+	jcGLframework::GamepadApp app;
 
-	GLShader shdTriVert ( appendToRoot ( "assets/shaders/gamepad_simple_triangle.vert" ).c_str () );
-	GLShader shdTriFrag ( appendToRoot ( "assets/shaders/gamepad_simple_triangle.frag" ).c_str () );
-	GLProgram progTri ( shdTriVert, shdTriFrag );
+	jcGLframework::GLShader shdTriVert ( appendToRoot ( "assets/shaders/gamepad_simple_triangle.vert" ).c_str () );
+	jcGLframework::GLShader shdTriFrag ( appendToRoot ( "assets/shaders/gamepad_simple_triangle.frag" ).c_str () );
+	jcGLframework::GLProgram progTri ( shdTriVert, shdTriFrag );
 
 	g_prog_tri = progTri.getHandle ();
 
@@ -539,8 +541,8 @@ int main ( int argc, char** argv )
 	const GLsizeiptr kOffsetsBufferSize = 16 * sizeof ( vec2 );
 	const GLsizeiptr kIndexBufferSize = 3 * sizeof ( GLuint );
 
-	GLBuffer perFrameDataBuffer ( kPerFrameBufferSize, nullptr, GL_DYNAMIC_STORAGE_BIT );
-	GLBuffer triangleOffsetsBuffer ( kOffsetsBufferSize, &triOffsets, 0 );
+	jcGLframework::GLBuffer perFrameDataBuffer ( kPerFrameBufferSize, nullptr, GL_DYNAMIC_STORAGE_BIT );
+	jcGLframework::GLBuffer triangleOffsetsBuffer ( kOffsetsBufferSize, &triOffsets, 0 );
 
 	g_per_frame_ubo = perFrameDataBuffer.getHandle ();
 	g_offsets_ubo = triangleOffsetsBuffer.getHandle ();
@@ -555,8 +557,8 @@ int main ( int argc, char** argv )
 	glBindBufferBase ( GL_UNIFORM_BUFFER, kIdxBind_PerFrameData, g_per_frame_ubo );
 	glBindBufferBase ( GL_UNIFORM_BUFFER, kIdxBind_TriBuffer, g_offsets_ubo );
 
-	GLBuffer vertexBuffer ( kVertexBufferSize, triVerts, 0 );
-	GLBuffer elementBuffer ( kIndexBufferSize, triIndices, 0 );
+	jcGLframework::GLBuffer vertexBuffer ( kVertexBufferSize, triVerts, 0 );
+	jcGLframework::GLBuffer elementBuffer ( kIndexBufferSize, triIndices, 0 );
 
 	g_vbo = vertexBuffer.getHandle ();
 	g_ebo = elementBuffer.getHandle ();
@@ -682,22 +684,22 @@ int main ( int argc, char** argv )
 				}
 			}
 
-			if ( key == GLFW_KEY_W )
-				positioner.movement_.forward_ = pressed;
-			if ( key == GLFW_KEY_S )
-				positioner.movement_.backward_ = pressed;
-			if ( key == GLFW_KEY_A )
-				positioner.movement_.left_ = pressed;
-			if ( key == GLFW_KEY_D )
-				positioner.movement_.right_ = pressed;
-			if ( key == GLFW_KEY_Q )
-				positioner.movement_.up_ = pressed;
-			if ( key == GLFW_KEY_Z )
-				positioner.movement_.down_ = pressed;
-			if ( key == GLFW_KEY_SPACE )
-				positioner.setUpVector ( vec3 ( 0.0f, 1.0f, 0.0f ) );
-			if ( key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT )
-				positioner.movement_.fastSpeed_ = pressed;
+//			if ( key == GLFW_KEY_W )
+//				positioner.movement_.forward_ = pressed;
+//			if ( key == GLFW_KEY_S )
+//				positioner.movement_.backward_ = pressed;
+//			if ( key == GLFW_KEY_A )
+//				positioner.movement_.left_ = pressed;
+//			if ( key == GLFW_KEY_D )
+//				positioner.movement_.right_ = pressed;
+//			if ( key == GLFW_KEY_Q )
+//				positioner.movement_.up_ = pressed;
+//			if ( key == GLFW_KEY_Z )
+//				positioner.movement_.down_ = pressed;
+//			if ( key == GLFW_KEY_SPACE )
+//				positioner.setUpVector ( vec3 ( 0.0f, 1.0f, 0.0f ) );
+//			if ( key == GLFW_KEY_LEFT_SHIFT || key == GLFW_KEY_RIGHT_SHIFT )
+//				positioner.movement_.fastSpeed_ = pressed;
 
 		}
 	);
@@ -709,8 +711,12 @@ int main ( int argc, char** argv )
 
 	while ( !glfwWindowShouldClose ( app.getWindow () ) )
 	{
-		positioner.update ( deltaSeconds, mouseState.pos, mouseState.pressedLeft );
+//		positioner.update ( deltaSeconds, mouseState.pos, mouseState.pressedLeft );
 		fpsCounter.tick ( deltaSeconds );
+
+		float dt = app.getDeltaSeconds ();
+		app.processInput ();
+		app.updateCamera ( dt );
 
 		const double newTimeStamp = glfwGetTime ();
 		deltaSeconds = static_cast< float >( newTimeStamp - timeStamp );
@@ -726,16 +732,22 @@ int main ( int argc, char** argv )
 		glfwGetFramebufferSize ( app.getWindow (), &width, &height );
 		const float ratio = width / ( float ) height;
 
+		app.setCameraPerspectiveDegs ( 45.0f, ratio, 0.1f, 100.0f );
+
 		glClear ( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-		const mat4 proj = glm::perspective ( 45.0f, ratio, 0.1f, 10.0f );
-		const mat4 view = camera.getViewMatrix ();
+//		const mat4 proj = glm::perspective ( 45.0f, ratio, 0.1f, 10.0f );
+//		const mat4 view = camera.getViewMatrix ();
+//		const mat4 model = glm::rotate ( mat4 ( 1.0f ), g_theta, vec3 ( 0.f, 0.f, 1.f ) );
+
+		const mat4 proj = app.getProjectionMatrix ();
+		const mat4 view = app.getViewMatrix ();
 		const mat4 model = glm::rotate ( mat4 ( 1.0f ), g_theta, vec3 ( 0.f, 0.f, 1.f ) );
 
 		const PerFrameData perFrameData = {
 			.proj = proj,
 			.view = view,
-			.model = model * gamepadModel
+			.model = model
 		};
 
 		glNamedBufferSubData ( g_per_frame_ubo, 0, kPerFrameBufferSize, &perFrameData );

@@ -13,7 +13,7 @@ layout (std140, binding = 7) uniform PerFrameData
 	vec4 specularLight;
 };
 
-layout (std430, binding = 0) restrict readonly buffer Matrices
+layout (std430, binding = 5) restrict readonly buffer Matrices
 {
 	mat4 in_Model[];
 };

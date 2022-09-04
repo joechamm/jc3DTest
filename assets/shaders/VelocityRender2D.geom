@@ -3,7 +3,7 @@
 layout (points) in;
 layout (line_strip, max_vertices = 2) out;
 
-layout (std140, binding = 0) uniform PerFrameData
+layout (std140, binding = 7) uniform PerFrameData
 {
 	mat4 view;
 	mat4 proj;

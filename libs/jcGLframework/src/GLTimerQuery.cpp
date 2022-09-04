@@ -1,44 +1,48 @@
-#include "GLTimerQuery.h"
+#include <jcGLframework/GLTimerQuery.h>
+#include <jcGLframework/jcGLframework.h>
 #include <cstring>
 
-GLTimerQuery::GLTimerQuery ( const char* beginLabel, const char* endLabel )
+namespace jcGLframework
 {
-	glCreateQueries ( GL_TIMESTAMP, 2, queryID_ );
-	if ( nullptr != beginLabel )
+	GLTimerQuery::GLTimerQuery ( const char* beginLabel, const char* endLabel )
 	{
-		glObjectLabel ( GL_QUERY, queryID_ [ 0 ], std::strlen ( beginLabel ) + 1, beginLabel );
-	}
-	if ( nullptr != endLabel )
-	{
-		glObjectLabel ( GL_QUERY, queryID_ [ 1 ], std::strlen ( endLabel ) + 1, endLabel );
-	}
-}
-
-GLTimerQuery::~GLTimerQuery ()
-{
-	glDeleteQueries ( 2, queryID_ );
-}
-
-void GLTimerQuery::beginQuery () const
-{
-	glQueryCounter ( queryID_ [ 0 ], GL_TIMESTAMP );
-}
-
-void GLTimerQuery::endQuery () const
-{
-	glQueryCounter ( queryID_ [ 1 ], GL_TIMESTAMP );
-}
-
-GLuint64 GLTimerQuery::getElapsedTime ()
-{
-	GLint stopTimerAvailable = 0;
-	while ( !stopTimerAvailable )
-	{
-		glGetQueryObjectiv ( queryID_ [ 1 ], GL_QUERY_RESULT_AVAILABLE, &stopTimerAvailable );
+		glCreateQueries ( GL_TIMESTAMP, 2, queryID_ );
+		if ( nullptr != beginLabel )
+		{
+			glObjectLabel ( GL_QUERY, queryID_ [ 0 ], std::strlen ( beginLabel ) + 1, beginLabel );
+		}
+		if ( nullptr != endLabel )
+		{
+			glObjectLabel ( GL_QUERY, queryID_ [ 1 ], std::strlen ( endLabel ) + 1, endLabel );
+		}
 	}
 
-	glGetQueryObjectui64v ( queryID_ [ 0 ], GL_QUERY_RESULT, &startTime_ );
-	glGetQueryObjectui64v ( queryID_ [ 1 ], GL_QUERY_RESULT, &endTime_ );
+	GLTimerQuery::~GLTimerQuery ()
+	{
+		glDeleteQueries ( 2, queryID_ );
+	}
 
-	return ( endTime_ - startTime_ );
+	void GLTimerQuery::beginQuery () const
+	{
+		glQueryCounter ( queryID_ [ 0 ], GL_TIMESTAMP );
+	}
+
+	void GLTimerQuery::endQuery () const
+	{
+		glQueryCounter ( queryID_ [ 1 ], GL_TIMESTAMP );
+	}
+
+	GLuint64 GLTimerQuery::getElapsedTime ()
+	{
+		GLint stopTimerAvailable = 0;
+		while ( !stopTimerAvailable )
+		{
+			glGetQueryObjectiv ( queryID_ [ 1 ], GL_QUERY_RESULT_AVAILABLE, &stopTimerAvailable );
+		}
+
+		glGetQueryObjectui64v ( queryID_ [ 0 ], GL_QUERY_RESULT, &startTime_ );
+		glGetQueryObjectui64v ( queryID_ [ 1 ], GL_QUERY_RESULT, &endTime_ );
+
+		return ( endTime_ - startTime_ );
+	}
 }

@@ -25,14 +25,14 @@ struct MaterialData
 	uint64_t opacityMap_;
 };
 
-layout (std140, binding = 0) uniform PerFrameData
+layout (std140, binding = 7) uniform PerFrameData
 {
 	mat4 view;
 	mat4 proj;
 	vec4 cameraPos;
 };
 
-layout (std430, binding = 1) restrict readonly buffer Matrices 
+layout (std430, binding = 5) restrict readonly buffer Matrices 
 {
 	mat4 in_Model[];
 };

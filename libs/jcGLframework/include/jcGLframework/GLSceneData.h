@@ -6,24 +6,29 @@
 #include <jcCommonFramework/scene/VtxData.h>
 #include <jcGLframework/GLShader.h>
 #include <jcGLframework/GLTexture.h>
+#include <jcGLframework/jcGLframework.h>
 
-class GLSceneData
+namespace jcGLframework
 {
-public:
-	GLSceneData (
-		const char* meshFile,
-		const char* sceneFile,
-		const char* materialFile );
+	class GLSceneData
+	{
+	public:
+		GLSceneData (
+			const char* meshFile,
+			const char* sceneFile,
+			const char* materialFile );
 
-	std::vector<GLTexture> allMaterialTextures_;
+		std::vector<GLTexture> allMaterialTextures_;
 
-	MeshFileHeader header_;
-	MeshData meshData_;
+		MeshFileHeader header_;
+		MeshData meshData_;
 
-	Scene scene_;
-	std::vector<MaterialDescription> materials_;
-	std::vector<DrawData> shapes_;
+		Scene scene_;
+		std::vector<MaterialDescription> materials_;
+		std::vector<DrawData> shapes_;
 
-	void loadScene ( const char* sceneFile );
-};
+		void loadScene ( const char* sceneFile );
+	};
+}
+
 #endif // !__GLSCENE_DATA_H__

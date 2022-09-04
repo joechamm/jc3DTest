@@ -24,7 +24,7 @@ struct MaterialData
 	uint64_t opacityMap_;
 };
 
-layout (std140, binding = 0) uniform PerFrameData
+layout (std140, binding = 7) uniform PerFrameData
 {
 	mat4 view;
 	mat4 proj;
@@ -35,7 +35,7 @@ layout (std140, binding = 0) uniform PerFrameData
 	uint numShapesToCull;
 };
 
-layout (std430, binding = 2) restrict readonly buffer Materials 
+layout (std430, binding = 6) restrict readonly buffer Materials 
 {
 	MaterialData in_Materials[];
 };
