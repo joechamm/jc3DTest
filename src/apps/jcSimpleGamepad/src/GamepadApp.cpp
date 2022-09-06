@@ -96,7 +96,20 @@ namespace jcGLframework
 		updateGamepad ();
 
 		constexpr float kThresh = 0.001f;
-		if ( glm::abs ( gamepadState_.axes [ GLFW_GAMEPAD_AXIS_RIGHT_Y ] ) > kThresh )
+		const float forward = gamepadState_.axes [ GLFW_GAMEPAD_AXIS_RIGHT_Y ];
+		const float right = gamepadState_.axes [ GLFW_GAMEPAD_AXIS_RIGHT_X ];
+		const float yaw = gamepadState_.axes [ GLFW_GAMEPAD_AXIS_LEFT_X ];
+		const float pitch = gamepadState_.axes [ GLFW_GAMEPAD_AXIS_LEFT_Y ];
+		const float rollLeft = gamepadState_.axes [ GLFW_GAMEPAD_AXIS_LEFT_TRIGGER ];
+		const float rollRight = gamepadState_.axes [ GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER ];
+		const float roll = rollRight - rollLeft;
+		const float up = gamepadState_.buttons [ GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER ] ? 1.0f : gamepadState_.buttons[GLFW_GAMEPAD_BUTTON_LEFT_BUMPER] ? - 1.0f : 0.0f;
+		
+		camera_.setYawPitchRoll ( yaw, pitch, roll );
+		camera_.impulse ( right, up, forward );
+		
+
+	/*	if ( glm::abs ( gamepadState_.axes [ GLFW_GAMEPAD_AXIS_RIGHT_Y ] ) > kThresh )
 		{
 			camera_.impulseForward ( gamepadState_.axes [ GLFW_GAMEPAD_AXIS_RIGHT_Y ] );
 		}
@@ -111,7 +124,7 @@ namespace jcGLframework
 		if ( glm::abs ( gamepadState_.axes [ GLFW_GAMEPAD_AXIS_LEFT_Y ] ) > kThresh )
 		{
 			camera_.addPitchDegs ( gamepadState_.axes [ GLFW_GAMEPAD_AXIS_LEFT_Y ] );
-		}
+		}*/
 	}
 
 	void GamepadApp::updateCamera ( float dt )
@@ -122,6 +135,16 @@ namespace jcGLframework
 	void GamepadApp::setCameraPerspectiveDegs ( float fovDegs, float aspect, float zNear, float zFar )
 	{
 		camera_.setPerspectiveDegs ( fovDegs, aspect, zNear, zFar );
+	}
+
+	void GamepadApp::setInfinitePerspectiveDegs ( float fovDegs, float aspect, float zNear )
+	{
+		camera_.setInfinitePerspectiveDegs ( fovDegs, aspect, zNear );
+	}
+
+	void GamepadApp::setOrthoProjection ( float left, float right, float bottom, float top )
+	{
+		camera_.setOrthoProjection ( left, right, bottom, top );
 	}
 
 	const mat4& GamepadApp::getViewMatrix () const
